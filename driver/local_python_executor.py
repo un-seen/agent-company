@@ -1289,9 +1289,11 @@ def evaluate_python_code(
         return e.value, is_final_answer
     except Exception as e:
         exception_type = type(e).__name__
-        error_msg = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
+        error_content = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
         error_msg = (
-            f"Code execution failed at line '{ast.get_source_segment(code, node)}' due to: {exception_type}:{str(e)}"
+            f"Code execution failed at line '{ast.get_source_segment(code, node)}' due to: {exception_type}:{str(e)}",
+            PRINT_OUTPUTS,
+            error_content
         )
         raise InterpreterError(error_msg)
 
@@ -1319,6 +1321,7 @@ class LocalPythonInterpreter:
 
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
         self.state.update(additional_variables)
+        print(f"Code action: {code_action}")
         output, is_final_answer = evaluate_python_code(
             code_action,
             static_tools=self.static_tools,

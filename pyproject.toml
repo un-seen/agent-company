@@ -1,0 +1,35 @@
+[project]
+name = "agent-company"
+version = "0.1.0"
+description = "A simple Python module that works with uv"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "pyfiglet",
+    "python-dotenv",
+    "rich",
+    "huggingface_hub",
+    "pillow",
+    "numpy",
+    "pydantic",
+    "openai",
+    "pandas>=2.0.3",
+    "redis",
+    "pinecone[grpc]",
+    "jinja2>=3.1.5",
+]
+
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools.packages.find]
+# Only include the desired top-level packages. Adjust the wildcard patterns if needed.
+where = ["."]
+include = ["driver*", "application*", "cli.py"]
+
+[tool.uv]
+# You can place uv-specific configuration here if needed.
+# For example, you might specify script entry points, environment settings, etc.

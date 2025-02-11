@@ -10,6 +10,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, Type
 from huggingface_hub import InferenceClient
 from huggingface_hub.utils import is_torch_available
 from PIL import Image
+import logfire
+
+
 
 from .tools import Tool
 from .utils import _is_package_available, encode_image_base64, make_image_url
@@ -21,6 +24,7 @@ if TYPE_CHECKING:
     from transformers import StoppingCriteriaList
 
 logger = logging.getLogger(__name__)
+logfire.configure()
 
 DEFAULT_JSONAGENT_REGEX_GRAMMAR = {
     "type": "regex",
@@ -363,6 +367,8 @@ class OpenAIServerModel(Model):
             organization=organization,
             project=project,
         )
+        
+        # logfire.instrument_openai(self.client)  
         self.custom_role_conversions = custom_role_conversions
 
     def __call__(

@@ -165,26 +165,3 @@ def generate_image_statistics(image_path: str) -> dict:
     }
     
     return stats
-
-def execute_cohort_builder(model: OpenAIServerModel, prompt: str) -> CodeAgent:
-    complete_prompt = f"""
-    You have the following files in the datalake:
-    {"\n".join(get_datalake())}
-    You have to select one or more files to work with. 
-    Run a sequence of dataframe operations on the csv files for the given objective.
-    Objective: {prompt}
-    """
-    table_plan_agent = CodeAgent(
-        managed_agents=[],
-        tools=[get_file_dictionary, get_csv_as_dataframe, generate_image_statistics],
-        model=model,
-        additional_authorized_imports=["*"],
-        step_callbacks=[],
-        max_steps=3,
-        verbosity_level=2,
-    )
-    
-    return table_plan_agent.run(complete_prompt)
-
-
-prompt = """Get all patients with malignant pathology and hispanic ethnicity. Also include median red value in their imaging files."""

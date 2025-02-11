@@ -1,9 +1,14 @@
 from dataclasses import asdict, dataclass
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Dict, List, TypedDict, Union
-
+import os
 from .models import ChatMessage, MessageRole
 from .utils import AgentError, make_json_serializable
+from pinecone.grpc import PineconeGRPC as Pinecone
+from pinecone import ServerlessSpec
+import os
+import time
+from typing import TypeVar, Generic, Tuple, Optional, Iterator
 
 
 if TYPE_CHECKING:
@@ -17,6 +22,14 @@ class Message(TypedDict):
     role: MessageRole
     content: str | list[dict]
 
+
+def get_pinecone_client() -> Tuple[Pinecone, str]:
+    
+    api_key = os.getenv("PINECONE_API_KEY")
+    pc = Pinecone(api_key=api_key)
+    avatar_id = os.getenv("AVATAR_ID")
+    index_name = f"{avatar_id}-index"
+    return pc, index_name
 
 @dataclass
 class ToolCall:
@@ -180,13 +193,171 @@ class SystemPromptStep(MemoryStep):
         return [Message(role=MessageRole.SYSTEM, content=[{"type": "text", "text": self.system_prompt.strip()}])]
 
 
+T = TypeVar('T')
+
+class StepsList(Generic[T]):
+    
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.items: List[T] = []
+        pc, index_name = get_pinecone_client()
+        agent_index_name = f"{index_name}"
+        self.pc = pc
+        self.agent_index_name = agent_index_name
+        self.items = []
+        
+    def append(self, item):
+        self.add(item)
+        
+    def reset(self):
+        self.items = []
+    
+    def embed(self, task_step: Union[TaskStep, ActionStep, PlanningStep]) -> None:
+        pc, agent_index_name = self.pc, self.agent_index_name
+        # Convert the text into numerical vectors that Pinecone can index
+        content = None
+        step_type = None
+        if isinstance(task_step, TaskStep):
+            content = task_step.task
+            step_type = "task"
+        elif isinstance(task_step, ActionStep):
+            def dict_to_str(d: dict) -> str: 
+                output_str = ""
+                for k, v in d.items():
+                    output_str += f"{k}: {v}\n"
+                return output_str
+            model_input = [dict_to_str(m) for m in task_step.model_input_messages]
+            model_input = "\n".join(model_input)
+            content = f"INPUT: {model_input} \n\n OUTPUT: {task_step.model_output}"
+            step_type = "action"
+        elif isinstance(task_step, PlanningStep):
+            content = task_step.facts + "\n\n" + task_step.plan
+            step_type = "planning"
+            
+        embeddings = pc.inference.embed(
+            model="multilingual-e5-large",
+            inputs=[content],
+            parameters={
+                "input_type": "passage", 
+                "truncate": "END"
+            }
+        )
+        # Prepare the records for upsert
+        # Each contains an 'id', the vector 'values', 
+        # and the original text and category as 'metadata'
+        records = []
+        for e in embeddings:
+            time_id = str(int(time.time()))
+            records.append({
+                "id": time_id,
+                "values": e["values"],
+                "metadata": {
+                    "step_type": step_type,
+                    "content": content,
+                    "name": self.name,
+                }
+            })
+
+        # Upsert the records into the index
+        
+        if not pc.has_index(name=agent_index_name):
+            pc.create_index(
+                name=agent_index_name,
+                dimension=1024,
+                metric="cosine",
+                spec=ServerlessSpec(
+                    cloud="aws", 
+                    region="us-east-1"
+                ) 
+            ) 
+            while not pc.describe_index(agent_index_name).status['ready']:
+                time.sleep(1)
+        index = pc.Index(agent_index_name)
+        index.upsert(
+            vectors=records,
+            namespace="prod"
+        )
+    
+    def add(self, item: T) -> None:
+        # self.embed(item)
+        self.items.append(item)
+    
+    def __getitem__(self, index: Union[int, slice]) -> Union[T, List[T]]:
+        return self.items[index]
+    
+    def __setitem__(self, index: Union[int, slice], value: Union[T, List[T]]) -> None:
+        self.items[index] = value
+    
+    def __delitem__(self, index: Union[int, slice]) -> None:
+        del self.items[index]
+    
+    def __len__(self) -> int:
+        return len(self.items)
+    
+    def __iter__(self) -> Iterator[T]:
+        return iter(self.items)
+    
+    def __contains__(self, item: T) -> bool:
+        return item in self.items
+    
+    def extend(self, iterable: List[T]) -> None:
+        self.items.extend(iterable)
+    
+    def insert(self, index: int, item: T) -> None:
+        self.items.insert(index, item)
+    
+    def remove(self, item: T) -> None:
+        self.items.remove(item)
+    
+    def pop(self, index: int = -1) -> T:
+        return self.items.pop(index)
+    
+    def clear(self) -> None:
+        self.items.clear()
+    
+    def index(self, item: T, start: int = 0, end: Optional[int] = None) -> int:
+        if end is None:
+            end = len(self.items)
+        return self.items.index(item, start, end)
+    
+    def count(self, item: T) -> int:
+        return self.items.count(item)
+    
+    def sort(self, *, key=None, reverse: bool = False) -> None:
+        self.items.sort(key=key, reverse=reverse)
+    
+    def reverse(self) -> None:
+        self.items.reverse()
+    
+    def copy(self) -> "StepsList[T]":
+        new_list = StepsList[T]()
+        new_list.items = self.items.copy()
+        return new_list
+
+    # Overriding addition and multiplication operators:
+    
+    def __add__(self, other: List[T]) -> List[T]:
+        return self.add(other)
+    
+    def __iadd__(self, other: List[T]) -> "StepsList[T]":
+        self.add(other)
+        return self
+    
+    def __str__(self) -> str:
+        return str(self.items)
+        
+    def __repr__(self) -> str:
+        return f"StepsList({self.items})"
+        
+
 class AgentMemory:
-    def __init__(self, system_prompt: str):
+    def __init__(self, name: str, system_prompt: str):
+        self.name = name
         self.system_prompt = SystemPromptStep(system_prompt=system_prompt)
-        self.steps: List[Union[TaskStep, ActionStep, PlanningStep]] = []
+        self.steps: StepsList[Union[TaskStep, ActionStep, PlanningStep]] = StepsList(name)
 
     def reset(self):
-        self.steps = []
+        self.steps.reset()
 
     def get_succinct_steps(self) -> list[dict]:
         return [

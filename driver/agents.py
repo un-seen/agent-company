@@ -82,14 +82,15 @@ You can also give requests to team members.
 Calling a team member works the same as for calling a tool: the only argument you can give in the call is 'request', a long string explaining your request.
 Given that this team member is a real human, you should be very verbose in your request.
 Here is a list of the team members that you can call:"""
-    for agent in managed_agents.values():
-        managed_agents_descriptions += f"\n- {agent.name}: {agent.description}"
+    for managed_agent in managed_agents.values():
+        managed_agent: ManagedAgent = managed_agent
+        managed_agents_descriptions += f"\n- {managed_agent.agent.name}: {managed_agent.description}"
     return managed_agents_descriptions
 
 
 def format_prompt_with_managed_agents_descriptions(
     prompt_template,
-    managed_agents,
+    managed_agents: Dict[str, Any],
     agent_descriptions_placeholder: Optional[str] = None,
 ) -> str:
     if agent_descriptions_placeholder is None:
@@ -99,7 +100,9 @@ def format_prompt_with_managed_agents_descriptions(
             f"Provided prompt template does not contain the managed agents descriptions placeholder '{agent_descriptions_placeholder}'"
         )
     if len(managed_agents.keys()) > 0:
-        return prompt_template.replace(agent_descriptions_placeholder, show_agents_descriptions(managed_agents))
+        agents_descriptions = show_agents_descriptions(managed_agents)
+        print(f"Agents descriptions:\n{agents_descriptions}")
+        return prompt_template.replace(agent_descriptions_placeholder, agents_descriptions)
     else:
         return prompt_template.replace(agent_descriptions_placeholder, "")
 
@@ -113,6 +116,7 @@ class MultiStepAgent:
     While the objective is not reached, the agent will perform a cycle of action (given by the LLM) and observation (obtained from the environment).
 
     Args:
+        name (`str`): Name of the agent.
         tools (`list[Tool]`): [`Tool`]s that the agent can use.
         model (`Callable[[list[dict[str, str]]], ChatMessage]`): Model that will generate the agent's actions.
         system_prompt (`str`, *optional*): System prompt that will be used to generate the agent's actions.
@@ -129,6 +133,7 @@ class MultiStepAgent:
 
     def __init__(
         self,
+        name: str,
         tools: List[Tool],
         model: Callable[[List[Dict[str, str]]], ChatMessage],
         system_prompt: Optional[str] = None,
@@ -142,6 +147,7 @@ class MultiStepAgent:
         step_callbacks: Optional[List[Callable]] = None,
         planning_interval: Optional[int] = None,
     ):
+        self.name = name
         if system_prompt is None:
             system_prompt = CODE_SYSTEM_PROMPT
         if tool_parser is None:
@@ -158,9 +164,10 @@ class MultiStepAgent:
         self.planning_interval = planning_interval
         self.state = {}
 
-        self.managed_agents = {}
+        managed_agents: List[ManagedAgent] = managed_agents if managed_agents is not None else []
+        self.managed_agents: Dict[str, ManagedAgent] = {}
         if managed_agents is not None:
-            self.managed_agents = {agent.name: agent for agent in managed_agents}
+            self.managed_agents = {managed_agent.agent.name: managed_agent for managed_agent in managed_agents}
 
         for tool in tools:
             assert isinstance(tool, Tool), f"This element is not of class Tool: {str(tool)}"
@@ -174,7 +181,7 @@ class MultiStepAgent:
         self.system_prompt = self.initialize_system_prompt()
         self.input_messages = None
         self.task = None
-        self.memory = AgentMemory(system_prompt)
+        self.memory = AgentMemory(name, system_prompt)
         self.logger = AgentLogger(level=verbosity_level)
         self.step_callbacks = step_callbacks if step_callbacks is not None else []
         
@@ -373,11 +380,10 @@ You have been provided with these additional arguments, that you can access usin
         self.memory.system_prompt = SystemPromptStep(system_prompt=self.system_prompt)
         if reset:
             self.memory.reset()
-
         self.logger.log(
             Panel(
                 f"\n[bold]{self.task.strip()}\n",
-                title="[bold]New run",
+                title=f"[bold]New run ({self.name})",
                 subtitle=f"{type(self.model).__name__} - {(self.model.model_id if hasattr(self.model, 'model_id') else '')}",
                 border_style=YELLOW_HEX,
                 subtitle_align="left",
@@ -776,11 +782,9 @@ class CodeAgent(MultiStepAgent):
         self.system_prompt = super().initialize_system_prompt()
         self.system_prompt = self.system_prompt.replace(
             "{{authorized_imports}}",
-            (
-                "You can import from any package you want."
-                if "*" in self.authorized_imports
-                else str(self.authorized_imports)
-            ),
+            "You can import from any package you want."
+            if "*" in self.authorized_imports
+            else str(self.authorized_imports),
         )
         return self.system_prompt
 
@@ -811,7 +815,7 @@ class CodeAgent(MultiStepAgent):
         self.logger.log(
             Group(
                 Rule(
-                    "[italic]Output message of the LLM:",
+                    f"[italic]Output message of the LLM ({self.name}):",
                     align="left",
                     style="orange",
                 ),
@@ -921,7 +925,6 @@ class PlanAgent(MultiStepAgent):
     ):
         if system_prompt is None:
             system_prompt = CODE_SYSTEM_PROMPT
-
         self.additional_authorized_imports = additional_authorized_imports if additional_authorized_imports else []
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         if "{{authorized_imports}}" not in system_prompt:
@@ -935,10 +938,11 @@ class PlanAgent(MultiStepAgent):
             **kwargs,
         )
         if "*" in self.additional_authorized_imports:
-            self.logger.log(
-                "Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
-                0,
-            )
+            # self.logger.log(
+            #     "Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
+            #     0,
+            # )
+            pass
 
         all_tools = {**self.tools, **self.managed_agents}
         self.python_executor = LocalPythonInterpreter(
@@ -951,12 +955,10 @@ class PlanAgent(MultiStepAgent):
     def initialize_system_prompt(self):
         self.system_prompt = super().initialize_system_prompt()
         self.system_prompt = self.system_prompt.replace(
-            "{{authorized_imports}}",
-            (
-                "You can import from any package you want."
-                if "*" in self.authorized_imports
-                else str(self.authorized_imports)
-            ),
+            "{{authorized_imports}}",            
+            "You can import from any package you want."
+            if "*" in self.authorized_imports
+            else str(self.authorized_imports),
         )
         return self.system_prompt
 
@@ -1075,9 +1077,7 @@ class ManagedAgent:
 
     Args:
         agent (`object`): The agent to be managed.
-        name (`str`): The name of the managed agent.
         description (`str`): A description of the managed agent.
-        additional_prompting (`Optional[str]`, *optional*): Additional prompting for the managed agent. Defaults to None.
         provide_run_summary (`bool`, *optional*): Whether to provide a run summary after the agent completes its task. Defaults to False.
         managed_agent_prompt (`Optional[str]`, *optional*): Custom prompt for the managed agent. Defaults to None.
 
@@ -1086,14 +1086,12 @@ class ManagedAgent:
     def __init__(
         self,
         agent,
-        name,
-        description,
+        description: str,
         additional_prompting: Optional[str] = None,
         provide_run_summary: bool = False,
         managed_agent_prompt: Optional[str] = None,
     ):
-        self.agent = agent
-        self.name = name
+        self.agent: MultiStepAgent = agent
         self.description = description
         self.additional_prompting = additional_prompting
         self.provide_run_summary = provide_run_summary
@@ -1101,15 +1099,21 @@ class ManagedAgent:
 
     def write_full_task(self, task):
         """Adds additional prompting for the managed agent, like 'add more detail in your answer'."""
-        full_task = self.managed_agent_prompt.format(name=self.name, task=task)
+        full_task = self.managed_agent_prompt.format(name=self.agent.name, task=task)
         if self.additional_prompting:
             full_task = full_task.replace("\n{additional_prompting}", self.additional_prompting).strip()
         else:
             full_task = full_task.replace("\n{additional_prompting}", "").strip()
         return full_task
 
+    def request(self, request, **kwargs):
+        """Request the managed agent to perform a task."""
+        return self.__call__(request, **kwargs)
+    
     def __call__(self, request, **kwargs):
         full_task = self.write_full_task(request)
+        print("Running managed agent with task:", full_task)
+        
         output = self.agent.run(full_task, **kwargs)
         if self.provide_run_summary:
             answer = f"Here is the final answer from your managed agent '{self.name}':\n"
