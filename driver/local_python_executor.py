@@ -1321,7 +1321,6 @@ class LocalPythonInterpreter:
 
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
         self.state.update(additional_variables)
-        print(f"Code action: {code_action}")
         output, is_final_answer = evaluate_python_code(
             code_action,
             static_tools=self.static_tools,

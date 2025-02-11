@@ -24,7 +24,6 @@ class Message(TypedDict):
 
 
 def get_pinecone_client() -> Tuple[Pinecone, str]:
-    
     api_key = os.getenv("PINECONE_API_KEY")
     pc = Pinecone(api_key=api_key)
     avatar_id = os.getenv("AVATAR_ID")

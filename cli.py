@@ -1,5 +1,4 @@
 import os
-from dotenv import load_dotenv
 from driver import OpenAIServerModel
 from typing import List
 from driver import CodeAgent
@@ -22,8 +21,7 @@ pt_style = Style.from_dict({
     '': '#87CEFA',  # LightSkyBlue color for the text
 })
 
-# Load environment variables
-load_dotenv()
+
 
 def main():
     console = Console()

@@ -11,7 +11,29 @@ import time
 from pinecone.grpc import PineconeGRPC as Pinecone
 from pinecone import ServerlessSpec
 import rich
+from driver.memory import get_pinecone_client
 
+from dotenv import load_dotenv
+# Load environment variables
+load_dotenv()
+
+
+pc, agent_index_name = get_pinecone_client()
+
+if not pc.has_index(name=agent_index_name):
+    pc.create_index(
+            name=agent_index_name,
+            dimension=1024,
+            metric="cosine",
+            spec=ServerlessSpec(
+                cloud="aws", 
+                region="us-east-1"
+            ) 
+        ) 
+        
+    while not pc.describe_index(agent_index_name).status['ready']:
+        time.sleep(1)
+            
 @tool
 def search(query: str) -> List[str]:
     """
@@ -22,22 +44,6 @@ def search(query: str) -> List[str]:
     Returns:
         results: a list of the memories to the query
     """
-    from driver.memory import get_pinecone_client
-    pc, agent_index_name = get_pinecone_client()
-    if not pc.has_index(name=agent_index_name):
-        pc.create_index(
-                name=agent_index_name,
-                dimension=1024,
-                metric="cosine",
-                spec=ServerlessSpec(
-                    cloud="aws", 
-                    region="us-east-1"
-                ) 
-            ) 
-            
-        while not pc.describe_index(agent_index_name).status['ready']:
-            time.sleep(1)
-            
     # Convert the text into numerical vectors that Pinecone can index
     query_embedding = pc.inference.embed(
         model="multilingual-e5-large",
@@ -47,7 +53,7 @@ def search(query: str) -> List[str]:
         }
     )
     # Search the index for the three most similar vectors
-    index = pc.Index(index_name)
+    index = pc.Index(agent_index_name)
     results = index.query(
         namespace="prod",
         vector=query_embedding[0].values,
@@ -56,8 +62,19 @@ def search(query: str) -> List[str]:
         include_metadata=True
     )
     rich.console.Console().print(f"Results: {results}")
-    return results
+    return results["matches"]
 
+
+@tool
+def invest_in_btc(amount: float) -> bool:
+    """
+    It invests in bitcoin with the given amount.
+    Args:
+        amount: The amount to invest in bitcoin
+    Returns:
+        success: a boolean indicating if the investment was successful
+    """
+    return amount > 0
 
 # @tool
 # def graph_search_tool(path: str) -> str:
@@ -251,7 +268,7 @@ def run_with(model: OpenAIServerModel) -> CodeAgent:
     ui_agent = CodeAgent(
         name="agentisui",
         managed_agents=[managed_plan_agent, managed_reasoning_agent, managed_code_agent],
-        tools=[console_tool, retreive_user_input_tool, fetch_user_input_tool, search],
+        tools=[console_tool, retreive_user_input_tool, fetch_user_input_tool, search, invest_in_btc],
         model=model,
         additional_authorized_imports=["*"],
         step_callbacks=[],
