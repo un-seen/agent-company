@@ -1,5 +1,5 @@
-from src.driver import CodeAgent, OpenAIServerModel, tool, ManagedAgent
-from src.driver.agents import ActionStep
+from agentcompany.driver import CodeAgent, OpenAIServerModel, tool, ManagedAgent
+from agentcompany.driver.agents import ActionStep
 import pandas as pd
 from typing import List, Generator, Dict
 from PIL import Image
@@ -11,7 +11,7 @@ import time
 from pinecone.grpc import PineconeGRPC as Pinecone
 from pinecone import ServerlessSpec
 import rich
-from src.driver.memory import get_pinecone_client
+from agentcompany.driver.memory import get_pinecone_client
 
 from dotenv import load_dotenv
 # Load environment variables

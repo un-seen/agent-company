@@ -31,6 +31,6 @@
     # Include only packages starting with "agent_company".
     include = ["agentcompany*"]
 
-    [tool.uv]
+    # [tool.uv]
     # You can place uv-specific configuration here if needed.
     # For example, you might specify script entry points, environment settings, etc.

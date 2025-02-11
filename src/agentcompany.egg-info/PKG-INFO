@@ -1,0 +1,20 @@
+Metadata-Version: 2.2
+Name: agentcompany
+Version: 0.1.0
+Summary: An agent company
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: pyfiglet
+Requires-Dist: python-dotenv
+Requires-Dist: rich
+Requires-Dist: huggingface_hub
+Requires-Dist: pillow
+Requires-Dist: numpy
+Requires-Dist: pydantic
+Requires-Dist: openai
+Requires-Dist: pandas>=2.0.3
+Requires-Dist: redis
+Requires-Dist: pinecone[grpc]
+Requires-Dist: jinja2>=3.1.5
+
+# agent company

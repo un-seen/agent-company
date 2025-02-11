@@ -1,5 +1,5 @@
-from src.driver import CodeAgent, OpenAIServerModel, tool, ManagedAgent
-from src.driver.agents import ActionStep
+from agentcompany.driver import CodeAgent, OpenAIServerModel, tool, ManagedAgent
+from agentcompany.driver.agents import ActionStep
 from .protocol import FileDictionary
 from .mongodb import mongodb_connect
 import pandas as pd
