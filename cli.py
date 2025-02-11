@@ -1,8 +1,8 @@
 import os
-from driver import OpenAIServerModel
+from src.driver import OpenAIServerModel
 from typing import List
-from driver import CodeAgent
-from application.ui.toolkit import run_with as run_with_ui
+from src.driver import CodeAgent
+from src.application.ui.toolkit import run_with as run_with_ui
 from datetime import datetime
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
