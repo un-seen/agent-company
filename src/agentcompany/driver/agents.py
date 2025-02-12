@@ -40,6 +40,7 @@ from .models import (
 from .prompts import (
     CODE_SYSTEM_PROMPT,
     MANAGED_AGENT_PROMPT,
+    MANAGER_SYSTEM_PROMPT,
     PLAN_UPDATE_FINAL_PLAN_REDACTION,
     SYSTEM_PROMPT_FACTS,
     SYSTEM_PROMPT_FACTS_UPDATE,
@@ -101,7 +102,6 @@ def format_prompt_with_managed_agents_descriptions(
         )
     if len(managed_agents.keys()) > 0:
         agents_descriptions = show_agents_descriptions(managed_agents)
-        print(f"Agents descriptions:\n{agents_descriptions}")
         return prompt_template.replace(agent_descriptions_placeholder, agents_descriptions)
     else:
         return prompt_template.replace(agent_descriptions_placeholder, "")
@@ -152,7 +152,7 @@ class MultiStepAgent:
             system_prompt = CODE_SYSTEM_PROMPT
         if tool_parser is None:
             tool_parser = parse_json_tool_call
-        self.agent_name = self.__class__.__name__
+        self.agent_class = self.__class__.__name__
         self.model = model
         self.system_prompt_template = system_prompt
         self.tool_description_template = (
@@ -176,15 +176,16 @@ class MultiStepAgent:
             for tool_name, tool_class in TOOL_MAPPING.items():
                 if tool_name != "python_interpreter" or self.__class__.__name__ == "ToolCallingAgent":
                     self.tools[tool_name] = tool_class()
+                    
         self.tools["final_answer"] = FinalAnswerTool()
 
         self.system_prompt = self.initialize_system_prompt()
         self.input_messages = None
         self.task = None
         self.memory = AgentMemory(name, system_prompt)
-        self.logger = AgentLogger(level=verbosity_level)
+        self.logger = AgentLogger(name, level=verbosity_level)
         self.step_callbacks = step_callbacks if step_callbacks is not None else []
-        
+            
     @property
     def logs(self):
         return [self.memory.system_prompt] + self.memory.steps
@@ -896,12 +897,12 @@ class CodeAgent(MultiStepAgent):
         log_entry.action_output = output
         return output if is_final_answer else None
     
-class PlanAgent(MultiStepAgent):
+class ManagerAgent(MultiStepAgent):
     """
-    In this agent, the tool calls will be formulated by the LLM in code format, then parsed and executed.
+    In this agent, the LLM will always call a managed agent to perform the task. If no agent is available 
+    then it will call the TextAgent to get a text response. It has no tools.
 
     Args:
-        tools (`list[Tool]`): [`Tool`]s that the agent can use.
         model (`Callable[[list[dict[str, str]]], ChatMessage]`): Model that will generate the agent's actions.
         system_prompt (`str`, *optional*): System prompt that will be used to generate the agent's actions.
         grammar (`dict[str, str]`, *optional*): Grammar used to parse the LLM output.
@@ -914,7 +915,7 @@ class PlanAgent(MultiStepAgent):
 
     def __init__(
         self,
-        tools: List[Tool],
+        company_name: str,
         model: Callable[[List[Dict[str, str]]], ChatMessage],
         system_prompt: Optional[str] = None,
         grammar: Optional[Dict[str, str]] = None,
@@ -924,13 +925,14 @@ class PlanAgent(MultiStepAgent):
         **kwargs,
     ):
         if system_prompt is None:
-            system_prompt = CODE_SYSTEM_PROMPT
+            system_prompt = MANAGER_SYSTEM_PROMPT
         self.additional_authorized_imports = additional_authorized_imports if additional_authorized_imports else []
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
+        self.tools = []
         if "{{authorized_imports}}" not in system_prompt:
             raise ValueError("Tag '{{authorized_imports}}' should be provided in the prompt.")
         super().__init__(
-            tools=tools,
+            tools=self.tools,
             model=model,
             system_prompt=system_prompt,
             grammar=grammar,
@@ -943,14 +945,17 @@ class PlanAgent(MultiStepAgent):
             #     0,
             # )
             pass
-
+        
         all_tools = {**self.tools, **self.managed_agents}
         self.python_executor = LocalPythonInterpreter(
             self.additional_authorized_imports,
             all_tools,
             max_print_outputs_length=max_print_outputs_length,
         )
-        print(self.system_prompt)
+        from redis import Redis
+        import os
+        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+        self.company_name = company_name
         
     def initialize_system_prompt(self):
         self.system_prompt = super().initialize_system_prompt()
@@ -1068,6 +1073,13 @@ class PlanAgent(MultiStepAgent):
         ]
         self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
         log_entry.action_output = output
+        
+        if is_final_answer:
+            output_str = output
+            if not isinstance(output, str):
+                output_str = str(output)
+            output_str = f"{self.name} -> {output_str}"
+            self.redis_client.rpush(self.company_name, output_str)
         return output if is_final_answer else None
 
 
@@ -1076,6 +1088,7 @@ class ManagedAgent:
     ManagedAgent class that manages an agent and provides additional prompting and run summaries.
 
     Args:
+        company_name (`str`): The name of the company.
         agent (`object`): The agent to be managed.
         description (`str`): A description of the managed agent.
         provide_run_summary (`bool`, *optional*): Whether to provide a run summary after the agent completes its task. Defaults to False.
@@ -1085,17 +1098,25 @@ class ManagedAgent:
 
     def __init__(
         self,
-        agent,
+        company_name: str,
+        agent: MultiStepAgent,
         description: str,
         additional_prompting: Optional[str] = None,
         provide_run_summary: bool = False,
         managed_agent_prompt: Optional[str] = None,
+        use_redis: bool = True
     ):
-        self.agent: MultiStepAgent = agent
+        self.agent = agent
         self.description = description
         self.additional_prompting = additional_prompting
         self.provide_run_summary = provide_run_summary
         self.managed_agent_prompt = managed_agent_prompt if managed_agent_prompt else MANAGED_AGENT_PROMPT
+        self.use_redis = use_redis
+        if use_redis:
+            from redis import Redis
+            import os
+            self.company_name = company_name
+            self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
 
     def write_full_task(self, task):
         """Adds additional prompting for the managed agent, like 'add more detail in your answer'."""
@@ -1111,9 +1132,9 @@ class ManagedAgent:
         return self.__call__(request, **kwargs)
     
     def __call__(self, request, **kwargs):
+        if not isinstance(request, str):
+            raise ValueError("Request must be a string.")
         full_task = self.write_full_task(request)
-        print("Running managed agent with task:", full_task)
-        
         output = self.agent.run(full_task, **kwargs)
         if self.provide_run_summary:
             answer = f"Here is the final answer from your managed agent '{self.name}':\n"
@@ -1123,9 +1144,14 @@ class ManagedAgent:
                 content = message["content"]
                 answer += "\n" + truncate_content(str(content)) + "\n---"
             answer += f"\nEND OF SUMMARY OF WORK FROM AGENT '{self.name}'."
-            return answer
-        else:
-            return output
+            output = answer
+        if self.use_redis:
+            output_str = output
+            if not isinstance(output, str):
+                output_str = str(output)
+            output_str = f"{self.agent.name} -> {output_str}"
+            self.redis_client.rpush(self.company_name, output_str)
+        return output
 
 
-__all__ = ["ManagedAgent", "MultiStepAgent", "CodeAgent", "ToolCallingAgent", "AgentMemory"]
+__all__ = ["ManagedAgent", "MultiStepAgent", "CodeAgent", "ToolCallingAgent", "ManagerAgent", "AgentMemory"]

@@ -17,7 +17,8 @@
         "redis",
         "pinecone[grpc]",
         "jinja2>=3.1.5",
-        "logfire"
+        "logfire",
+        "duckduckgo-search"
     ]
 
 
