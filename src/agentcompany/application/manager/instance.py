@@ -37,7 +37,7 @@ class RedisManager:
         """
         Receive a message from the Redis queue. This is a blocking operation.
         """
-        return self.redis_client.lpop(self.company_name)
+        return bytes.decode(self.redis_client.lpop(self.company_name))
         
         
     def _worker(self) -> None:
@@ -51,6 +51,7 @@ class RedisManager:
                 # blpop returns a tuple (queue_name, message) if a message is found, or None on timeout.
                 message = self.redis_client.lpop(self.user_input_queue_name)
                 if message:
+                    message = bytes.decode(message)
                     # Process the message (here, we just print it)
                     print("Processing message:", message)
                     control_message = agent.run(message)
