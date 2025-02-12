@@ -40,7 +40,7 @@ class RedisManager:
         content = self.redis_client.lpop(self.company_name)
         if not content:
             return None
-        return bytes.decode(self.redis_client.lpop(self.company_name))
+        return bytes.decode(content)
         
         
     def _worker(self) -> None:
