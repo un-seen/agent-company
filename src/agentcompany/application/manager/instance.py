@@ -6,6 +6,7 @@ from typing import Union
 from agentcompany.application.manager.toolkit import run_with as create_manager
 from agentcompany.driver.models import OpenAIServerModel
 import logfire
+from typing import Any
 
 logfire.configure()
 
@@ -13,14 +14,13 @@ class RedisManager:
     
     def __init__(self, company_name: str):
         self.company_name = company_name
-        self.user_input_queue_name = f"manager:user_input"
+        self.user_input_queue_name = f"user_input:{company_name}"
+        self.agent_output_queue_name = f"{company_name}"
         # Create a Redis client. Setting decode_responses=True makes it return strings.
         self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
         self._stop_event = threading.Event()
         # Create the worker thread as a daemon so that it dies when the main thread exits.
         self.model = OpenAIServerModel("gpt-4o-mini")
-        self.pubsub = self.redis_client.pubsub()
-        self.pubsub.subscribe(self.company_name)
         self.worker_thread = threading.Thread(target=self._worker, daemon=True)
         
     def start(self) -> None:
@@ -35,17 +35,11 @@ class RedisManager:
         self.redis_client.rpush(self.user_input_queue_name, message)
         return True
 
-    def receive(self) -> Union[str, None]:
+    def get_channel_name(self) -> str:
         """
-        Receive a message from the Redis queue. This is a blocking operation.
+        Returns the channel name.
         """
-        content = self.pubsub.get_message()
-        if not content:
-            return None
-        if isinstance(content, dict):
-            return None
-        return bytes.decode(content)
-        
+        return self.company_name
         
     def _worker(self) -> None:
         """
