@@ -1078,8 +1078,12 @@ class ManagerAgent(MultiStepAgent):
             output_str = output
             if not isinstance(output, str):
                 output_str = str(output)
-            output_str = f"{self.name} -> {output_str}"
-            self.redis_client.rpush(self.company_name, output_str)
+            output_str = f"""
+            MANAGER AGENT: {self.name}
+            ------------
+            {output_str}
+            """
+            self.redis_client.publish(self.company_name, output_str)
         return output if is_final_answer else None
 
 
@@ -1149,8 +1153,13 @@ class ManagedAgent:
             output_str = output
             if not isinstance(output, str):
                 output_str = str(output)
-            output_str = f"{self.agent.name} -> {output_str}"
-            self.redis_client.rpush(self.company_name, output_str)
+            output_str = f"""\n
+            MANAGED AGENT {self.agent.name}
+            ------------
+            {request}
+            {output_str}
+            """
+            self.redis_client.publish(self.company_name, output_str)
         return output
 
 

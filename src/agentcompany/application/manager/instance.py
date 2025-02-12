@@ -19,6 +19,8 @@ class RedisManager:
         self._stop_event = threading.Event()
         # Create the worker thread as a daemon so that it dies when the main thread exits.
         self.model = OpenAIServerModel("gpt-4o-mini")
+        self.pubsub = self.redis_client.pubsub()
+        self.pubsub.subscribe(self.company_name)
         self.worker_thread = threading.Thread(target=self._worker, daemon=True)
         
     def start(self) -> None:
@@ -37,7 +39,8 @@ class RedisManager:
         """
         Receive a message from the Redis queue. This is a blocking operation.
         """
-        content = self.redis_client.lpop(self.company_name)
+        
+        content = self.pubsub.get_message()
         if not content:
             return None
         return bytes.decode(content)
@@ -59,9 +62,6 @@ class RedisManager:
                     print("Processing message:", message)
                     control_message = agent.run(message)
                     print("Control message:", control_message)
-                    if not isinstance(control_message, str):
-                        control_message_str = str(control_message)
-                        self.redis_client.rpush(self.company_name, control_message_str)
                     # Delay to prevent busy-waiting
                     time.sleep(1)
             except Exception as e:
