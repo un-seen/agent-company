@@ -1075,14 +1075,8 @@ class ManagerAgent(MultiStepAgent):
         log_entry.action_output = output
         
         if is_final_answer:
-            output_str = output
-            if not isinstance(output, str):
-                output_str = str(output)
-            output_str = f"""
-            MANAGER AGENT: {self.name}
-            ------------
-            {output_str}
-            """
+            import json
+            output_str = json.dumps({"answer": output, "agent": self.name})
             self.redis_client.publish(self.company_name, output_str)
         return output if is_final_answer else None
 
@@ -1148,17 +1142,11 @@ class ManagedAgent:
                 content = message["content"]
                 answer += "\n" + truncate_content(str(content)) + "\n---"
             answer += f"\nEND OF SUMMARY OF WORK FROM AGENT '{self.name}'."
-            output = answer
+            output = {"answer": answer}
         if self.use_redis:
-            output_str = output
-            if not isinstance(output, str):
-                output_str = str(output)
-            output_str = f"""\n
-            MANAGED AGENT {self.agent.name}
-            ------------
-            {request}
-            {output_str}
-            """
+            import json
+            output["agent"] = self.agent.name
+            output_str = json.dumps(output)
             self.redis_client.publish(self.company_name, output_str)
         return output
 
