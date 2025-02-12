@@ -39,9 +39,10 @@ class RedisManager:
         """
         Receive a message from the Redis queue. This is a blocking operation.
         """
-        
         content = self.pubsub.get_message()
         if not content:
+            return None
+        if isinstance(content, dict):
             return None
         return bytes.decode(content)
         
@@ -62,6 +63,7 @@ class RedisManager:
                     print("Processing message:", message)
                     control_message = agent.run(message)
                     print("Control message:", control_message)
+                    print("Process completed.")
                     # Delay to prevent busy-waiting
                     time.sleep(1)
             except Exception as e:
