@@ -7,8 +7,7 @@ from agentcompany.application.manager.toolkit import run_with as create_manager
 from agentcompany.driver.models import OpenAIServerModel
 import logfire
 from typing import Any
-
-logfire.configure()
+logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
 
 class RedisManager:
     
