@@ -33,10 +33,13 @@ class RedisManager:
         self.redis_client.rpush(self.user_input_queue_name, message)
         return True
 
-    def receive(self) -> str:
+    def receive(self) -> Union[str, None]:
         """
         Receive a message from the Redis queue. This is a blocking operation.
         """
+        content = self.redis_client.lpop(self.company_name)
+        if not content:
+            return None
         return bytes.decode(self.redis_client.lpop(self.company_name))
         
         
