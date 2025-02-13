@@ -9,11 +9,22 @@ import logfire
 from typing import Any
 logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
 
+
+def default_sop(company_name: str) -> str:
+    return f"""
+    Standard Operating Procedure for {company_name}:
+    
+    1. Define strategy for the task at hand.
+    2. Reason about the strategy to come up with a plan.
+    3. Execute the plan and create a final answer.
+    4. Get feedback on the final answer.
+    5. Repeat steps 1-4 if feedback is not positive.
+    """
 class ConsultantApp:
     
-    def __init__(self, company_name: str, sop: str):
+    def __init__(self, company_name: str, sop: str = None):
         self.company_name = company_name
-        self.sop = sop
+        self.sop = sop or default_sop(company_name)
         self.user_input_queue_name = f"user_input:{company_name}"
         self.agent_output_queue_name = f"{company_name}"
         # Create a Redis client. Setting decode_responses=True makes it return strings.
