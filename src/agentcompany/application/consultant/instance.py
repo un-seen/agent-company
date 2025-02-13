@@ -3,13 +3,13 @@ import time
 from redis import Redis
 import os
 from typing import Union
-from agentcompany.application.ceo.toolkit import run_with as create_manager
+from agentcompany.application.consultant.toolkit import run_with as create_manager
 from agentcompany.driver.models import OpenAIServerModel
 import logfire
 from typing import Any
 logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
 
-class CEOApp:
+class ConsultantApp:
     
     def __init__(self, company_name: str, sop: str):
         self.company_name = company_name

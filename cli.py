@@ -1,5 +1,5 @@
 from agentcompany.driver import OpenAIServerModel
-from agentcompany.application.ceo import CEOApp
+from agentcompany.application.consultant import ConsultantApp
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.panel import Panel
@@ -27,7 +27,7 @@ def main():
     pubsub = redis_client.pubsub()
     pubsub.subscribe(company_name)
     console = Console()
-    ceo_app = CEOApp(company_name, sop=f"""
+    ceo_app = ConsultantApp(company_name, sop=f"""
     Standard Operating Procedure for {company_name}:
     
     1. Define strategy for the task at hand.
