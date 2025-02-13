@@ -134,7 +134,7 @@ def parse_json_blob(json_blob: str) -> Dict[str, str]:
 
 def parse_thought(llm_output: str) -> str:
     """Parses the LLM's output to get any thoughts inside."""
-    pattern = r"Thoughts: (.*?)\n"
+    pattern = r"Thought: (.*?)\n"
     matches = re.findall(pattern, llm_output)
     if len(matches) == 0:
         raise ValueError(
