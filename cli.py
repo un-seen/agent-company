@@ -1,11 +1,7 @@
-import os
-from src.driver import OpenAIServerModel
-from typing import List
-from src.driver import CodeAgent
-from src.application.ui.toolkit import run_with as run_with_ui
-from datetime import datetime
+from agentcompany.driver import OpenAIServerModel
+from agentcompany.application.ceo import CEOApp
 from rich.console import Console
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Prompt
 from rich.panel import Panel
 import random
 
@@ -24,9 +20,23 @@ pt_style = Style.from_dict({
 
 
 def main():
+    company_name = "PlanLLC"
+    import os
+    from redis import Redis
+    redis_client = Redis.from_url(os.environ["REDIS_URL"])
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe(company_name)
     console = Console()
-    model = OpenAIServerModel(model_id="gpt-4o-mini")
+    ceo_app = CEOApp(company_name, sop=f"""
+    Standard Operating Procedure for {company_name}:
     
+    1. Define strategy for the task at hand.
+    2. Reason about the strategy to come up with a plan.
+    3. Execute the plan and create a final answer.
+    4. Get feedback on the final answer.
+    5. Repeat steps 1-4 if feedback is not positive.
+    """)
+    ceo_app.start()
     # Generate ASCII art headline using pyfiglet
     ascii_art = pyfiglet.figlet_format("AgentCompany CLI", font="slant")
     console.print(f"[sky_blue1]{ascii_art}[/sky_blue1]")
@@ -34,27 +44,36 @@ def main():
     # Optionally, display a subtitle panel below the ASCII art.
     console.print(Panel("Welcome to AgentCompany CLI", style="sky_blue1"))
     
-    
     # Run the main event loop connecting ui agent with user, console agent and executive strategy agent with the model.
-    ui_agent: CodeAgent = run_with_ui(model)
+    # Plan Identifier
     while True:
-        
-        # Plan Identifier
-        plan_id = str(random.randint(1000, 9999))
         # Action Prompt
-        objective_guidance = Prompt.ask("[light_sky_blue1]What do you from Agent Company?[/light_sky_blue1]")
-        if len(objective_guidance.strip()) == 0:
-            console.print("[deep_sky_blue1]No action provided. Returning to command selection.[/deep_sky_blue1]")
+        task = Prompt.ask(f"[light_sky_blue1]What do you want from {company_name}?[/light_sky_blue1]")
+        if len(task.strip()) == 0:
+            console.print("[deep_sky_blue1]No task provided. Returning to command selection.[/deep_sky_blue1]")
             continue
-        elif objective_guidance.lower() == "exit":
+        elif task.lower() == "exit":
             break
-        user_action_prompt = f"""Plan id = {plan_id} | Objective guidance from user = {objective_guidance}"""
+        user_action_prompt = f"""Task: {task}"""
+        ceo_app.send_user_input(user_action_prompt)
         # Complete Prompt
+        get_attempt = 0
+        max_attempts = 3
         while True:
-            ui_agent.run(user_action_prompt)
-            user_action_prompt = Prompt.ask("[light_sky_blue1]You...[/light_sky_blue1]", default="exit")
-            if user_action_prompt.lower() == "exit":
+            message = pubsub.get_message()
+            if message is not None:
+                Console().print(message)
+                continue
+            get_attempt += 1
+            if get_attempt >= max_attempts:
+                console.print("[red]Maximum attempts reached. Exiting.[/red]")
                 break
+            
+        user_action_prompt = Prompt.ask("[light_sky_blue1]Do you want to exit? (continues by default, any input exits the application)...[/light_sky_blue1]", default="no")
+        if user_action_prompt.lower() == "no":
+            continue
+        else:
+            break
 
 if __name__ == "__main__":
     main()

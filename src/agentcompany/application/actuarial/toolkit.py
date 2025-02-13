@@ -1,4 +1,4 @@
-from agentcompany.driver import CodeAgent, OpenAIServerModel, tool, ManagedAgent
+from agentcompany.driver import PythonAgent, OpenAIServerModel, tool, ManagedAgent
 from agentcompany.driver.agents import ActionStep
 from .protocol import FileDictionary
 from .mongodb import mongodb_connect

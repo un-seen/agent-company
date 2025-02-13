@@ -1,4 +1,4 @@
-from agentcompany.driver import CodeAgent, ManagerAgent, OpenAIServerModel, tool, ManagedAgent
+from agentcompany.driver import PythonAgent, ManagerAgent, OpenAIServerModel, tool, ManagedAgent
 from typing import List, Generator, Dict
 from rich import console
 import time
@@ -131,48 +131,47 @@ def console_tool(content: str) -> None:
     ))
 
 
-def run_with(model: OpenAIServerModel, company_name: str) -> CodeAgent:
+def run_with(model: OpenAIServerModel, company_name: str, sop: str) -> ManagerAgent:
     # REASONING SPECIALIST
-    reasoningspecialist = CodeAgent(
-        name="reasoningspecialist",
-        managed_agents=[],
-        tools=[memory_search],
-        model=model,
-        additional_authorized_imports=[],
-        step_callbacks=[],
-        max_steps=3,
-    )
     managed_reasoning_agent = ManagedAgent(
         company_name=company_name,
-        agent=reasoningspecialist,
+        agent=PythonAgent(
+            name="reasoningspecialist",
+            managed_agents=[],
+            tools=[memory_search],
+            model=model,
+            additional_authorized_imports=[],
+            step_callbacks=[],
+            max_steps=3,
+        ),
         description=f"""Given a step of actions and the user objective, it reasons about the prompt to come up with parallel possible plan of actions with slight suggestive modifications if necessary to complete the objective."""
     )
     # PLAN SPECIALIST
-    planspecialist = CodeAgent(
-        name="planspecialist",
-        managed_agents=[], # managed_dream_agent, managed_subconscious_agent],
-        tools=[],
-        model=model,
-        additional_authorized_imports=[],
-        step_callbacks=[],
-        max_steps=3,
-        verbosity_level=2,
-    )
     managed_plan_agent = ManagedAgent(
         company_name=company_name,
-        agent=planspecialist,
+        agent=PythonAgent(
+            name="planspecialist",
+            managed_agents=[], # managed_dream_agent, managed_subconscious_agent],
+            tools=[],
+            model=model,
+            additional_authorized_imports=[],
+            step_callbacks=[],
+            max_steps=3,
+            verbosity_level=2,
+        ),
         description=f"""Given an objective guidance, it creates a plan of actions to complete the objective.""",
     )
     # MANAGER
-    manager = ManagerAgent(
-        name="manager",
+    ceo_agent = ManagerAgent(
         company_name=company_name,
-        managed_agents=[managed_plan_agent, managed_reasoning_agent],
+        sop=sop,
         model=model,
+        managed_agents=[managed_plan_agent, managed_reasoning_agent],
         additional_authorized_imports=["*"],
         step_callbacks=[],
         max_steps=3,
         verbosity_level=2,
+        name="ceo",
     )
-    return manager
+    return ceo_agent
     

@@ -3,16 +3,17 @@ import time
 from redis import Redis
 import os
 from typing import Union
-from agentcompany.application.manager.toolkit import run_with as create_manager
+from agentcompany.application.ceo.toolkit import run_with as create_manager
 from agentcompany.driver.models import OpenAIServerModel
 import logfire
 from typing import Any
 logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
 
-class RedisManager:
+class CEOApp:
     
-    def __init__(self, company_name: str):
+    def __init__(self, company_name: str, sop: str):
         self.company_name = company_name
+        self.sop = sop
         self.user_input_queue_name = f"user_input:{company_name}"
         self.agent_output_queue_name = f"{company_name}"
         # Create a Redis client. Setting decode_responses=True makes it return strings.
@@ -45,7 +46,7 @@ class RedisManager:
         Worker thread method. It listens for messages on the Redis queue using a blocking pop
         (with a timeout) and processes any messages that arrive.
         """
-        agent = create_manager(self.model, self.company_name)
+        agent = create_manager(self.model, self.company_name, self.sop)
         while not self._stop_event.is_set():
             try:
                 # blpop returns a tuple (queue_name, message) if a message is found, or None on timeout.
@@ -53,6 +54,8 @@ class RedisManager:
                 if message:
                     message = bytes.decode(message)
                     # Process the message (here, we just print it)
+                    system_prompt = agent.initialize_system_prompt()
+                    print("System prompt:", system_prompt)
                     print("Processing message:", message)
                     control_message = agent.run(message)
                     print("Control message:", control_message)

@@ -10,11 +10,16 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.syntax import Syntax
 from rich.text import Text
+import json
 
 from .monitoring import (
     AgentLogger,
     LogLevel,
 )
+
+from redis import Redis
+import os
+            
 from .memory import ActionStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, ToolCall
 from .types import AgentImage, handle_agent_output_types
 from .utils import (
@@ -38,8 +43,9 @@ from .models import (
     MessageRole,
 )
 from .prompts import (
-    CODE_SYSTEM_PROMPT,
+    PYTHON_CODE_SYSTEM_PROMPT,
     MANAGED_AGENT_PROMPT,
+    SUPERVISOR_AGENT_PROMPT,
     MANAGER_SYSTEM_PROMPT,
     PLAN_UPDATE_FINAL_PLAN_REDACTION,
     SYSTEM_PROMPT_FACTS,
@@ -149,7 +155,7 @@ class MultiStepAgent:
     ):
         self.name = name
         if system_prompt is None:
-            system_prompt = CODE_SYSTEM_PROMPT
+            system_prompt = PYTHON_CODE_SYSTEM_PROMPT
         if tool_parser is None:
             tool_parser = parse_json_tool_call
         self.agent_class = self.__class__.__name__
@@ -724,7 +730,7 @@ class ToolCallingAgent(MultiStepAgent):
             return None
 
 
-class CodeAgent(MultiStepAgent):
+class PythonAgent(MultiStepAgent):
     """
     In this agent, the tool calls will be formulated by the LLM in code format, then parsed and executed.
 
@@ -752,7 +758,7 @@ class CodeAgent(MultiStepAgent):
         **kwargs,
     ):
         if system_prompt is None:
-            system_prompt = CODE_SYSTEM_PROMPT
+            system_prompt = PYTHON_CODE_SYSTEM_PROMPT
 
         self.additional_authorized_imports = additional_authorized_imports if additional_authorized_imports else []
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
@@ -896,6 +902,97 @@ class CodeAgent(MultiStepAgent):
         self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
         log_entry.action_output = output
         return output if is_final_answer else None
+
+
+
+class SupervisorAgent:
+    """
+    SupervisorAgent class The LLM receives the final task report given by a Manager then it will return a review of the work done by the Manager.
+
+    Args:
+        company_name (`str`): The name of the company.
+        sop (`str`): The standard operating procedure for the manager agent.
+        agent (`object`): The agent to be managed.
+        description (`str`): A description of the managed agent.
+        additional_prompting (`str`, *optional*): Additional prompting for the managed agent, like 'add more detail in your answer'.
+        provide_run_summary (`bool`, *optional*): Whether to provide a run summary after the agent completes its task. Defaults to False.
+        use_redis (`bool`, *optional*): Whether to use Redis for communication. Defaults to True.
+    """
+
+    def __init__(
+        self,
+        company_name: str,
+        sop: str,
+        agent: MultiStepAgent,
+        additional_prompting: Optional[str] = None,
+        provide_run_summary: bool = False,
+        use_redis: bool = True
+    ):
+        self.agent = agent
+        self.sop = sop
+        self.company_name = company_name
+        self.additional_prompting = additional_prompting
+        self.provide_run_summary = provide_run_summary
+        self.supervisor_agent_prompt = SUPERVISOR_AGENT_PROMPT
+        self.use_redis = use_redis
+        self.task = None
+        if use_redis:
+            self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+
+    def set_task(self, task: str):
+        """Sets the task for the managed agent."""
+        self.task = task
+        
+    def write_full_task(self, final_answer: str):
+        """Adds additional prompting for the managed agent, like 'add more detail in your answer'."""
+        full_task = self.supervisor_agent_prompt.format(name=self.agent.name, task=self.task, sop=self.sop, final_answer=final_answer)
+        if self.additional_prompting:
+            full_task = full_task.replace("\n{additional_prompting}", self.additional_prompting).strip()
+        else:
+            full_task = full_task.replace("\n{additional_prompting}", "").strip()
+        return full_task
+
+    def request(self, request, **kwargs):
+        """Request the managed agent to perform a task."""
+        return self.__call__(request, **kwargs)
+    
+    def __call__(self, request, **kwargs):
+        if not isinstance(request, str):
+            raise ValueError("Request must be a string.")
+        if not self.task:
+            raise ValueError("You need to set a task for the supervisor agent.")
+        full_task = self.write_full_task(request)
+        output = self.agent.run(full_task, **kwargs)
+        if self.provide_run_summary:
+            answer = f"Here is the final review from your supervisor '{self.agent.name}':\n"
+            answer += str(output)
+            answer += f"\n\nFor more detail, find below a summary of supervisor's review:\nSUMMARY OF REVIEW FROM SUPERVISOR '{self.agent.name}':\n"
+            for message in self.agent.write_memory_to_messages(summary_mode=True):
+                content = message["content"]
+                answer += "\n" + truncate_content(str(content)) + "\n---"
+            answer += f"\nEND OF SUMMARY OF WORK FROM AGENT '{self.agent.name}'."
+            output = {"answer": answer}
+            
+        if self.use_redis:
+            output["agent"] = self.agent.name
+            output_str = json.dumps(output)
+            self.redis_client.publish(self.company_name, output_str)
+            
+        return output
+    
+def get_supervisor_agent_for_manager(model, company_name: str, sop: str):
+    return SupervisorAgent(
+        company_name=company_name,
+        sop=sop,
+        agent=PythonAgent(
+            name="supervisoragent",
+            tools=[],
+            model=model,
+            additional_authorized_imports=["*"],
+            max_steps=3,
+            verbosity_level=2,
+        ),
+    )
     
 class ManagerAgent(MultiStepAgent):
     """
@@ -916,6 +1013,7 @@ class ManagerAgent(MultiStepAgent):
     def __init__(
         self,
         company_name: str,
+        sop: str,
         model: Callable[[List[Dict[str, str]]], ChatMessage],
         system_prompt: Optional[str] = None,
         grammar: Optional[Dict[str, str]] = None,
@@ -929,14 +1027,21 @@ class ManagerAgent(MultiStepAgent):
         self.additional_authorized_imports = additional_authorized_imports if additional_authorized_imports else []
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         self.tools = []
-        if "{{authorized_imports}}" not in system_prompt:
-            raise ValueError("Tag '{{authorized_imports}}' should be provided in the prompt.")
+        self.sop = sop
+        managed_agents: List[ManagedAgent] = kwargs.pop("managed_agents", None)
+        all_managed_agent: bool = all([isinstance(agent, ManagedAgent) for agent in managed_agents])
+        if managed_agents is None:
+            raise ValueError("You need to provide managed agents to the ManagerAgent.")
+        if not all_managed_agent:
+            raise ValueError("All agents in managed_agents should be of type ManagedAgent.")
+        self.supervisor_agent = get_supervisor_agent_for_manager(model, company_name, sop)
         super().__init__(
             tools=self.tools,
             model=model,
             system_prompt=system_prompt,
             grammar=grammar,
             planning_interval=planning_interval,
+            managed_agents=managed_agents,
             **kwargs,
         )
         if "*" in self.additional_authorized_imports:
@@ -952,8 +1057,6 @@ class ManagerAgent(MultiStepAgent):
             all_tools,
             max_print_outputs_length=max_print_outputs_length,
         )
-        from redis import Redis
-        import os
         self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
         self.company_name = company_name
         
@@ -972,8 +1075,8 @@ class ManagerAgent(MultiStepAgent):
         Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
         Returns None if the step is not final.
         """
+        self.supervisor_agent.set_task(self.task)
         memory_messages = self.write_memory_to_messages()
-
         self.input_messages = memory_messages.copy()
 
         # Add new step in logs
@@ -1075,8 +1178,8 @@ class ManagerAgent(MultiStepAgent):
         log_entry.action_output = output
         
         if is_final_answer:
-            import json
-            output_str = json.dumps({"answer": output, "agent": self.name})
+            review = self.supervisor_agent(output)
+            output_str = json.dumps({"answer": output, "agent": self.name, "review": review})
             self.redis_client.publish(self.company_name, output_str)
         return output if is_final_answer else None
 
@@ -1108,12 +1211,12 @@ class ManagedAgent:
         self.description = description
         self.additional_prompting = additional_prompting
         self.provide_run_summary = provide_run_summary
-        self.managed_agent_prompt = managed_agent_prompt if managed_agent_prompt else MANAGED_AGENT_PROMPT
+        self.managed_agent_prompt = managed_agent_prompt
+        if managed_agent_prompt is None:
+            self.managed_agent_prompt = MANAGED_AGENT_PROMPT
+        self.company_name = company_name
         self.use_redis = use_redis
         if use_redis:
-            from redis import Redis
-            import os
-            self.company_name = company_name
             self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
 
     def write_full_task(self, task):
@@ -1135,20 +1238,19 @@ class ManagedAgent:
         full_task = self.write_full_task(request)
         output = self.agent.run(full_task, **kwargs)
         if self.provide_run_summary:
-            answer = f"Here is the final answer from your managed agent '{self.name}':\n"
+            answer = f"Here is the final answer from your managed agent '{self.agent.name}':\n"
             answer += str(output)
-            answer += f"\n\nFor more detail, find below a summary of this agent's work:\nSUMMARY OF WORK FROM AGENT '{self.name}':\n"
+            answer += f"\n\nFor more detail, find below a summary of this agent's work:\nSUMMARY OF WORK FROM AGENT '{self.agent.name}':\n"
             for message in self.agent.write_memory_to_messages(summary_mode=True):
                 content = message["content"]
                 answer += "\n" + truncate_content(str(content)) + "\n---"
-            answer += f"\nEND OF SUMMARY OF WORK FROM AGENT '{self.name}'."
+            answer += f"\nEND OF SUMMARY OF WORK FROM AGENT '{self.agent.name}'."
             output = {"answer": answer}
         if self.use_redis:
-            import json
             output["agent"] = self.agent.name
             output_str = json.dumps(output)
             self.redis_client.publish(self.company_name, output_str)
         return output
 
 
-__all__ = ["ManagedAgent", "MultiStepAgent", "CodeAgent", "ToolCallingAgent", "ManagerAgent", "AgentMemory"]
+__all__ = ["ManagedAgent", "MultiStepAgent", "PythonAgent", "ToolCallingAgent", "ManagerAgent", "AgentMemory"]

@@ -85,6 +85,7 @@ class UserInputTool(Tool):
         from redis import Redis
         import os
         self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+        
     def forward(self, prompt: str) -> str:
         import random
         random_seed = random.randint(0, 1000000)
