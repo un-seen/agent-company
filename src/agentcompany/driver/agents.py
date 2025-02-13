@@ -1178,8 +1178,9 @@ class ManagerAgent(MultiStepAgent):
         log_entry.action_output = output
         
         if is_final_answer:
+            # TODO use review
             review = self.supervisor_agent(output)
-            output_str = json.dumps({"answer": output, "agent": self.name, "review": review})
+            output_str = json.dumps({"answer": output, "agent": self.name})
             self.redis_client.publish(self.company_name, output_str)
         return output if is_final_answer else None
 
