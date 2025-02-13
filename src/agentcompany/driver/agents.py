@@ -28,6 +28,7 @@ from .utils import (
     AgentGenerationError,
     AgentMaxStepsError,
     AgentParsingError,
+    parse_thought,
     parse_code_blobs,
     parse_json_tool_call,
     truncate_content,
@@ -1111,7 +1112,16 @@ class ManagerAgent(MultiStepAgent):
             level=LogLevel.DEBUG,
         )
 
-        # Parse
+        # Parse Thought
+        try:
+            thought = parse_thought(model_output)
+            output_str = json.dumps({"answer": thought, "agent": self.name})
+            self.redis_client.publish(self.company_name, output_str)
+        except Exception as e:
+            error_msg = f"Error in thought parsing:\n{e}\nMake sure to provide thoughts in proper format."
+            raise AgentParsingError(error_msg, self.logger)
+        
+        # Parse Code
         try:
             code_action = fix_final_answer_code(parse_code_blobs(model_output))
         except Exception as e:

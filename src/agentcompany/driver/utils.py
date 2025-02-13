@@ -132,6 +132,18 @@ def parse_json_blob(json_blob: str) -> Dict[str, str]:
         raise ValueError(f"Error in parsing the JSON blob: {e}")
 
 
+def parse_thought(llm_output: str) -> str:
+    """Parses the LLM's output to get any thoughts inside."""
+    pattern = r"Thoughts: (.*?)\n"
+    matches = re.findall(pattern, llm_output)
+    if len(matches) == 0:
+        raise ValueError(
+            f"""The llm output is invalid, because the regex pattern {pattern} was not found in {llm_output}. Make sure to include thoughts with the correct pattern, for instance:
+Thoughts: Your thoughts
+Code: Your code<end_code>""".strip()
+        )
+    return matches[0]
+            
 def parse_code_blobs(code_blob: str) -> str:
     """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
     pattern = r"```(?:py|python)?\n(.*?)\n```"
