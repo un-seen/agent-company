@@ -65,8 +65,6 @@ class ConsultantApp:
                 if message:
                     message = bytes.decode(message)
                     # Process the message (here, we just print it)
-                    system_prompt = agent.initialize_system_prompt()
-                    print("System prompt:", system_prompt)
                     print("Processing message:", message)
                     control_message = agent.run(message)
                     print("Control message:", control_message)

@@ -66,7 +66,7 @@ def main():
                 continue
             get_attempt += 1
             if get_attempt >= max_attempts:
-                console.print("[red]Maximum attempts reached. Exiting.[/red]")
+                console.print(f"[red] {get_attempt} attempts made. Maximum attempts {max_attempts} reached. Exiting.[/red]")
                 break
             
         user_action_prompt = Prompt.ask("[light_sky_blue1]Do you want to exit? (continues by default, any input exits the application)...[/light_sky_blue1]", default="no")
