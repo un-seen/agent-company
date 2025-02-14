@@ -29,11 +29,12 @@ from .utils import (
     AgentMaxStepsError,
     AgentParsingError,
     parse_thought,
-    parse_code_blobs,
+    parse_python_code_blobs,
     parse_json_tool_call,
     truncate_content,
 )
 from .default_tools import TOOL_MAPPING, FinalAnswerTool
+from .local_bash_executor import LocalBashInterpreter
 from .local_python_executor import (
     BASE_BUILTIN_MODULES,
     LocalPythonInterpreter,
@@ -48,6 +49,7 @@ from .prompts import (
     MANAGED_AGENT_PROMPT,
     SUPERVISOR_AGENT_PROMPT,
     MANAGER_SYSTEM_PROMPT,
+    BASH_CODE_SYSTEM_PROMPT,
     PLAN_UPDATE_FINAL_PLAN_REDACTION,
     SYSTEM_PROMPT_FACTS,
     SYSTEM_PROMPT_FACTS_UPDATE,
@@ -731,7 +733,7 @@ class ToolCallingAgent(MultiStepAgent):
             return None
 
 
-class PythonAgent(MultiStepAgent):
+class PythonCodeAgent(MultiStepAgent):
     """
     In this agent, the tool calls will be formulated by the LLM in code format, then parsed and executed.
 
@@ -839,7 +841,7 @@ class PythonAgent(MultiStepAgent):
 
         # Parse
         try:
-            code_action = fix_final_answer_code(parse_code_blobs(model_output))
+            code_action = fix_final_answer_code(parse_python_code_blobs(model_output))
         except Exception as e:
             error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
             raise AgentParsingError(error_msg, self.logger)
@@ -903,8 +905,6 @@ class PythonAgent(MultiStepAgent):
         self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
         log_entry.action_output = output
         return output if is_final_answer else None
-
-
 
 class SupervisorAgent:
     """
@@ -985,7 +985,7 @@ def get_supervisor_agent_for_manager(model, company_name: str, sop: str):
     return SupervisorAgent(
         company_name=company_name,
         sop=sop,
-        agent=PythonAgent(
+        agent=PythonCodeAgent(
             name="supervisoragent",
             tools=[],
             model=model,
@@ -1123,7 +1123,7 @@ class ManagerAgent(MultiStepAgent):
         
         # Parse Code
         try:
-            code_action = fix_final_answer_code(parse_code_blobs(model_output))
+            code_action = fix_final_answer_code(parse_python_code_blobs(model_output))
         except Exception as e:
             error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
             raise AgentParsingError(error_msg, self.logger)
@@ -1264,4 +1264,4 @@ class ManagedAgent:
         return output
 
 
-__all__ = ["ManagedAgent", "MultiStepAgent", "PythonAgent", "ToolCallingAgent", "ManagerAgent", "AgentMemory"]
+__all__ = ["ManagedAgent", "MultiStepAgent", "PythonCodeAgent", "ToolCallingAgent", "ManagerAgent", "AgentMemory"]

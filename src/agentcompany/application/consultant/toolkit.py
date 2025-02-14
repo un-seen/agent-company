@@ -1,4 +1,4 @@
-from agentcompany.driver import PythonAgent, ManagerAgent, OpenAIServerModel, tool, ManagedAgent
+from agentcompany.driver import PythonCodeAgent, ManagerAgent, OpenAIServerModel, tool, ManagedAgent
 from typing import List, Generator, Dict
 from rich import console
 import time
@@ -135,7 +135,7 @@ def run_with(model: OpenAIServerModel, company_name: str, sop: str) -> ManagerAg
     # REASONING SPECIALIST
     managed_reasoning_agent = ManagedAgent(
         company_name=company_name,
-        agent=PythonAgent(
+        agent=PythonCodeAgent(
             name="reasoningspecialist",
             managed_agents=[],
             tools=[memory_search],
@@ -149,7 +149,7 @@ def run_with(model: OpenAIServerModel, company_name: str, sop: str) -> ManagerAg
     # PLAN SPECIALIST
     managed_plan_agent = ManagedAgent(
         company_name=company_name,
-        agent=PythonAgent(
+        agent=PythonCodeAgent(
             name="planspecialist",
             managed_agents=[], # managed_dream_agent, managed_subconscious_agent],
             tools=[],
