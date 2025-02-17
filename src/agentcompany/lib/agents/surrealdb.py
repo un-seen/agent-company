@@ -305,12 +305,13 @@ class SurrealDBAgent(MultiStepAgent):
             planning_interval=planning_interval,
             **kwargs,
         )
+        self.logger.console.print(self.system_prompt)
         
         
     def initialize_system_prompt(self):
         self.system_prompt = super().initialize_system_prompt()
         self.system_prompt = self.system_prompt.replace("{{graphql_schema}}", json.dumps(self.schema))
-        self.logger.console.print(self.system_prompt)
+        
         return self.system_prompt
 
     def step(self, log_entry: ActionStep) -> Union[None, Any]:
