@@ -4,11 +4,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, TypedDict, Union
 import os
 from .models import ChatMessage, MessageRole
 from .utils import AgentError, make_json_serializable
-from pinecone.grpc import PineconeGRPC as Pinecone
-from pinecone import ServerlessSpec
 import os
-import time
-from typing import TypeVar, Generic, Tuple, Optional, Iterator
+from typing import TypeVar, Generic, Optional, Iterator
 
 
 if TYPE_CHECKING:
@@ -210,8 +207,7 @@ class StepsList(Generic[T]):
     def reset(self):
         self.items = []
     
-    def embed(self, task_step: Union[TaskStep, ActionStep, PlanningStep]) -> None:
-        # Convert the text into numerical vectors that Pinecone can index
+    def save_step_in_memory(self, task_step: Union[TaskStep, ActionStep, PlanningStep]) -> None:
         content = None
         step_type = None
         if isinstance(task_step, TaskStep):
