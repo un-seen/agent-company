@@ -4,28 +4,9 @@ from rich import console
 import time
 import rich
 from agentcompany.driver.memory import get_memory_index_name
-
 from dotenv import load_dotenv
-# Load environment variables
-load_dotenv()
 
 
-pc, agent_index_name = get_memory_index_name()
-
-if not pc.has_index(name=agent_index_name):
-    from pinecone import ServerlessSpec
-    pc.create_index(
-            name=agent_index_name,
-            dimension=1024,
-            metric="cosine",
-            spec=ServerlessSpec(
-                cloud="aws", 
-                region="us-east-1"
-            ) 
-        ) 
-        
-    while not pc.describe_index(agent_index_name).status['ready']:
-        time.sleep(1)
             
 @tool
 def memory_search(query: str) -> List[str]:
@@ -38,25 +19,17 @@ def memory_search(query: str) -> List[str]:
         results: a list of the memories to the query
     """
     # Convert the text into numerical vectors that Pinecone can index
-    query_embedding = pc.inference.embed(
-        model="multilingual-e5-large",
-        inputs=[query],
-        parameters={
-            "input_type": "query"
-        }
-    )
-    # Search the index for the three most similar vectors
-    index = pc.Index(agent_index_name)
-    results = index.query(
-        namespace="prod",
-        vector=query_embedding[0].values,
-        top_k=3,
-        include_values=False,
-        include_metadata=True
-    )
-    rich.console.Console().print(f"Results: {results}")
-    
-    if len(results["matches"]) == 0:
+    load_dotenv()
+
+
+    agent_index_name = get_memory_index_name()
+
+    from redis import Redis
+    import os
+    redis_client = Redis.from_url(os.environ["REDIS_URL"])
+    all_memory = redis_client.get(agent_index_name)
+    rich.console.Console().print(f"Memory: {all_memory}")
+    if len(all_memory) == 0:
         try:
             from duckduckgo_search import DDGS
         except ImportError as e:
