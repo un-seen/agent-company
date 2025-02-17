@@ -1,4 +1,3 @@
-from agentcompany.driver import OpenAIServerModel
 from agentcompany.application.consultant import ConsultantApp
 from rich.console import Console
 from rich.prompt import Prompt
