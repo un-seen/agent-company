@@ -216,7 +216,7 @@ The response indicates that ACME’s current price is $123.45 with a change of +
 
 ---
 
-Above examples use notional fields that might not exist for you. On top of performing computations in the GraphQL queries that you create, you only have access to these fields:
+Above examples use notional fields that might not exist for you. Do not mention any field besides these fields in the database schema:
 
 {{graphql_schema}}
 
