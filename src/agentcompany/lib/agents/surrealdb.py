@@ -278,24 +278,24 @@ class SurrealDBAgent(MultiStepAgent):
         self.database = database
         
 
-        self.graphql_executor = SurrealExecutor(
+        self.surreal_executor = SurrealExecutor(
             base_url=base_url,
             namespace=namespace,
             database=database,
         )
 
-        data = self.graphql_executor("INFO FOR DB", {}, "sql")
+        data = self.surreal_executor("INFO FOR DB", {}, "sql")
         tables = data["tables"].keys()
         schema = {}
         for table in tables:
-            table_sample = self.graphql_executor(f"SELECT * FROM {table} LIMIT 1", {}, "sql")
+            table_sample = self.surreal_executor(f"SELECT * FROM {table} LIMIT 1", {}, "sql")
             if len(table_sample) > 0:
               schema[table] = {}
               table_sample = table_sample[0]
               for key in table_sample.keys():
                 schema[table][key] = f"sample: {table_sample[key]}"
+        self.surreal_executor("DEFINE CONFIG GRAPHQL AUTO")
         self.schema = schema
-        
         super().__init__(
             name="surreal_graphql",
             tools=[],
@@ -357,7 +357,6 @@ class SurrealDBAgent(MultiStepAgent):
             level=LogLevel.DEBUG,
         )
 
-        # Parse
         try:
             code_action = fix_final_answer_code(parse_graphql_code_blob(model_output))
         except Exception as e:
@@ -392,7 +391,8 @@ class SurrealDBAgent(MultiStepAgent):
         observation = ""
         is_final_answer = True
         try:
-            output = self.graphql_executor(
+            # Parse
+            output = self.surreal_executor(
                 code_action,
                 self.state,
                 "graphql"
