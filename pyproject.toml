@@ -13,9 +13,8 @@
         "numpy",
         "pydantic",
         "openai",
-        "pandas>=2.0.3",
+        "pandas>=2.2.3",
         "redis",
-        "pinecone[grpc]",
         "jinja2>=3.1.5",
         "logfire",
         "duckduckgo-search"

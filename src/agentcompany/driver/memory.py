@@ -23,12 +23,10 @@ class Message(TypedDict):
     content: str | list[dict]
 
 
-def get_pinecone_client() -> Tuple[Pinecone, str]:
-    api_key = os.getenv("PINECONE_API_KEY")
-    pc = Pinecone(api_key=api_key)
+def get_memory_index_name() -> str:
     avatar_id = os.getenv("AVATAR_ID")
     index_name = f"{avatar_id}-index"
-    return pc, index_name
+    return index_name
 
 @dataclass
 class ToolCall:
@@ -199,9 +197,10 @@ class StepsList(Generic[T]):
     def __init__(self, name: str) -> None:
         self.name = name
         self.items: List[T] = []
-        pc, index_name = get_pinecone_client()
-        agent_index_name = f"{index_name}"
-        self.pc = pc
+        import os
+        from redis import Redis
+        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+        agent_index_name = get_memory_index_name()
         self.agent_index_name = agent_index_name
         self.items = []
         
@@ -212,7 +211,6 @@ class StepsList(Generic[T]):
         self.items = []
     
     def embed(self, task_step: Union[TaskStep, ActionStep, PlanningStep]) -> None:
-        pc, agent_index_name = self.pc, self.agent_index_name
         # Convert the text into numerical vectors that Pinecone can index
         content = None
         step_type = None
@@ -233,49 +231,12 @@ class StepsList(Generic[T]):
             content = task_step.facts + "\n\n" + task_step.plan
             step_type = "planning"
             
-        embeddings = pc.inference.embed(
-            model="multilingual-e5-large",
-            inputs=[content],
-            parameters={
-                "input_type": "passage", 
-                "truncate": "END"
-            }
-        )
-        # Prepare the records for upsert
-        # Each contains an 'id', the vector 'values', 
-        # and the original text and category as 'metadata'
-        records = []
-        for e in embeddings:
-            time_id = str(int(time.time()))
-            records.append({
-                "id": time_id,
-                "values": e["values"],
-                "metadata": {
-                    "step_type": step_type,
-                    "content": content,
-                    "name": self.name,
-                }
-            })
-
-        # Upsert the records into the index
-        
-        if not pc.has_index(name=agent_index_name):
-            pc.create_index(
-                name=agent_index_name,
-                dimension=1024,
-                metric="cosine",
-                spec=ServerlessSpec(
-                    cloud="aws", 
-                    region="us-east-1"
-                ) 
-            ) 
-            while not pc.describe_index(agent_index_name).status['ready']:
-                time.sleep(1)
-        index = pc.Index(agent_index_name)
-        index.upsert(
-            vectors=records,
-            namespace="prod"
-        )
+        self.redis_client.append(self.agent_index_name, {
+            "content": content,
+            "step_type": step_type,
+            "name": self.name,
+            "input_type": "passage", 
+        })
     
     def add(self, item: T) -> None:
         # self.embed(item)

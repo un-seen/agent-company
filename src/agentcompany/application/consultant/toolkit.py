@@ -3,14 +3,14 @@ from typing import List, Generator, Dict
 from rich import console
 import time
 import rich
-from agentcompany.driver.memory import get_pinecone_client
+from agentcompany.driver.memory import get_memory_index_name
 
 from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
 
-pc, agent_index_name = get_pinecone_client()
+pc, agent_index_name = get_memory_index_name()
 
 if not pc.has_index(name=agent_index_name):
     from pinecone import ServerlessSpec
