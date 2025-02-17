@@ -7,7 +7,10 @@ from agentcompany.application.consultant.toolkit import run_with as create_manag
 from agentcompany.driver.models import OpenAIServerModel
 import logfire
 from typing import Any
-logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
+
+if os.environ["LOGFIRE_TOKEN"]:
+    logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
+
 
 
 def default_sop(company_name: str) -> str:
