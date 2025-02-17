@@ -8,7 +8,7 @@ from agentcompany.driver.models import OpenAIServerModel
 import logfire
 from typing import Any
 
-if os.environ["LOGFIRE_TOKEN"]:
+if os.environ.get("LOGFIRE_TOKEN", None):
     logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
 
 
