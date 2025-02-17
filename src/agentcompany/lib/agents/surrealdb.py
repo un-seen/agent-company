@@ -119,12 +119,11 @@ Thought:
 I need to retrieve the current weather information for New York. I will query the currentWeather field with the city name as an argument and request the temperature and condition.
 
 ```graphql
-query {
-  currentWeather(city: "New York") {
-    temperature
-    condition
-  }
+currentWeather(city: "New York") {
+  temperature
+  condition
 }
+
 ```<end_query>
 
 Observation:
@@ -135,12 +134,10 @@ Thought:
 I want to display recent news articles from a hypothetical news feed. I will query the newsFeed field, requesting each article’s title, author, and publication date.
 
 ```graphql
-query {
-  newsFeed(limit: 5) {
-    title
-    author
-    publishedAt
-  }
+newsFeed(limit: 5) {
+  title
+  author
+  publishedAt
 }
 ```<end_query>
 
@@ -154,9 +151,7 @@ Thought:
 I need to determine the average test score for students in grade 10. Assuming our schema provides an averageScore field that accepts a grade parameter, I will query it directly.
 
 ```graphql
-query {
-  averageScore(grade: 10)
-}
+averageScore(grade: 10)
 ```<end_query>
 
 Observation:
@@ -169,17 +164,15 @@ Thought:
 I want to fetch a detailed profile of a student with a known ID. I will query the studentProfile field using the student ID and request the name, grade, and a list of test scores.
 
 ```graphql
-query {
-  studentProfile(id: "student123") {
-    name {
-      first
-      last
-    }
-    grade
-    testScores {
-      subject
-      score
-    }
+studentProfile(id: "student123") {
+  name {
+    first
+    last
+  }
+  grade
+  testScores {
+    subject
+    score
   }
 }
 ```<end_query>
@@ -194,12 +187,10 @@ Thought:
 I need to generate a trip itinerary for a user visiting Paris with interests in museums and food. I will query the tripPlanner field with these parameters and request the itinerary details.
 
 ```graphql
-query {
-  tripPlanner(destination: "Paris", interests: ["museums", "food"]) {
-    itinerary {
-      day
-      activity
-    }
+tripPlanner(destination: "Paris", interests: ["museums", "food"]) {
+  itinerary {
+    day
+    activity
   }
 }
 ```<end_query>
@@ -214,11 +205,9 @@ Thought:
 I want to obtain the latest stock price for a company with symbol "ACME". I will query the stockPrice field with the symbol and request the current price and change percentage.
 
 ```graphql
-query {
-  stockPrice(symbol: "ACME") {
-    currentPrice
-    changePercent
-  }
+stockPrice(symbol: "ACME") {
+  currentPrice
+  changePercent
 }
 ```<end_query>
 
