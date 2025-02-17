@@ -294,7 +294,7 @@ class SurrealDBAgent(MultiStepAgent):
               table_sample = table_sample[0]
               for key in table_sample.keys():
                 schema[table][key] = f"sample: {table_sample[key]}"
-        self.surreal_executor("DEFINE CONFIG GRAPHQL AUTO")
+        self.surreal_executor("DEFINE CONFIG GRAPHQL AUTO", {}, "sql")
         self.schema = schema
         super().__init__(
             name="surreal_graphql",
