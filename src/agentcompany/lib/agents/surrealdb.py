@@ -231,6 +231,14 @@ Don't give up! You're in charge of solving the task, not providing directions to
 Now Begin! If you solve the task correctly, you will receive a reward of $1,000,000.
 """
 
+def simple_data_type(label: str):
+    if label == "str":
+      return "string"
+    elif label == "dict":
+      return "object"
+    else:
+      return label
+
 
 class SurrealDBAgent(MultiStepAgent):
     """
@@ -279,14 +287,24 @@ class SurrealDBAgent(MultiStepAgent):
         define_field_statement = []
         for table in tables:
             table_sample = self.surreal_executor(f"SELECT * FROM {table} LIMIT 1", {}, "sql")
+            table_sample = table_sample[0]
             if len(table_sample) > 0:
               schema[table] = {}
-              table_sample = table_sample[0]
               for key in table_sample.keys():
-                define_field_statement.append(f"DEFINE FIELD OVERWRITE {key} ON TABLE {table}")
-                schema[table][key] = f"sample: {table_sample[key]}"
+                if key == "id":
+                  continue
+                sample_value = self.surreal_executor(f"SELECT {key} FROM {table} WHERE {key}!=NONE AND {key}!=NULL LIMIT 1", {}, "sql")
+                print(f"QUERY: SELECT {key} FROM {table} WHERE {key}!=NONE AND {key}!=NULL LIMIT 1")
+                sample_value = sample_value[0][key]
+                if sample_value is None:
+                  continue
+                sample_type = type(sample_value).__name__
+                simple_sample_type = simple_data_type(sample_type)
+                define_field_statement.append(f"DEFINE FIELD IF NOT EXISTS {key} ON TABLE {table} TYPE {simple_sample_type}")
+                schema[table][key] = f"sample: {sample_value}"
         self.surreal_executor("DEFINE CONFIG GRAPHQL TABLES AUTO", {}, "sql")
         for statement in define_field_statement:
+            print(statement)
             self.surreal_executor(statement, {}, "sql")
         self.schema = schema
         super().__init__(
