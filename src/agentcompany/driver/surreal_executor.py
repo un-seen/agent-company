@@ -28,6 +28,8 @@ class SurrealExecutor:
         
     
     def __call__(self, query: str, additional_variables: Dict, endpoint: METHOD):
+        query = query.replace("\n", " ")
+        
         if endpoint == "graphql":
             headers = {
                 "surreal-ns": self.namespace,
@@ -35,7 +37,7 @@ class SurrealExecutor:
                 "Accept": "application/json"
             }
             payload = {
-                "query": query
+                "query": "{ " + query + " }"
             }
             response = requests.post(f"{self.base_url}/{endpoint}", json=payload, headers=headers, auth=self.auth)
             return response.json()

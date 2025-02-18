@@ -276,14 +276,18 @@ class SurrealDBAgent(MultiStepAgent):
         data = self.surreal_executor("INFO FOR DB", {}, "sql")
         tables = data["tables"].keys()
         schema = {}
+        define_field_statement = []
         for table in tables:
             table_sample = self.surreal_executor(f"SELECT * FROM {table} LIMIT 1", {}, "sql")
             if len(table_sample) > 0:
               schema[table] = {}
               table_sample = table_sample[0]
               for key in table_sample.keys():
+                define_field_statement.append(f"DEFINE FIELD IF NOT EXISTS {key} ON TABLE {table}")
                 schema[table][key] = f"sample: {table_sample[key]}"
-        self.surreal_executor("DEFINE CONFIG GRAPHQL AUTO", {}, "sql")
+        self.surreal_executor("DEFINE CONFIG GRAPHQL TABLES AUTO", {}, "sql")
+        for statement in define_field_statement:
+            self.surreal_executor(statement, {}, "sql")
         self.schema = schema
         super().__init__(
             name="surreal_graphql",
@@ -294,7 +298,6 @@ class SurrealDBAgent(MultiStepAgent):
             planning_interval=planning_interval,
             **kwargs,
         )
-        self.logger.console.print(self.system_prompt)
         
         
     def initialize_system_prompt(self):
