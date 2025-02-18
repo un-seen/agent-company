@@ -1,5 +1,10 @@
 # Agent Company
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/un-seen/agent-company/ci.yml?branch=main)](https://github.com/un-seen/agent-company/actions)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+
+
 _A modular framework for building and orchestrating autonomous agent applications._
 
 Agent Company is designed to help developers build sophisticated multi-agent systems. With a modular architecture, it provides tools and abstractions to manage agents, execute code dynamically, search and manage memory, and even execute shell commands safely. The framework leverages Redis for messaging, integrates real-time logging with rich and logfire, and provides a flexible API to incorporate custom tools and agents.
