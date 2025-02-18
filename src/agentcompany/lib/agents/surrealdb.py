@@ -283,7 +283,7 @@ class SurrealDBAgent(MultiStepAgent):
               schema[table] = {}
               table_sample = table_sample[0]
               for key in table_sample.keys():
-                define_field_statement.append(f"DEFINE FIELD IF NOT EXISTS {key} ON TABLE {table}")
+                define_field_statement.append(f"DEFINE FIELD OVERWRITE {key} ON TABLE {table}")
                 schema[table][key] = f"sample: {table_sample[key]}"
         self.surreal_executor("DEFINE CONFIG GRAPHQL TABLES AUTO", {}, "sql")
         for statement in define_field_statement:
@@ -299,10 +299,23 @@ class SurrealDBAgent(MultiStepAgent):
             **kwargs,
         )
         
-        
+    
     def initialize_system_prompt(self):
         self.system_prompt = super().initialize_system_prompt()
-        self.system_prompt = self.system_prompt.replace("{{graphql_schema}}", json.dumps(self.schema))
+        
+        def get_table_str(name: str):
+            return f"""
+            Table: {name}
+            Fields:
+            {"\n".join(self.schema[name].keys())}
+            """
+        database_str = f"""{"\n".join([get_table_str(name) for name in self.schema.keys()])}"""
+        schema_str = f"""
+        Accessible Data:
+        {"\n".join(self.schema.keys())}
+        {database_str}
+        """
+        self.system_prompt = self.system_prompt.replace("{{graphql_schema}}", schema_str)
         
         return self.system_prompt
 
@@ -410,18 +423,3 @@ class SurrealDBAgent(MultiStepAgent):
         self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
         log_entry.action_output = output
         return output if is_final_answer else None
-
-
-if __name__ == "__main__":
-    from agentcompany.driver.models import OpenAIServerModel
-    model = OpenAIServerModel("gpt-4o-mini")
-    base_url="http://127.0.0.1:8000"
-    namespace="prod"
-    database="tempus"
-    agent = SurrealDBAgent(
-        model=model,
-        base_url=base_url,
-        namespace=namespace,
-        database=database,
-    )
-    agent.run("Fetch patient id")
