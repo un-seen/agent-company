@@ -1,11 +1,14 @@
 import requests
 from typing import Dict
-
+import logging
 # Literal type
 
 from typing import Literal
 
+
 METHOD = Literal["graphql", "sql"]
+
+logger = logging.getLogger(__name__)
 
 class SurrealExecutor:
     """
@@ -14,7 +17,7 @@ class SurrealExecutor:
     This environment takes as input a graphql query and 
     executes it using the requests library on the local surrealdb instance.
     """
-    def __init__(self, base_url: str, namespace: str, database: str):
+    def __init__(self, base_url: str, namespace: str, database: str, username: str = "root", password: str = "root"):
         """
         Initialize the environment with an optional base URL.
         
@@ -22,7 +25,7 @@ class SurrealExecutor:
             base_url (str): A base URL to prepend to every endpoint.
         """
         self.base_url = base_url
-        self.auth = ("root", "root")
+        self.auth = (username, password)
         self.namespace = namespace
         self.database = database
         
@@ -47,7 +50,11 @@ class SurrealExecutor:
             }
             full_query = f"USE NS {self.namespace}; USE DB {self.database}; {query}"
             response = requests.post(f"{self.base_url}/{endpoint}", data=full_query, headers=headers, auth=self.auth)
-            result = response.json()[2]["result"]
+            try:
+                result = response.json()[2]["result"]
+            except Exception as e:
+                logger.error(f"Error in executing query: {e}")
+                result = None
             return result
         
     
