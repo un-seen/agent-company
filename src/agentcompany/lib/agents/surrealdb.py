@@ -287,7 +287,7 @@ class SurrealDBAgent(MultiStepAgent):
         define_field_statement = []
         for table in tables:
             data = self.surreal_executor(f"INFO FOR TABLE {table}", {}, "sql")
-            table_field_dict = data["fields"] if "fields" in data else {}
+            table_field_dict = data["fields"] if isinstance(data, dict) and "fields" in data else {}
             table_field_name_list = table_field_dict.keys()
             table_sample = self.surreal_executor(f"SELECT * FROM {table} LIMIT 1", {}, "sql")
             if table_sample is not None and isinstance(table_sample, list) and len(table_sample) > 0:
