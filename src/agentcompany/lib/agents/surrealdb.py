@@ -129,7 +129,7 @@ def extract_table_id(s: str) -> str:
         return match.group(1)
     
     # No matching pattern found
-    return None
+    return s
 
 
 SURREAL_GRAPHQL_CODE_SYSTEM_PROMPT = """
