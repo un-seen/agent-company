@@ -285,28 +285,31 @@ class SurrealDBAgent(MultiStepAgent):
         tables = data["tables"].keys()
         schema = {}
         define_field_statement = []
-        for table in tables:
-            print(f"Loading schema for table: {table}")
-            data = self.surreal_executor(f"INFO FOR TABLE {table}", {}, "sql")
+        tables_indexed = set()
+        for table_record in tables:
+            table_name = table_record.split(":")[0]
+            tables_indexed.add(table_name)
+            print(f"Loading schema for table: {table_name}")
+            data = self.surreal_executor(f"INFO FOR TABLE {table_name}", {}, "sql")
             table_field_dict = data["fields"] if isinstance(data, dict) and "fields" in data else {}
             table_field_name_list = table_field_dict.keys()
-            table_sample = self.surreal_executor(f"SELECT * FROM {table} LIMIT 1", {}, "sql")
+            table_sample = self.surreal_executor(f"SELECT * FROM {table_name} LIMIT 1", {}, "sql")
             if table_sample is not None and isinstance(table_sample, list) and len(table_sample) > 0:
                 table_sample = table_sample[0]
-                schema[table] = {}
+                schema[table_name] = {}
                 for key in table_sample.keys():
                     if key == "id":
                         continue
-                    sample_value = self.surreal_executor(f"SELECT {key} FROM {table} WHERE {key}!=NONE AND {key}!=NULL LIMIT 1", {}, "sql")
-                    print(f"QUERY: SELECT {key} FROM {table} WHERE {key}!=NONE AND {key}!=NULL LIMIT 1")
+                    sample_value = self.surreal_executor(f"SELECT {key} FROM {table_name} WHERE {key}!=NONE AND {key}!=NULL LIMIT 1", {}, "sql")
+                    print(f"QUERY: SELECT {key} FROM {table_name} WHERE {key}!=NONE AND {key}!=NULL LIMIT 1")
                     sample_value = sample_value[0][key]
                     if sample_value is None:
                         continue
                     sample_type = type(sample_value).__name__
                     simple_sample_type = simple_data_type(sample_type)
                     if key not in table_field_name_list:
-                        define_field_statement.append(f"DEFINE FIELD IF NOT EXISTS {key} ON TABLE {table} TYPE {simple_sample_type}")
-                    schema[table][key] = f"sample: {sample_value}"
+                        define_field_statement.append(f"DEFINE FIELD IF NOT EXISTS {key} ON TABLE {table_name} TYPE {simple_sample_type}")
+                    schema[table_name][key] = f"sample: {sample_value}"
         self.surreal_executor("DEFINE CONFIG GRAPHQL TABLES AUTO", {}, "sql")
         for statement in define_field_statement:
             print(f"Defining field: {statement}")
