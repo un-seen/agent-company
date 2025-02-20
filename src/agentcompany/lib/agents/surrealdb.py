@@ -286,6 +286,7 @@ class SurrealDBAgent(MultiStepAgent):
         schema = {}
         define_field_statement = []
         for table in tables:
+            print(f"Loading schema for table: {table}")
             data = self.surreal_executor(f"INFO FOR TABLE {table}", {}, "sql")
             table_field_dict = data["fields"] if isinstance(data, dict) and "fields" in data else {}
             table_field_name_list = table_field_dict.keys()
