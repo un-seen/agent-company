@@ -287,17 +287,17 @@ class SurrealDBAgent(MultiStepAgent):
         define_field_statement = []
         for table in tables:
             table_sample = self.surreal_executor(f"SELECT * FROM {table} LIMIT 1", {}, "sql")
-            table_sample = table_sample[0]
-            if len(table_sample) > 0:
-              schema[table] = {}
-              for key in table_sample.keys():
+            if table_sample is not None and isinstance(table_sample, list) and len(table_sample) > 0:
+                table_sample = table_sample[0]
+                schema[table] = {}
+                for key in table_sample.keys():
                 if key == "id":
-                  continue
+                    continue
                 sample_value = self.surreal_executor(f"SELECT {key} FROM {table} WHERE {key}!=NONE AND {key}!=NULL LIMIT 1", {}, "sql")
                 print(f"QUERY: SELECT {key} FROM {table} WHERE {key}!=NONE AND {key}!=NULL LIMIT 1")
                 sample_value = sample_value[0][key]
                 if sample_value is None:
-                  continue
+                    continue
                 sample_type = type(sample_value).__name__
                 simple_sample_type = simple_data_type(sample_type)
                 define_field_statement.append(f"DEFINE FIELD IF NOT EXISTS {key} ON TABLE {table} TYPE {simple_sample_type}")
