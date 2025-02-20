@@ -12,7 +12,7 @@ from rich.syntax import Syntax
 from rich.text import Text
 import json
 from agentcompany.driver.surreal_executor import SurrealExecutor
-
+import re
 from agentcompany.driver.monitoring import (
     AgentLogger,
     LogLevel,
@@ -102,6 +102,34 @@ def parse_graphql_code_blob(code_blob: str) -> str:
 
     # Return the extracted GraphQL code(s), joined with double newlines if multiple blocks were found
     return "\n\n".join(match.strip() for match in matches)
+
+
+def extract_table_id(s: str) -> str:
+    """
+    Extracts and returns the table id from a given string.
+    
+    The function supports two formats:
+    1. RecordID("person", 0) -> returns "person"
+    2. dicom_instance:1.2.826.0.1.3680043.8.498.10003957563633282796425298599985627914 -> returns "dicom_instance"
+    
+    Args:
+        s (str): The input string.
+    
+    Returns:
+        str: The extracted table id, or None if no matching pattern is found.
+    """
+    # Try to match the RecordID format: RecordID("person", 0)
+    match = re.search(r'RecordID\("([^"]+)"', s)
+    if match:
+        return match.group(1)
+    
+    # Try to match the colon-separated format: dicom_instance:...
+    match = re.search(r'^([^:]+):', s)
+    if match:
+        return match.group(1)
+    
+    # No matching pattern found
+    return None
 
 
 SURREAL_GRAPHQL_CODE_SYSTEM_PROMPT = """
@@ -287,7 +315,9 @@ class SurrealDBAgent(MultiStepAgent):
         define_field_statement = []
         tables_indexed = set()
         for table_record in tables:
-            table_name = table_record.split(":")[0]
+            table_name = extract_table_id(table_record)
+            if table_name in tables_indexed:
+                continue
             tables_indexed.add(table_name)
             print(f"Loading schema for table: {table_name}")
             data = self.surreal_executor(f"INFO FOR TABLE {table_name}", {}, "sql")
