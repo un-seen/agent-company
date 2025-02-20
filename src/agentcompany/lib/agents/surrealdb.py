@@ -286,6 +286,9 @@ class SurrealDBAgent(MultiStepAgent):
         schema = {}
         define_field_statement = []
         for table in tables:
+            data = self.surreal_executor(f"INFO FOR TABLE {table}", {}, "sql")
+            table_field_dict = data["fields"]
+            table_field_name_list = table_field_dict.keys()
             table_sample = self.surreal_executor(f"SELECT * FROM {table} LIMIT 1", {}, "sql")
             if table_sample is not None and isinstance(table_sample, list) and len(table_sample) > 0:
                 table_sample = table_sample[0]
@@ -300,11 +303,12 @@ class SurrealDBAgent(MultiStepAgent):
                         continue
                     sample_type = type(sample_value).__name__
                     simple_sample_type = simple_data_type(sample_type)
-                    define_field_statement.append(f"DEFINE FIELD IF NOT EXISTS {key} ON TABLE {table} TYPE {simple_sample_type}")
+                    if key not in table_field_name_list:
+                        define_field_statement.append(f"DEFINE FIELD IF NOT EXISTS {key} ON TABLE {table} TYPE {simple_sample_type}")
                     schema[table][key] = f"sample: {sample_value}"
         self.surreal_executor("DEFINE CONFIG GRAPHQL TABLES AUTO", {}, "sql")
         for statement in define_field_statement:
-            print(statement)
+            print(f"Defining field: {statement}")
             self.surreal_executor(statement, {}, "sql")
         self.schema = schema
         super().__init__(
