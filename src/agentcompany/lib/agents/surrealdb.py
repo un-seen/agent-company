@@ -316,6 +316,9 @@ class SurrealDBAgent(MultiStepAgent):
         tables_indexed = set()
         for table_record in tables:
             table_name = extract_table_id(table_record)
+            if table_name is None:
+                logger.error(f"Could not extract table name from: {table_record}")
+                continue
             if table_name in tables_indexed:
                 continue
             tables_indexed.add(table_name)
