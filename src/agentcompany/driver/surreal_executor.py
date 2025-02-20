@@ -54,6 +54,7 @@ class SurrealExecutor:
                 result = response.json()[2]["result"]
             except Exception as e:
                 logger.error(f"Error in executing query: {e}")
+                logger.error(f"Query: {full_query}")
                 result = None
             return result
         
