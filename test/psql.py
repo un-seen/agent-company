@@ -16,4 +16,5 @@ if __name__ == "__main__":
         pg_config=pg_config,
     )
     data = agent.run("Fetch patients with cancer recurrence")
-    print(data)
+    print(f"Result")
+    print(str(data)[:100] + "...")

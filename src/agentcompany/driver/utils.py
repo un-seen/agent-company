@@ -58,10 +58,7 @@ class AgentError(Exception):
     def __init__(self, message, logger: "AgentLogger"):
         super().__init__(message)
         self.message = message
-        logger.log(
-            Text(f"{message}", style=f"bold red"),
-            level=LogLevel.ERROR,
-        )
+        print(message)
 
     def dict(self) -> Dict[str, str]:
         return {"type": self.__class__.__name__, "message": str(self.message)}

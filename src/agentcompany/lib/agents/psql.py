@@ -132,6 +132,7 @@ Below are the accessible data details:
 
 Do not introduce any fields that do not exist in the database schema.
 Use only variables that you have defined.
+Always double-quote column names and table names in your queries.
 Never create any notional variables in your queries.
 Don't give up! You are in charge of solving the task, not providing directions to solve it.
 
