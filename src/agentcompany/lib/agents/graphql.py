@@ -268,7 +268,7 @@ def simple_data_type(label: str):
       return label
 
 
-class SurrealDBAgent(MultiStepAgent):
+class GraphqlAgent(MultiStepAgent):
     """
     In this agent, the LLM writes graphql queries to fetch data as per user prompt
 

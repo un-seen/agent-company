@@ -1,5 +1,5 @@
 from agentcompany.driver.models import OpenAIServerModel
-from agentcompany.lib.agents.surrealdb import SurrealDBAgent
+from agentcompany.lib.agents.graphql import GraphqlAgent
 
 if __name__ == "__main__":
     
@@ -7,7 +7,7 @@ if __name__ == "__main__":
     base_url="http://127.0.0.1:8000"
     namespace="prod"
     database="tempus"
-    agent = SurrealDBAgent(
+    agent = GraphqlAgent(
         model=model,
         base_url=base_url,
         namespace=namespace,

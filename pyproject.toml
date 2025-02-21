@@ -17,7 +17,8 @@
         "redis",
         "jinja2>=3.1.5",
         "logfire",
-        "duckduckgo-search"
+        "duckduckgo-search",
+        "psycopg2-binary"
     ]
 
 
