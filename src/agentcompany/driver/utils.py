@@ -5,6 +5,7 @@ import importlib.util
 import inspect
 import json
 import re
+from rich.text import Text
 import textwrap
 import types
 from functools import lru_cache
@@ -57,7 +58,10 @@ class AgentError(Exception):
     def __init__(self, message, logger: "AgentLogger"):
         super().__init__(message)
         self.message = message
-        logger.log(f"[bold red]{message}[/bold red]", level=LogLevel.ERROR)
+        self.logger.log(
+            Text(f"{message}", style=f"bold red"),
+            level=LogLevel.ERROR,
+        )
 
     def dict(self) -> Dict[str, str]:
         return {"type": self.__class__.__name__, "message": str(self.message)}
