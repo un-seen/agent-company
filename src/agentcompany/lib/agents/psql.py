@@ -23,6 +23,10 @@ from agentcompany.driver.utils import (
     AgentParsingError,
     truncate_content,
 )
+from agentcompany.driver.memory import (
+    ActionStep,
+    ToolCall
+)
 
 logger = getLogger(__name__)
 YELLOW_HEX = "#d4b702"
@@ -211,17 +215,21 @@ class PsqlAgent(MultiStepAgent):
             cur.execute(query, params)
             return cur.fetchall()
 
-    def step(self, log_entry: Any) -> Union[None, Any]:
+    def step(self, log_entry: ActionStep) -> Union[None, Any]:
         """
-        Performs one ReAct step: generates output, parses a PSQL code blob,
-        executes it against PostgreSQL, and logs the result.
+        Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
+        Returns None if the step is not final.
         """
         memory_messages = self.write_memory_to_messages()
-        self.input_messages = memory_messages.copy()
-        log_entry.model_input_messages = memory_messages.copy()
 
+        self.input_messages = memory_messages.copy()
+
+        # Add new step in logs
+        log_entry.model_input_messages = memory_messages.copy()
         try:
-            additional_args = {"grammar": self.grammar} if self.grammar is not None else {}
+            additional_args = (
+                {"grammar": self.grammar} if self.grammar is not None else {}
+            )
             chat_message: ChatMessage = self.model(
                 self.input_messages,
                 stop_sequences=["<end_query>", "Observation:"],
@@ -231,12 +239,23 @@ class PsqlAgent(MultiStepAgent):
             model_output = chat_message.content
             log_entry.model_output = model_output
         except Exception as e:
-            raise AgentGenerationError(f"Error generating model output:\n{e}", logger) from e
+            raise AgentGenerationError(
+                f"Error in generating model output:\n{e}", self.logger
+            ) from e
 
         self.logger.log(
             Group(
-                Rule(f"[italic]Output message of the LLM ({self.name}):", align="left", style="orange"),
-                Syntax(model_output, lexer="markdown", theme="github-dark", word_wrap=True),
+                Rule(
+                    f"[italic]Output message of the LLM ({self.name}):",
+                    align="left",
+                    style="orange",
+                ),
+                Syntax(
+                    model_output,
+                    lexer="markdown",
+                    theme="github-dark",
+                    word_wrap=True,
+                ),
             ),
             level=LogLevel.DEBUG,
         )
@@ -244,19 +263,29 @@ class PsqlAgent(MultiStepAgent):
         try:
             code_action = fix_final_answer_code(parse_psql_code_blob(model_output))
         except Exception as e:
-            error_msg = f"Error parsing code blob:\n{e}\nEnsure your PSQL code is correctly formatted."
-            raise AgentParsingError(error_msg, logger)
-        
-        log_entry.tool_calls = [{
-            "name": "psql_executor",
-            "arguments": code_action,
-            "id": f"call_{len(self.memory.steps)}",
-        }]
+            error_msg = (
+                f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+            )
+            raise AgentParsingError(error_msg, self.logger)
 
+        log_entry.tool_calls = [
+            ToolCall(
+                name="psql_executor",
+                arguments=code_action,
+                id=f"call_{len(self.memory.steps)}",
+            )
+        ]
+
+        # Execute
         self.logger.log(
             Panel(
-                Syntax(code_action, lexer="sql", theme="monokai", word_wrap=True),
-                title="[bold]Executing this PSQL code:",
+                Syntax(
+                    code_action,
+                    lexer="graphql",
+                    theme="monokai",
+                    word_wrap=True,
+                ),
+                title="[bold]Executing this code:",
                 title_align="left",
                 box=box.HORIZONTALS,
             ),
@@ -265,20 +294,26 @@ class PsqlAgent(MultiStepAgent):
         observation = ""
         is_final_answer = True
         try:
-            output = self.pg_executor(code_action)
+            # Parse
+            output = self.pg_executor(
+                code_action,
+                self.state,
+            )
+            execution_outputs_console = []
             observation += "Execution logs:\n" + json.dumps(output)
         except Exception as e:
             error_msg = str(e)
-            raise AgentExecutionError(error_msg, logger)
+            raise AgentExecutionError(error_msg, self.logger)
+
         truncated_output = truncate_content(str(output))
         observation += "Last output from code snippet:\n" + truncated_output
         log_entry.observations = observation
-
-        self.logger.log(
-            Group(
-                Text(f"{'Out - Final answer' if is_final_answer else 'Out'}: {truncated_output}",
-                     style=(f"bold {YELLOW_HEX}" if is_final_answer else ""))),
-            level=LogLevel.INFO,
-        )
+        execution_outputs_console += [
+            Text(
+                f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
+                style=(f"bold {YELLOW_HEX}" if is_final_answer else ""),
+            ),
+        ]
         log_entry.action_output = output
+        self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
         return output if is_final_answer else None
