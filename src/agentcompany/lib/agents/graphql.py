@@ -480,4 +480,4 @@ class GraphqlAgent(MultiStepAgent):
         ]
         log_entry.action_output = output
         self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
-        return output if is_final_answer else None
+        return {"answer": output} if is_final_answer else None
