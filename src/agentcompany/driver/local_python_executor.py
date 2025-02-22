@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from importlib import import_module
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple
-
+import traceback
 import numpy as np
 import pandas as pd
 
@@ -1224,6 +1224,7 @@ class FinalAnswerException(Exception):
         self.value = value
 
 
+
 def evaluate_python_code(
     code: str,
     static_tools: Optional[Dict[str, Callable]] = None,
@@ -1239,18 +1240,12 @@ def evaluate_python_code(
     This function will recurse through the nodes of the tree provided.
 
     Args:
-        code (`str`):
-            The code to evaluate.
-        static_tools (`Dict[str, Callable]`):
-            The functions that may be called during the evaluation. These can also be agents in a multiagent setting.
-            These tools cannot be overwritten in the code: any assignment to their name will raise an error.
-        custom_tools (`Dict[str, Callable]`):
-            The functions that may be called during the evaluation.
-            These tools can be overwritten in the code: any assignment to their name will overwrite them.
-        state (`Dict[str, Any]`):
-            A dictionary mapping variable names to values. The `state` should contain the initial inputs but will be
-            updated by this function to contain all variables as they are evaluated.
-            The print outputs will be stored in the state under the key 'print_outputs'.
+        code (str): The code to evaluate.
+        static_tools (Optional[Dict[str, Callable]]): The functions that may be called during the evaluation.
+        custom_tools (Optional[Dict[str, Callable]]): The functions that may be called during the evaluation.
+        state (Optional[Dict[str, Any]]): A dictionary mapping variable names to values.
+        authorized_imports (List[str]): List of modules that are allowed to be imported.
+        max_print_outputs_length (int): Maximum length for the captured print outputs.
     """
     try:
         expression = ast.parse(code)
@@ -1288,10 +1283,10 @@ def evaluate_python_code(
         is_final_answer = True
         return e.value, is_final_answer
     except Exception as e:
-        exception_type = type(e).__name__
+        error_trace = traceback.format_exc()
         error_content = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
         error_msg = (
-            f"Code execution failed at line '{ast.get_source_segment(code, node)}' due to: {str(e.with_traceback())}",
+            f"Code execution failed at node '{ast.get_source_segment(code, node)}' due to exception:\n{error_trace}",
             PRINT_OUTPUTS,
             error_content
         )
