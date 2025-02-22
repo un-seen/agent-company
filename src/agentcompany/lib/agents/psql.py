@@ -212,7 +212,7 @@ class PsqlAgent(MultiStepAgent):
         Executes the given PSQL query on PostgreSQL and returns the results as a list of dicts.
         """
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(query, params)
+            cur.execute(query, **params)
             return cur.fetchall()
 
     def step(self, log_entry: ActionStep) -> Union[None, Any]:
