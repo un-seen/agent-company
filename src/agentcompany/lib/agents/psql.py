@@ -316,4 +316,6 @@ class PsqlAgent(MultiStepAgent):
         ]
         log_entry.action_output = output
         self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
-        return output if is_final_answer else None
+        
+        output = {"final_answer": output} if is_final_answer else {"answer": output}
+        return output 
