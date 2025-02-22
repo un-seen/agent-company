@@ -1291,7 +1291,7 @@ def evaluate_python_code(
         exception_type = type(e).__name__
         error_content = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
         error_msg = (
-            f"Code execution failed at line '{ast.get_source_segment(code, node)}' due to: {exception_type}:{str(e)}",
+            f"Code execution failed at line '{ast.get_source_segment(code, node)}' due to: {str(e.with_traceback())}",
             PRINT_OUTPUTS,
             error_content
         )
