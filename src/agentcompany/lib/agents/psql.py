@@ -84,8 +84,6 @@ To solve the task, you must plan forward in a series of steps, in a cycle of 'Th
 
 At each step, in the 'Thought:' sequence, you should first explain your reasoning toward solving the task.
 Then, in the 'PSQL:' sequence, you should write a valid PostgreSQL query. The PSQL sequence must end with a ```<end_query> marker.
-During each intermediate step, you can use queries (for example, for logging or retrieving intermediate results) to output any important information you will then need.
-These outputs will then appear in the 'Observation:' field, which will be available as input for the next step.
 
 Here are a few notional query examples:
 

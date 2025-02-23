@@ -349,7 +349,7 @@ class GraphqlAgent(MultiStepAgent):
             self.surreal_executor(statement, {}, "sql")
         self.schema = schema
         super().__init__(
-            name="surreal_graphql",
+            name="graphql_agent",
             tools=[],
             model=model,
             system_prompt=system_prompt,

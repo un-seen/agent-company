@@ -15,6 +15,6 @@ if __name__ == "__main__":
         model=model,
         pg_config=pg_config,
     )
-    data = agent.run("Fetch patients with cancer recurrence")
+    data = agent.run("Identify patients who have a family history of cancer.")
     print(f"Result")
     print(str(data)[:100] + "...")
