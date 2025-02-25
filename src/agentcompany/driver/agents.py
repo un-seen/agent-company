@@ -986,7 +986,6 @@ class ManagerAgent(MultiStepAgent):
         Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
         Returns None if the step is not final.
         """
-        self.supervisor_agent.set_task(self.task)
         memory_messages = self.write_memory_to_messages()
         self.input_messages = memory_messages.copy()
 
