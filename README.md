@@ -19,12 +19,20 @@ Key components include:
 - **Executors:** Components for running external commands such as a safe Bash interpreter and a SurrealDB executor for GraphQL/SQL queries.
 - **Validation & Types:** Built-in mechanisms for tool validation and type handling to ensure that agent outputs (text, images, audio) are correctly processed and displayed.
 
-## Features
+## 🌟 Features
 
-- **Modular Agent Architecture:** Build custom agent workflows by combining specialized agents.
-- **Dynamic Tool Integration:** Easily add and validate tools (e.g., code execution, web search, memory lookup).
-- **Real-Time Monitoring:** Utilize rich logging with logfire, redis and terminal output
-- **Coming Soon:** SFT and GRPO support on the base llms!
+<div align="center">
+
+| 🧩 Modular Architecture | 🔧 Dynamic Tools | 📊 Real-time Monitoring |
+|-------------------------|------------------|-------------------------|
+| Build agent hierarchies | Add custom tools | Rich logging dashboard  |
+
+</div>
+
+- 🚀 **Coming Soon**: SFT & GRPO support for base LLMs!
+- 🛡️ Safe shell execution with permission controls
+- 🔍 Integrated memory search using Redis
+- 🤝 OpenAI-compatible API endpoints
 
 ## Dependencies
 
@@ -62,114 +70,33 @@ Key components include:
 
 The ConsultantApp demonstrates how to extend the BasicApp abstract class to create a custom agent application. Below is an example of how to set up and run the ConsultantApp with user input.
 
-##### Example: ConsultantApp
+#### Example: ConsultantApp
 ```py
-import os
-import logfire
-from agentcompany.driver import PythonCodeAgent, ManagerAgent, tool, ManagedAgent, BasicApp
-from agentcompany.driver.memory import get_memory_index_name
-from dotenv import load_dotenv
+from agentcompany.framework import BasicApp
+from agentcompany.driver import PythonCodeAgent, ManagerAgent
 
-# Configure logging if a Logfire token is provided
-if os.environ.get("LOGFIRE_TOKEN", None):
-    logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
-
-# Define a custom tool for duckduckgo search
-@tool
-def duckduckgo_search(query: str) -> List[str]:
-    """
-    Searches for relevant information in past memories or new discoveries.
-    Discoveries are immediately stored in memory.
-    
-    Args:
-        query: The text query to search for in memory.
-    
-    Returns:
-        results: A list of memories matching the query.
-    """
-    try:
-        from duckduckgo_search import DDGS
-    except ImportError as e:
-        raise ImportError(
-            "You must install package `duckduckgo_search` to run this tool: for instance run `pip install duckduckgo-search`."
-        ) from e
-    ddgs = DDGS()
-    results = ddgs.text(query, max_results=3)
-    if len(results) == 0:
-        raise Exception("No results found! Try a less restrictive/shorter query.")
-    postprocessed_results = [f"[{result['title']}]({result['href']})\n{result['body']}" for result in results]
-    return postprocessed_results
-
-# Extend BasicApp to create a custom application
-class ConsultantApp(BasicApp):
-    def __init__(self, company_name, model_name="gpt-4o-mini", **kwargs):
-        super().__init__(company_name, model_name, **kwargs)
-    
-    def create_manager_agent(self) -> ManagerAgent:
-        """
-        Implements the abstract method by creating a ManagerAgent composed of
-        a reasoning specialist and a plan specialist.
-        """
-        company_name = self.company_name
-        model = self.model
-
-        # Create a managed reasoning agent
-        managed_reasoning_agent = ManagedAgent(
-            company_name=company_name,
-            agent=PythonCodeAgent(
-                name="reasoningspecialist",
-                managed_agents=[],
-                tools=[],
-                model=model,
-                additional_authorized_imports=[],
-                step_callbacks=[],
-                max_steps=3,
-            ),
-            description=(
-                f"Given a step of actions and the user objective, "
-                f"it reasons about the prompt to come up with parallel possible plans of actions, "
-                f"with slight suggestive modifications if necessary to complete the objective."
-            )
+class StartupConsultants(BasicApp):
+    def create_manager_agent(self):
+        developer = PythonCodeAgent(
+            name="fullstack_dev",
+            tools=[web_scraper, sql_executor],
+            description="Full-stack development expert"
+        )
+        
+        strategist = PythonCodeAgent(
+            name="growth_hacker",
+            tools=[market_analyzer, seo_optimizer],
+            description="Digital growth specialist"
+        )
+        
+        return ManagerAgent(
+            managed_agents=[developer, strategist],
+            name="startup_ceo"
         )
 
-        # Create a managed plan agent
-        managed_plan_agent = ManagedAgent(
-            company_name=company_name,
-            agent=PythonCodeAgent(
-                name="planspecialist",
-                managed_agents=[],
-                tools=[duckduckgo_search],
-                model=model,
-                additional_authorized_imports=[],
-                step_callbacks=[],
-                max_steps=3,
-                verbosity_level=2,
-            ),
-            description=(
-                f"Given objective guidance, it creates a plan of actions to complete the objective."
-            )
-        )
-
-        # Create the CEO ManagerAgent that uses the managed agents
-        ceo_agent = ManagerAgent(
-            company_name=company_name,
-            model=model,
-            managed_agents=[managed_plan_agent, managed_reasoning_agent],
-            additional_authorized_imports=["*"],
-            step_callbacks=[],
-            max_steps=3,
-            verbosity_level=2,
-            name="ceo",
-        )
-        return ceo_agent
-
-# Initialize and run the ConsultantApp
-if __name__ == "__main__":
-    app = ConsultantApp(company_name="YourCompany")
-    app.start()
-
-    # Send a user input to the application
-    app.send_user_input("Initiate task: generate a strategic plan.")
+# Launch your agent team
+app = StartupConsultants(company_name="TechPioneers")
+app.send_user_input("Develop MVP for AI-powered analytics platform")
 ```
 
 ## Project Structure
