@@ -23,19 +23,16 @@ Key components include:
 
 - **Modular Agent Architecture:** Build custom agent workflows by combining specialized agents.
 - **Dynamic Tool Integration:** Easily add and validate tools (e.g., code execution, web search, memory lookup).
-- **Real-Time Monitoring:** Utilize rich logging and monitoring tools to visualize agent activity.
-- **Flexible Executors:** Run local Bash scripts or query a SurrealDB instance using GraphQL or SQL.
-- **Extensible Framework:** Designed to allow integration with third-party services, additional agent types, and custom workflows.
+- **Real-Time Monitoring:** Utilize rich logging with logfire, redis and terminal output
+- **Coming Soon:** SFT and GRPO support on the base llms!
 
-## Installation
-
-### Prerequisites
+## Dependencies
 
 - **Python 3.8+**
-- [Redis](https://redis.io/) – used for messaging and task queues.
-- Environment packages for optional features (e.g., `duckduckgo-search`, `dotenv`, `rich`, `logfire`).
+- [Redis](https://redis.io/) – used for memory and logging.
+- [Logfire](https://logfire.pydantic.dev/) – used for monitoring.
 
-### Setup
+## Setup
 
 1. **Clone the Repository:**
 
@@ -59,44 +56,127 @@ Key components include:
     ```
     You can extend this file with additional configuration as needed.
 
-### Usage
+## Usage
 
-### Running the Consultant Application
+### Building and Running a Custom Agent Application
 
-The ConsultantApp serves as an example of how to set up and run an agent-driven application.
+The ConsultantApp demonstrates how to extend the BasicApp abstract class to create a custom agent application. Below is an example of how to set up and run the ConsultantApp with user input.
 
-1. **Start the Application:**
-    Write a simple runner script (e.g., run_consultant.py) with the following:
-    ```python
-    from agentcompany.application.consultant import ConsultantApp
+##### Example: ConsultantApp
+```py
+import os
+import logfire
+from agentcompany.driver import PythonCodeAgent, ManagerAgent, tool, ManagedAgent, BasicApp
+from agentcompany.driver.memory import get_memory_index_name
+from dotenv import load_dotenv
 
-    # Initialize the application with your company name and an optional SOP.
+# Configure logging if a Logfire token is provided
+if os.environ.get("LOGFIRE_TOKEN", None):
+    logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
+
+# Define a custom tool for duckduckgo search
+@tool
+def duckduckgo_search(query: str) -> List[str]:
+    """
+    Searches for relevant information in past memories or new discoveries.
+    Discoveries are immediately stored in memory.
+    
+    Args:
+        query: The text query to search for in memory.
+    
+    Returns:
+        results: A list of memories matching the query.
+    """
+    try:
+        from duckduckgo_search import DDGS
+    except ImportError as e:
+        raise ImportError(
+            "You must install package `duckduckgo_search` to run this tool: for instance run `pip install duckduckgo-search`."
+        ) from e
+    ddgs = DDGS()
+    results = ddgs.text(query, max_results=3)
+    if len(results) == 0:
+        raise Exception("No results found! Try a less restrictive/shorter query.")
+    postprocessed_results = [f"[{result['title']}]({result['href']})\n{result['body']}" for result in results]
+    return postprocessed_results
+
+# Extend BasicApp to create a custom application
+class ConsultantApp(BasicApp):
+    def __init__(self, company_name, model_name="gpt-4o-mini", **kwargs):
+        super().__init__(company_name, model_name, **kwargs)
+    
+    def create_manager_agent(self) -> ManagerAgent:
+        """
+        Implements the abstract method by creating a ManagerAgent composed of
+        a reasoning specialist and a plan specialist.
+        """
+        company_name = self.company_name
+        model = self.model
+
+        # Create a managed reasoning agent
+        managed_reasoning_agent = ManagedAgent(
+            company_name=company_name,
+            agent=PythonCodeAgent(
+                name="reasoningspecialist",
+                managed_agents=[],
+                tools=[],
+                model=model,
+                additional_authorized_imports=[],
+                step_callbacks=[],
+                max_steps=3,
+            ),
+            description=(
+                f"Given a step of actions and the user objective, "
+                f"it reasons about the prompt to come up with parallel possible plans of actions, "
+                f"with slight suggestive modifications if necessary to complete the objective."
+            )
+        )
+
+        # Create a managed plan agent
+        managed_plan_agent = ManagedAgent(
+            company_name=company_name,
+            agent=PythonCodeAgent(
+                name="planspecialist",
+                managed_agents=[],
+                tools=[duckduckgo_search],
+                model=model,
+                additional_authorized_imports=[],
+                step_callbacks=[],
+                max_steps=3,
+                verbosity_level=2,
+            ),
+            description=(
+                f"Given objective guidance, it creates a plan of actions to complete the objective."
+            )
+        )
+
+        # Create the CEO ManagerAgent that uses the managed agents
+        ceo_agent = ManagerAgent(
+            company_name=company_name,
+            model=model,
+            managed_agents=[managed_plan_agent, managed_reasoning_agent],
+            additional_authorized_imports=["*"],
+            step_callbacks=[],
+            max_steps=3,
+            verbosity_level=2,
+            name="ceo",
+        )
+        return ceo_agent
+
+# Initialize and run the ConsultantApp
+if __name__ == "__main__":
     app = ConsultantApp(company_name="YourCompany")
     app.start()
 
-    # Send a sample user input (which will be processed by the manager agent).
+    # Send a user input to the application
     app.send_user_input("Initiate task: generate a strategic plan.")
-    ```
-    You can extend this file with additional configuration as needed.
+```
 
-2. **Monitor the Console:**
-    The agent will start a background worker thread that listens to Redis, processes messages, and logs output using rich formatting.
-
-### Extending the framework
-
-- Adding Tools: Extend the tool set by creating new tool classes following the patterns in driver/default_tools.py.
-- Creating Agents: Build your own ManagedAgents by extending the base classes in driver/agent_app.py.
-- Integration: Use executors like LocalBashInterpreter or SurrealExecutor for specific tasks or integrations.
-
-### Project Structure
+## Project Structure
 ```graphql
 agent-company/
 ├── src/
 │   └── agentcompany/
-│       ├── application/
-│       │   └── consultant/
-│       │       ├── __init__.py          # Exposes ConsultantApp
-│       │       └── create.py            # Implements ConsultantApp and default SOP
 │       ├── driver/
 │       │   ├── __init__.py              # Core imports and version info
 │       │   ├── agent_app.py             # Defines BasicApp and worker thread logic
@@ -104,6 +184,12 @@ agent-company/
 │       │   ├── local_bash_executor.py   # Safe Bash command execution
 │       │   ├── monitoring.py            # Logging and monitoring utilities using rich
 │       │   ├──
+│   └── lib/agents
+│       │   ├── __init__.py              # Core imports and version info
+│       │   ├── bash.py                  # Write bash code and runs it in local bash environment
+│       │   ├── graphql.py               # Writes graphql code and interfaces with surrealdb 
+│       │   ├── psql.py                  # Writes sql code and interfaces with postgresql
+│       │   ├── tfserving.py             # Writes json blobs to call tfserving agents
 ```
 
 ## Contribute
@@ -128,12 +214,7 @@ Contributions are very welcome! To contribute:
 Please follow our contribution guidelines and code style. For more details, refer to the CONTRIBUTING.md file.
 
 
-### License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE.md) file for more details.
-
 ## Acknowledgements
 Developed with ❤️ by [@aloobhujiyan](https://twitter.com/aloobhujiyan)
 Thanks to the open-source community for encouraging me to start this.
 Agent Company is an evolving project—your feedback and contributions are crucial to its growth. Happy coding!
-
-Copy
