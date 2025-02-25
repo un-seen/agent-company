@@ -3,13 +3,6 @@ import time
 from collections import deque
 from logging import getLogger
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
-
-from rich import box
-from rich.console import Group
-from rich.panel import Panel
-from rich.rule import Rule
-from rich.syntax import Syntax
-from rich.text import Text
 import json
 
 from .monitoring import (
@@ -396,13 +389,7 @@ You have been provided with these additional arguments, that you can access usin
         if reset:
             self.memory.reset()
         self.logger.log(
-            Panel(
-                f"\n[bold]{self.task.strip()}\n",
-                title=f"[bold]New run ({self.name})",
-                subtitle=f"{type(self.model).__name__} - {(self.model.model_id if hasattr(self.model, 'model_id') else '')}",
-                border_style=YELLOW_HEX,
-                subtitle_align="left",
-            ),
+            f"[bold]New run ({self.name})",
             level=LogLevel.INFO,
         )
 
@@ -448,11 +435,7 @@ You have been provided with these additional arguments, that you can access usin
                         step=self.step_number,
                     )
                 self.logger.log(
-                    Rule(
-                        f"[bold]Step {self.step_number}",
-                        characters="━",
-                        style=YELLOW_HEX,
-                    ),
+                    f"[bold]Step {self.step_number}",
                     level=LogLevel.INFO,
                 )
 
@@ -556,8 +539,7 @@ Now begin!""",
                 )
             )
             self.logger.log(
-                Rule("[bold]Initial plan", style="orange"),
-                Text(final_plan_redaction),
+                f"[bold]Initial plan: {final_plan_redaction}",
                 level=LogLevel.INFO,
             )
         else:  # update plan
@@ -621,8 +603,7 @@ Now begin!""",
                 )
             )
             self.logger.log(
-                Rule("[bold]Updated plan", style="orange"),
-                Text(final_plan_redaction),
+                f"[bold]Updated plan: {final_plan_redaction}",
                 level=LogLevel.INFO,
             )
 
@@ -690,7 +671,7 @@ class ToolCallingAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            Panel(Text(f"Calling tool: '{tool_name}' with arguments: {tool_arguments}")),
+            f"Calling tool: '{tool_name}' with arguments: {tool_arguments}",
             level=LogLevel.INFO,
         )
         if tool_name == "final_answer":
@@ -712,7 +693,7 @@ class ToolCallingAgent(MultiStepAgent):
             else:
                 final_answer = answer
                 self.logger.log(
-                    Text(f"Final answer: {final_answer}", style=f"bold {YELLOW_HEX}"),
+                    f"Final answer: {final_answer}",
                     level=LogLevel.INFO,
                 )
 
@@ -828,19 +809,7 @@ class PythonCodeAgent(MultiStepAgent):
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
         self.logger.log(
-            Group(
-                Rule(
-                    f"[italic]Output message of the LLM ({self.name}):",
-                    align="left",
-                    style="orange",
-                ),
-                Syntax(
-                    model_output,
-                    lexer="markdown",
-                    theme="github-dark",
-                    word_wrap=True,
-                ),
-            ),
+            f"[italic]Output message of the LLM ({self.name}): {model_output}",
             level=LogLevel.DEBUG,
         )
 
@@ -861,17 +830,7 @@ class PythonCodeAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            Panel(
-                Syntax(
-                    code_action,
-                    lexer="python",
-                    theme="monokai",
-                    word_wrap=True,
-                ),
-                title="[bold]Executing this code:",
-                title_align="left",
-                box=box.HORIZONTALS,
-            ),
+            f"[bold]Executing this code: {code_action}",
             level=LogLevel.INFO,
         )
         observation = ""
@@ -884,8 +843,7 @@ class PythonCodeAgent(MultiStepAgent):
             execution_outputs_console = []
             if len(execution_logs) > 0:
                 execution_outputs_console += [
-                    Text("Execution logs:", style="bold"),
-                    Text(execution_logs),
+                    execution_logs,
                 ]
             observation += "Execution logs:\n" + execution_logs
         except Exception as e:
@@ -902,12 +860,9 @@ class PythonCodeAgent(MultiStepAgent):
         log_entry.observations = observation
 
         execution_outputs_console += [
-            Text(
-                f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
-                style=(f"bold {YELLOW_HEX}" if is_final_answer else ""),
-            ),
+            f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}"
         ]
-        self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
+        self.logger.log(*execution_outputs_console, level=LogLevel.INFO)
         log_entry.action_output = output
         return output if is_final_answer else None
     
@@ -1005,19 +960,7 @@ class ManagerAgent(MultiStepAgent):
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
         self.logger.log(
-            Group(
-                Rule(
-                    "[italic]Output message of the LLM:",
-                    align="left",
-                    style="orange",
-                ),
-                Syntax(
-                    model_output,
-                    lexer="markdown",
-                    theme="github-dark",
-                    word_wrap=True,
-                ),
-            ),
+            f"[italic]Output message of the LLM: {model_output}",
             level=LogLevel.DEBUG,
         )
 
@@ -1047,17 +990,7 @@ class ManagerAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            Panel(
-                Syntax(
-                    code_action,
-                    lexer="python",
-                    theme="monokai",
-                    word_wrap=True,
-                ),
-                title="[bold]Executing this code:",
-                title_align="left",
-                box=box.HORIZONTALS,
-            ),
+            f"[bold]Executing this code: {code_action}",
             level=LogLevel.INFO,
         )
         observation = ""
@@ -1070,8 +1003,7 @@ class ManagerAgent(MultiStepAgent):
             execution_outputs_console = []
             if len(execution_logs) > 0:
                 execution_outputs_console += [
-                    Text("Execution logs:", style="bold"),
-                    Text(execution_logs),
+                    execution_logs,
                 ]
             observation += "Execution logs:\n" + execution_logs
         except Exception as e:
@@ -1088,12 +1020,9 @@ class ManagerAgent(MultiStepAgent):
         log_entry.observations = observation
 
         execution_outputs_console += [
-            Text(
-                f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
-                style=(f"bold {YELLOW_HEX}" if is_final_answer else ""),
-            ),
+            f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
         ]
-        self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
+        self.logger.log(*execution_outputs_console, level=LogLevel.INFO)
         log_entry.action_output = output
         
         if is_final_answer:
