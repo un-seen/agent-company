@@ -404,19 +404,7 @@ class BashCodeAgent(MultiStepAgent):
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
         self.logger.log(
-            Group(
-                Rule(
-                    f"[italic]Output message of the LLM ({self.name}):",
-                    align="left",
-                    style="orange",
-                ),
-                Syntax(
-                    model_output,
-                    lexer="markdown",
-                    theme="github-dark",
-                    word_wrap=True,
-                ),
-            ),
+            f"[italic]Output message of the LLM ({self.name}): {model_output}",
             level=LogLevel.DEBUG,
         )
 
@@ -437,17 +425,7 @@ class BashCodeAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            Panel(
-                Syntax(
-                    code_action,
-                    lexer="python",
-                    theme="monokai",
-                    word_wrap=True,
-                ),
-                title="[bold]Executing this code:",
-                title_align="left",
-                box=box.HORIZONTALS,
-            ),
+            f"[bold]Executing this code: {code_action}",
             level=LogLevel.INFO,
         )
         observation = ""
@@ -483,7 +461,7 @@ class BashCodeAgent(MultiStepAgent):
                 style=(f"bold {YELLOW_HEX}" if is_final_answer else ""),
             ),
         ]
-        self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
+        self.logger.log(*execution_outputs_console, level=LogLevel.INFO)
         log_entry.action_output = output
         return output if is_final_answer else None
 
