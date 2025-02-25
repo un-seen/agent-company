@@ -1,7 +1,7 @@
 __version__ = "0.1.0"
 
 from .agents import *
-from .agent_app import *
+from .framework import *
 from .default_tools import *
 from .local_python_executor import *
 from .monitoring import *   

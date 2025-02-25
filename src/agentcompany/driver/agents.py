@@ -1112,7 +1112,6 @@ class ManagedAgent:
         description (`str`): A description of the managed agent.
         provide_run_summary (`bool`, *optional*): Whether to provide a run summary after the agent completes its task. Defaults to False.
         managed_agent_prompt (`Optional[str]`, *optional*): Custom prompt for the managed agent. Defaults to None.
-
     """
 
     def __init__(
