@@ -13,7 +13,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 # Import agent-specific errors and utilities
-from agentcompany.driver.monitoring import AgentLogger, LogLevel
+from agentcompany.driver.monitoring import LogLevel
 from agentcompany.driver.local_python_executor import fix_final_answer_code
 from agentcompany.driver.models import ChatMessage
 from agentcompany.driver.agents import MultiStepAgent

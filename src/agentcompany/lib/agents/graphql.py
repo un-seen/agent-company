@@ -14,7 +14,6 @@ import json
 from agentcompany.driver.surreal_executor import SurrealExecutor
 import re
 from agentcompany.driver.monitoring import (
-    AgentLogger,
     LogLevel,
 )
 

@@ -10,10 +10,8 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.syntax import Syntax
 from rich.text import Text
-import json
 
 from agentcompany.driver.monitoring import (
-    AgentLogger,
     LogLevel,
 )
 

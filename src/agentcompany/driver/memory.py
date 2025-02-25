@@ -6,7 +6,7 @@ from .models import ChatMessage, MessageRole
 from .utils import AgentError, make_json_serializable
 import os
 from typing import TypeVar, Generic, Optional, Iterator
-
+from redis import Redis
 
 if TYPE_CHECKING:
     from .models import ChatMessage
@@ -307,8 +307,9 @@ class StepsList(Generic[T]):
         
 
 class AgentMemory:
-    def __init__(self, name: str, system_prompt: str):
+    def __init__(self, name: str, company_name: str, system_prompt: str):
         self.name = name
+        self.company_name = company_name
         self.system_prompt = SystemPromptStep(system_prompt=system_prompt)
         self.steps: StepsList[Union[TaskStep, ActionStep, PlanningStep]] = StepsList(name)
 
