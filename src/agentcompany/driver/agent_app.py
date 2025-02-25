@@ -14,9 +14,8 @@ if os.environ.get("LOGFIRE_TOKEN"):
 
 
 class BasicApp(abc.ABC):
-    def __init__(self, company_name: str, sop: str = None, model_name: str = "gpt-4o-mini"):
+    def __init__(self, company_name: str, model_name: str = "gpt-4o-mini"):
         self.company_name = company_name
-        self.sop = sop 
         self.user_input_queue_name = f"user_input:{company_name}"
         self.agent_output_queue_name = f"{company_name}"
         # Create a Redis client. decode_responses=True returns strings.
@@ -75,3 +74,6 @@ class BasicApp(abc.ABC):
         self._stop_event.set()
         self.worker_thread.join()
         print("Worker thread stopped.")
+
+
+__all__ = ["BasicApp"]

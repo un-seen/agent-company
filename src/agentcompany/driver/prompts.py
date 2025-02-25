@@ -532,8 +532,7 @@ You have been submitted this final report by your manager.
 Report:
 
 ### 1. Task: {task}
-### 2. Standard Operating Procedure Agreement: {sop}
-### 3. Final Answer: {final_answer}
+### 2. Final Answer: {final_answer}
 ---
 You're helping your manager review a wider task: so make sure to not provide a one-line answer, but give as much information as possible to give them a clear understanding of the answer.
 

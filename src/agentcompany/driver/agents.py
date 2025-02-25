@@ -912,7 +912,6 @@ class SupervisorAgent:
 
     Args:
         company_name (`str`): The name of the company.
-        sop (`str`): The standard operating procedure for the manager agent.
         agent (`object`): The agent to be managed.
         description (`str`): A description of the managed agent.
         additional_prompting (`str`, *optional*): Additional prompting for the managed agent, like 'add more detail in your answer'.
@@ -923,14 +922,12 @@ class SupervisorAgent:
     def __init__(
         self,
         company_name: str,
-        sop: str,
         agent: MultiStepAgent,
         additional_prompting: Optional[str] = None,
         provide_run_summary: bool = False,
         use_redis: bool = True
     ):
         self.agent = agent
-        self.sop = sop
         self.company_name = company_name
         self.additional_prompting = additional_prompting
         self.provide_run_summary = provide_run_summary
@@ -946,7 +943,7 @@ class SupervisorAgent:
         
     def write_full_task(self, final_answer: str):
         """Adds additional prompting for the managed agent, like 'add more detail in your answer'."""
-        full_task = self.supervisor_agent_prompt.format(name=self.agent.name, task=self.task, sop=self.sop, final_answer=final_answer)
+        full_task = self.supervisor_agent_prompt.format(name=self.agent.name, task=self.task, final_answer=final_answer)
         if self.additional_prompting:
             full_task = full_task.replace("\n{additional_prompting}", self.additional_prompting).strip()
         else:
@@ -981,10 +978,9 @@ class SupervisorAgent:
             
         return output
     
-def get_supervisor_agent_for_manager(model, company_name: str, sop: str):
+def get_supervisor_agent_for_manager(model, company_name: str):
     return SupervisorAgent(
         company_name=company_name,
-        sop=sop,
         agent=PythonCodeAgent(
             name="supervisoragent",
             tools=[],
@@ -1014,7 +1010,6 @@ class ManagerAgent(MultiStepAgent):
     def __init__(
         self,
         company_name: str,
-        sop: str,
         model: Callable[[List[Dict[str, str]]], ChatMessage],
         system_prompt: Optional[str] = None,
         grammar: Optional[Dict[str, str]] = None,
@@ -1028,14 +1023,13 @@ class ManagerAgent(MultiStepAgent):
         self.additional_authorized_imports = additional_authorized_imports if additional_authorized_imports else []
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         self.tools = []
-        self.sop = sop
         managed_agents: List[ManagedAgent] = kwargs.pop("managed_agents", None)
         all_managed_agent: bool = all([isinstance(agent, ManagedAgent) for agent in managed_agents])
         if managed_agents is None:
             raise ValueError("You need to provide managed agents to the ManagerAgent.")
         if not all_managed_agent:
             raise ValueError("All agents in managed_agents should be of type ManagedAgent.")
-        self.supervisor_agent = get_supervisor_agent_for_manager(model, company_name, sop)
+        self.supervisor_agent = get_supervisor_agent_for_manager(model, company_name)
         super().__init__(
             tools=self.tools,
             model=model,
