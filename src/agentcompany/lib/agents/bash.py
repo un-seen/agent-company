@@ -339,8 +339,9 @@ class BashCodeAgent(MultiStepAgent):
         )
         if "*" in self.additional_authorized_imports:
             self.logger.log(
-                "Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
-                0,
+                role=self.name,
+                text="Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
+                level=LogLevel.INFO,
             )
 
         all_tools = {**self.tools, **self.managed_agents}
@@ -386,7 +387,8 @@ class BashCodeAgent(MultiStepAgent):
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
         self.logger.log(
-            f"[italic]Output message of the LLM ({self.name}): {model_output}",
+            role=self.name,
+            text=model_output,
             level=LogLevel.DEBUG,
         )
 
@@ -407,7 +409,8 @@ class BashCodeAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            f"[bold]Executing this code: {code_action}",
+            role=self.name,
+            bash=code_action,
             level=LogLevel.INFO,
         )
         observation = ""
@@ -428,8 +431,9 @@ class BashCodeAgent(MultiStepAgent):
             error_msg = str(e)
             if "Import of " in error_msg and " is not allowed" in error_msg:
                 self.logger.log(
-                    "[bold red]Warning to user: Code execution failed due to an unauthorized import - Consider passing said import under `additional_authorized_imports` when initializing your CodeAgent.",
-                    level=LogLevel.INFO,
+                  role=self.name,
+                  text="Warning to user: Code execution failed due to an unauthorized import - Consider passing said import under `additional_authorized_imports` when initializing your CodeAgent.",
+                  level=LogLevel.INFO,
                 )
             raise AgentExecutionError(error_msg, self.logger)
 

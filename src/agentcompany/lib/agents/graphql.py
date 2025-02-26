@@ -390,8 +390,8 @@ class GraphqlAgent(MultiStepAgent):
             ) from e
 
         self.logger.log(
-            key=f"llm_output({self.name})",
-            value=model_output,
+            role=self.name,
+            text=model_output,
             level=LogLevel.DEBUG,
         )
 
@@ -413,8 +413,8 @@ class GraphqlAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            key="graphql",
-            value=code_action,
+            role=self.name,
+            graphql=code_action,
             level=LogLevel.INFO,
         )
         observation = ""

@@ -237,9 +237,9 @@ class PsqlAgent(MultiStepAgent):
             ) from e
 
         self.logger.log(
-            key=f"llm_output({self.name})",
-            value=model_output,
-            level=LogLevel.DEBUG,
+            role=self.name,
+            text=model_output,
+            level=LogLevel.INFO,
         )
 
         try:
@@ -260,8 +260,8 @@ class PsqlAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            key="sql",
-            value=code_action,
+            role=self.name,
+            sql=code_action,
             level=LogLevel.INFO,
         )
         observation = ""
