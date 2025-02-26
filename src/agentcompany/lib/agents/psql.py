@@ -237,7 +237,8 @@ class PsqlAgent(MultiStepAgent):
             ) from e
 
         self.logger.log(
-            f"[italic]Output message of the LLM ({self.name}): {model_output}",
+            key=f"llm_output({self.name})",
+            value=model_output,
             level=LogLevel.DEBUG,
         )
 
@@ -259,7 +260,8 @@ class PsqlAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            f"[bold]Executing this code: {code_action}",
+            key="sql",
+            value=code_action,
             level=LogLevel.INFO,
         )
         observation = ""

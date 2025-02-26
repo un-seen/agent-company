@@ -40,9 +40,7 @@ from .models import (
 from .prompts import (
     PYTHON_CODE_SYSTEM_PROMPT,
     MANAGED_AGENT_PROMPT,
-    SUPERVISOR_AGENT_PROMPT,
     MANAGER_SYSTEM_PROMPT,
-    BASH_CODE_SYSTEM_PROMPT,
     PLAN_UPDATE_FINAL_PLAN_REDACTION,
     SYSTEM_PROMPT_FACTS,
     SYSTEM_PROMPT_FACTS_UPDATE,
@@ -389,7 +387,8 @@ You have been provided with these additional arguments, that you can access usin
         if reset:
             self.memory.reset()
         self.logger.log(
-            f"[bold]New run ({self.name})",
+            key=f"llm_init({self.name})",
+            value="",
             level=LogLevel.INFO,
         )
 
@@ -435,7 +434,8 @@ You have been provided with these additional arguments, that you can access usin
                         step=self.step_number,
                     )
                 self.logger.log(
-                    f"[bold]Step {self.step_number}",
+                    key=f"llm_step({self.name})",
+                    value=self.step_number,
                     level=LogLevel.INFO,
                 )
 
@@ -539,7 +539,8 @@ Now begin!""",
                 )
             )
             self.logger.log(
-                f"[bold]Initial plan: {final_plan_redaction}",
+                key=f"llm_plan({self.name})",
+                value=final_plan_redaction,
                 level=LogLevel.INFO,
             )
         else:  # update plan
@@ -603,7 +604,8 @@ Now begin!""",
                 )
             )
             self.logger.log(
-                f"[bold]Updated plan: {final_plan_redaction}",
+                key=f"llm_plan({self.name})",
+                value=final_plan_redaction,
                 level=LogLevel.INFO,
             )
 
@@ -671,7 +673,8 @@ class ToolCallingAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            f"Calling tool: '{tool_name}' with arguments: {tool_arguments}",
+            key=f"tool_call({tool_name})",
+            value=tool_arguments,
             level=LogLevel.INFO,
         )
         if tool_name == "final_answer":
@@ -687,13 +690,15 @@ class ToolCallingAgent(MultiStepAgent):
             ):  # if the answer is a state variable, return the value
                 final_answer = self.state[answer]
                 self.logger.log(
-                    f"[bold {YELLOW_HEX}]Final answer:[/bold {YELLOW_HEX}] Extracting key '{answer}' from state to return value '{final_answer}'.",
+                    key=f"tool_call({tool_name})",
+                    value=f"Final answer: Extracting key '{answer}' from state to return value '{final_answer}'.",
                     level=LogLevel.INFO,
                 )
             else:
                 final_answer = answer
                 self.logger.log(
-                    f"Final answer: {final_answer}",
+                    key=f"tool_call({tool_name})",
+                    value=f"Final answer: {final_answer}",
                     level=LogLevel.INFO,
                 )
 
@@ -712,7 +717,8 @@ class ToolCallingAgent(MultiStepAgent):
             else:
                 updated_information = str(observation).strip()
             self.logger.log(
-                f"Observations: {updated_information.replace('[', '|')}",  # escape potential rich-tag-like components
+                key=f"tool_call({tool_name})",
+                value=f"Observations: {updated_information.replace('[', '|')}",  # escape potential rich-tag-like components
                 level=LogLevel.INFO,
             )
             log_entry.observations = updated_information
@@ -763,8 +769,9 @@ class PythonCodeAgent(MultiStepAgent):
         )
         if "*" in self.additional_authorized_imports:
             self.logger.log(
-                "Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
-                0,
+                key="warning",
+                value="Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
+                level=LogLevel.ERROR,
             )
 
         all_tools = {**self.tools, **self.managed_agents}
@@ -809,7 +816,8 @@ class PythonCodeAgent(MultiStepAgent):
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
         self.logger.log(
-            f"[italic]Output message of the LLM ({self.name}): {model_output}",
+            key=f"llm_output({self.name})",
+            value=model_output,
             level=LogLevel.DEBUG,
         )
 
@@ -830,7 +838,8 @@ class PythonCodeAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            f"[bold]Executing this code: {code_action}",
+            key="tool_call(python_interpreter)",
+            value=f"{code_action}",
             level=LogLevel.INFO,
         )
         observation = ""
@@ -850,7 +859,8 @@ class PythonCodeAgent(MultiStepAgent):
             error_msg = str(e)
             if "Import of " in error_msg and " is not allowed" in error_msg:
                 self.logger.log(
-                    "[bold red]Warning to user: Code execution failed due to an unauthorized import - Consider passing said import under `additional_authorized_imports` when initializing your CodeAgent.",
+                    key="warning",
+                    value="Warning to user: Code execution failed due to an unauthorized import - Consider passing said import under `additional_authorized_imports` when initializing your CodeAgent.",
                     level=LogLevel.INFO,
                 )
             raise AgentExecutionError(error_msg, self.logger)
@@ -960,7 +970,8 @@ class ManagerAgent(MultiStepAgent):
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
         self.logger.log(
-            f"[italic]Output message of the LLM: {model_output}",
+            key=f"llm_output({self.name})",
+            value=f"{model_output}",
             level=LogLevel.DEBUG,
         )
 
@@ -990,7 +1001,8 @@ class ManagerAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            f"[bold]Executing this code: {code_action}",
+            key=f"tool_call(python_interpreter)",
+            value=code_action,
             level=LogLevel.INFO,
         )
         observation = ""
@@ -1010,7 +1022,8 @@ class ManagerAgent(MultiStepAgent):
             error_msg = str(e)
             if "Import of " in error_msg and " is not allowed" in error_msg:
                 self.logger.log(
-                    "[bold red]Warning to user: Code execution failed due to an unauthorized import - Consider passing said import under `additional_authorized_imports` when initializing your CodeAgent.",
+                    key="warning",
+                    value="Warning to user: Code execution failed due to an unauthorized import - Consider passing said import under `additional_authorized_imports` when initializing your CodeAgent.",
                     level=LogLevel.INFO,
                 )
             raise AgentExecutionError(error_msg, self.logger)

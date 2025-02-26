@@ -1,15 +1,6 @@
-import inspect
-import time
-from collections import deque
 from logging import getLogger
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from rich import box
-from rich.console import Group
-from rich.panel import Panel
-from rich.rule import Rule
-from rich.syntax import Syntax
-from rich.text import Text
 import json
 from agentcompany.driver.surreal_executor import SurrealExecutor
 import re
@@ -17,15 +8,8 @@ from agentcompany.driver.monitoring import (
     LogLevel,
 )
 
-from redis import Redis
-import os
-
 from agentcompany.driver.memory import (
     ActionStep,
-    AgentMemory,
-    PlanningStep,
-    SystemPromptStep,
-    TaskStep,
     ToolCall,
 )
 from agentcompany.driver.types import AgentImage, handle_agent_output_types
@@ -406,19 +390,8 @@ class GraphqlAgent(MultiStepAgent):
             ) from e
 
         self.logger.log(
-            Group(
-                Rule(
-                    f"[italic]Output message of the LLM ({self.name}):",
-                    align="left",
-                    style="orange",
-                ),
-                Syntax(
-                    model_output,
-                    lexer="markdown",
-                    theme="github-dark",
-                    word_wrap=True,
-                ),
-            ),
+            key=f"llm_output({self.name})",
+            value=model_output,
             level=LogLevel.DEBUG,
         )
 
@@ -440,17 +413,8 @@ class GraphqlAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            Panel(
-                Syntax(
-                    code_action,
-                    lexer="graphql",
-                    theme="monokai",
-                    word_wrap=True,
-                ),
-                title="[bold]Executing this code:",
-                title_align="left",
-                box=box.HORIZONTALS,
-            ),
+            key="graphql",
+            value=code_action,
             level=LogLevel.INFO,
         )
         observation = ""
@@ -471,12 +435,9 @@ class GraphqlAgent(MultiStepAgent):
         truncated_output = truncate_content(str(output))
         observation += "Last output from code snippet:\n" + truncated_output
         log_entry.observations = observation
-        execution_outputs_console += [
-            Text(
-                f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
-                style=(f"bold {YELLOW_HEX}" if is_final_answer else ""),
-            ),
+        execution_outputs_console += [            
+            f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
         ]
         log_entry.action_output = output
-        self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
+        self.logger.log(*execution_outputs_console, level=LogLevel.INFO)
         return {"answer": output} if is_final_answer else None

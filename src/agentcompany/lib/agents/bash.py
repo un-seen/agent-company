@@ -4,38 +4,20 @@ from collections import deque
 from logging import getLogger
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 
-from rich import box
-from rich.console import Group
-from rich.panel import Panel
-from rich.rule import Rule
-from rich.syntax import Syntax
-from rich.text import Text
-
 from agentcompany.driver.monitoring import (
     LogLevel,
 )
 
-from redis import Redis
-import os
-
 from agentcompany.driver.memory import (
     ActionStep,
-    AgentMemory,
-    PlanningStep,
-    SystemPromptStep,
-    TaskStep,
     ToolCall,
 )
 from agentcompany.driver.types import AgentImage, handle_agent_output_types
 from agentcompany.driver.utils import (
-    AgentError,
     AgentExecutionError,
     AgentGenerationError,
-    AgentMaxStepsError,
     AgentParsingError,
-    parse_thought,
     parse_python_code_blobs,
-    parse_json_tool_call,
     truncate_content,
 )
 from agentcompany.driver.default_tools import TOOL_MAPPING, FinalAnswerTool
@@ -438,8 +420,8 @@ class BashCodeAgent(MultiStepAgent):
             execution_outputs_console = []
             if len(execution_logs) > 0:
                 execution_outputs_console += [
-                    Text("Execution logs:", style="bold"),
-                    Text(execution_logs),
+                    "Execution logs:", 
+                    execution_logs
                 ]
             observation += "Execution logs:\n" + execution_logs
         except Exception as e:
@@ -456,10 +438,7 @@ class BashCodeAgent(MultiStepAgent):
         log_entry.observations = observation
 
         execution_outputs_console += [
-            Text(
-                f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
-                style=(f"bold {YELLOW_HEX}" if is_final_answer else ""),
-            ),
+            f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
         ]
         self.logger.log(*execution_outputs_console, level=LogLevel.INFO)
         log_entry.action_output = output
