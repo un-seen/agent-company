@@ -80,7 +80,7 @@ class AgentLogger:
         if isinstance(level, str):
             level = LogLevel[level.upper()]
         if level <= self.level:
-            self.console.print(*args, **kwargs)
+            # self.console.print(*args, **kwargs)
             if hasattr(self, "redis_client"):
                 data_dict = kwargs.copy()
                 data_dict["message"] = " ".join([str(arg) for arg in args])
