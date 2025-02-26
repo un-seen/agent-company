@@ -973,8 +973,8 @@ class ManagerAgent(MultiStepAgent):
         # Parse Thought
         try:
             thought = parse_thought(model_output)
-            output_str = json.dumps({"answer": thought, "agent": self.name})
-            self.redis_client.publish(self.company_name, output_str)
+            observation = thought + "\n"
+            self.logger.log(text=thought, level=LogLevel.INFO)
         except Exception as e:
             error_msg = f"Error in thought parsing:\n{e}\nMake sure to provide thoughts in proper format."
             raise AgentParsingError(error_msg, self.logger)
@@ -999,18 +999,12 @@ class ManagerAgent(MultiStepAgent):
             python=code_action,
             level=LogLevel.INFO,
         )
-        observation = ""
         is_final_answer = False
         try:
             output, execution_logs, is_final_answer = self.python_executor(
                 code_action,
                 self.state,
             )
-            execution_outputs_console = []
-            if len(execution_logs) > 0:
-                execution_outputs_console += [
-                    execution_logs,
-                ]
             observation += "Execution logs:\n" + execution_logs
         except Exception as e:
             error_msg = str(e)
@@ -1025,15 +1019,9 @@ class ManagerAgent(MultiStepAgent):
         observation += "Last output from code snippet:\n" + truncated_output
         log_entry.observations = observation
 
-        execution_outputs_console += [
-            f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
-        ]
-        self.logger.log(*execution_outputs_console, level=LogLevel.INFO)
+        self.logger.log(text=observation, level=LogLevel.INFO)
         log_entry.action_output = output
         
-        if is_final_answer:
-            output_str = json.dumps({"answer": output, "agent": self.name})
-            self.redis_client.publish(self.company_name, output_str)
         return output if is_final_answer else None
 
 
