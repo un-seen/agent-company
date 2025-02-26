@@ -271,10 +271,8 @@ class TfServingAgent(MultiStepAgent):
                 code_action,
                 self.state,
             )
-            output = {"final_answer": output } if is_final_answer else {"answer": output}
-            output["description"] = self.tfserving_schema[code_action["model_name"]]
-            execution_outputs_console = []
-            observation += "Execution logs:\n" + json.dumps(output)
+            output += "\n\n" + self.tfserving_schema[code_action["model_name"]]
+            observation += "Execution logs:\n" + output
         except Exception as e:
             error_msg = str(e)
             raise AgentExecutionError(error_msg, self.logger)
@@ -282,9 +280,6 @@ class TfServingAgent(MultiStepAgent):
         truncated_output = truncate_content(str(output))
         observation += "Last output from code snippet:\n" + truncated_output
         log_entry.observations = observation
-        execution_outputs_console += [
-            f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
-        ]
         log_entry.action_output = output
-        self.logger.log(*execution_outputs_console, level=LogLevel.INFO)
-        return output 
+        self.logger.log(text=observation, level=LogLevel.INFO)
+        return {"final_answer": output } if is_final_answer else {"answer": output} 

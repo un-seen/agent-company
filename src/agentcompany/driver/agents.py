@@ -846,11 +846,6 @@ class PythonCodeAgent(MultiStepAgent):
                 code_action,
                 self.state,
             )
-            execution_outputs_console = []
-            if len(execution_logs) > 0:
-                execution_outputs_console += [
-                    execution_logs,
-                ]
             observation += "Execution logs:\n" + execution_logs
         except Exception as e:
             error_msg = str(e)
@@ -864,11 +859,7 @@ class PythonCodeAgent(MultiStepAgent):
         truncated_output = truncate_content(str(output))
         observation += "Last output from code snippet:\n" + truncated_output
         log_entry.observations = observation
-
-        execution_outputs_console += [
-            f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}"
-        ]
-        self.logger.log(*execution_outputs_console, level=LogLevel.INFO)
+        self.logger.log(text=observation, level=LogLevel.INFO)
         log_entry.action_output = output
         return output if is_final_answer else None
     

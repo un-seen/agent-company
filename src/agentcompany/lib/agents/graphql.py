@@ -424,7 +424,6 @@ class GraphqlAgent(MultiStepAgent):
                 self.state,
                 "graphql"
             )
-            execution_outputs_console = []
             observation += "Execution logs:\n" + json.dumps(output)
         except Exception as e:
             error_msg = str(e)
@@ -433,9 +432,6 @@ class GraphqlAgent(MultiStepAgent):
         truncated_output = truncate_content(str(output))
         observation += "Last output from code snippet:\n" + truncated_output
         log_entry.observations = observation
-        execution_outputs_console += [            
-            f"{('Out - Final answer' if is_final_answer else 'Out')}: {truncated_output}",
-        ]
         log_entry.action_output = output
-        self.logger.log(*execution_outputs_console, level=LogLevel.INFO)
+        self.logger.log(text=observation, level=LogLevel.INFO)
         return {"answer": output} if is_final_answer else None
