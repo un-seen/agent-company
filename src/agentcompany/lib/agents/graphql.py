@@ -390,7 +390,6 @@ class GraphqlAgent(MultiStepAgent):
             ) from e
 
         self.logger.log(
-            role=self.name,
             text=model_output,
             level=LogLevel.DEBUG,
         )
@@ -413,7 +412,6 @@ class GraphqlAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            role=self.name,
             graphql=code_action,
             level=LogLevel.INFO,
         )

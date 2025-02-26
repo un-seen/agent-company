@@ -237,7 +237,6 @@ class PsqlAgent(MultiStepAgent):
             ) from e
 
         self.logger.log(
-            role=self.name,
             text=model_output,
             level=LogLevel.INFO,
         )
@@ -260,7 +259,6 @@ class PsqlAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            role=self.name,
             sql=code_action,
             level=LogLevel.INFO,
         )

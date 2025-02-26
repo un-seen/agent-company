@@ -50,7 +50,7 @@ class Monitor:
                 f"| Input tokens: {self.total_input_token_count:,} | Output tokens: {self.total_output_token_count:,}"
             )
         console_outputs += "]"
-        self.logger.log(console_outputs, level=1)
+        self.logger.log(console_outputs, level=LogLevel.INFO)
 
 
 class LogLevel(IntEnum):
@@ -83,10 +83,9 @@ class AgentLogger:
             # self.console.print(*args, **kwargs)
             if hasattr(self, "redis_client"):
                 data_dict = kwargs.copy()
-                data_dict["message"] = " ".join([str(arg) for arg in args])
-                data_dict["level"] = level.name
-                data_dict["name"] = self.name
-                data_dict["company_name"] = self.company_name
+                if len(args) > 0:
+                    data_dict["message"] = " ".join([str(arg) for arg in args])
+                data_dict["role"] = self.name
                 self.redis_client.publish(self.company_name, json.dumps(data_dict))
 
 

@@ -237,7 +237,6 @@ class TfServingAgent(MultiStepAgent):
             ) from e
 
         self.logger.log(
-            role=self.name,
             text=model_output,
             level=LogLevel.DEBUG,
         )
@@ -260,7 +259,6 @@ class TfServingAgent(MultiStepAgent):
 
         # Execute
         self.logger.log(
-            role=self.name,
             json=code_action,
             level=LogLevel.INFO,
         )
