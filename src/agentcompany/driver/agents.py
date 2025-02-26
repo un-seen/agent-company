@@ -388,7 +388,7 @@ You have been provided with these additional arguments, that you can access usin
             self.memory.reset()
         self.logger.log(
             text="llm_init",
-            level=LogLevel.INFO,
+            level=LogLevel.DEBUG,
         )
 
         self.memory.steps.append(TaskStep(task=self.task, task_images=images))
@@ -434,7 +434,7 @@ You have been provided with these additional arguments, that you can access usin
                     )
                 self.logger.log(
                     text=f"llm_step({self.step_number})",
-                    level=LogLevel.INFO,
+                    level=LogLevel.DEBUG,
                 )
 
                 # Run one step!
