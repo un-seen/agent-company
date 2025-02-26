@@ -270,7 +270,6 @@ class PsqlAgent(MultiStepAgent):
                 code_action,
                 self.state,
             )
-            observation += "Execution logs:\n" + json.dumps(output)
         except Exception as e:
             error_msg = str(e)
             raise AgentExecutionError(error_msg, self.logger)
@@ -279,7 +278,7 @@ class PsqlAgent(MultiStepAgent):
         observation += "Last output from code snippet:\n" + truncated_output
         log_entry.observations = observation
         log_entry.action_output = output
-        self.logger.log(text=observation, level=LogLevel.INFO)
+        self.logger.log(json=json.dumps(output), level=LogLevel.INFO)
         
         output = {"final_answer": output} if is_final_answer else {"answer": output}
         return output 
