@@ -11,8 +11,23 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import traceback
 import numpy as np
 import pandas as pd
+from agentcompany.mcp.utils import truncate_content
+from agentcompany.lib.execution_environment.base import ExecutionEnvironment
 
-from .utils import BASE_BUILTIN_MODULES, truncate_content
+
+BASE_BUILTIN_MODULES = [
+    "collections",
+    "datetime",
+    "itertools",
+    "math",
+    "queue",
+    "random",
+    "re",
+    "stat",
+    "statistics",
+    "time",
+    "unicodedata",
+]
 
 
 class InterpreterError(ValueError):
@@ -1291,25 +1306,49 @@ def evaluate_python_code(
             error_content
         )
         raise InterpreterError(error_msg)
+    
+    
+def fix_final_answer_code(code: str) -> str:
+    """
+    Sometimes an LLM can try to assign a variable to final_answer, which would break the final_answer() tool.
+    This function fixes this behaviour by replacing variable assignments to final_answer with final_answer_variable,
+    while preserving function calls to final_answer().
+    """
+    # First, find if there's a direct assignment to final_answer
+    # Use word boundary and negative lookbehind to ensure it's not an object attribute
+    assignment_pattern = r"(?<!\.)(?<!\w)\bfinal_answer\s*="
+    if "final_answer(" not in code or not re.search(assignment_pattern, code):
+        # If final_answer tool is not called in this blob, then doing the replacement is hazardous because it could false the model's memory for next steps.
+        # Let's not modify the code and leave the subsequent assignment error happen.
+        return code
 
+    # Pattern for replacing variable assignments
+    # Looks for 'final_answer' followed by '=' with optional whitespace
+    # Negative lookbehind ensures we don't match object attributes
+    assignment_regex = r"(?<!\.)(?<!\w)(\bfinal_answer)(\s*=)"
+    code = re.sub(assignment_regex, r"final_answer_variable\2", code)
 
-class LocalPythonInterpreter:
+    # Pattern for replacing variable usage but not function calls
+    # Negative lookahead (?!\s*\() ensures we don't match function calls
+    # Negative lookbehind (?<!\.|\w) ensures we don't match object methods or other variables
+    variable_regex = r"(?<!\.)(?<!\w)(\bfinal_answer\b)(?!\s*\()"
+    code = re.sub(variable_regex, "final_answer_variable", code)
+    return code
+    
+class LocalPythonInterpreter(ExecutionEnvironment):
     def __init__(
         self,
+        mcp_servers: Dict,
         additional_authorized_imports: List[str],
-        tools: Dict,
-        max_print_outputs_length: Optional[int] = None,
     ):
         self.custom_tools = {}
         self.state = {}
-        self.max_print_outputs_length = max_print_outputs_length
-        if max_print_outputs_length is None:
-            self.max_print_outputs_length = DEFAULT_MAX_LEN_OUTPUT
+        self.max_print_outputs_length = DEFAULT_MAX_LEN_OUTPUT
         self.additional_authorized_imports = additional_authorized_imports
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         # Add base trusted tools to list
         self.static_tools = {
-            **tools,
+            **mcp_servers,
             **BASE_PYTHON_TOOLS.copy(),
         }
         # TODO: assert self.authorized imports are all installed locally
@@ -1327,5 +1366,41 @@ class LocalPythonInterpreter:
         logs = self.state["print_outputs"]
         return output, logs, is_final_answer
 
+    def attach_variables(self, variables: dict):
+        self.state.update(variables)
+
+    def attach_mcp_servers(self, mcp_servers: Dict[str, Callable]):
+        self.static_tools.update(mcp_servers)
+
+    def parse_code_blobs(code_blob: str) -> str:
+        """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
+        pattern = r"```(?:py|python)?\n(.*?)\n```"
+        matches = re.findall(pattern, code_blob, re.DOTALL)
+        if len(matches) == 0:
+            try:  # Maybe the LLM outputted a code blob directly
+                ast.parse(code_blob)
+                return code_blob
+            except SyntaxError:
+                pass
+            if "final" in code_blob and "answer" in code_blob:
+                raise ValueError(f"""
+                        Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
+                        Here is your code snippet:
+                        {code_blob}
+                        It seems like you're trying to return the final answer, you can do it as follows:
+                        Code:
+                        ```py
+                        final_answer("YOUR FINAL ANSWER HERE")
+                        ```<end_code>""".strip())
+            raise ValueError(f"""Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
+                    Here is your code snippet:
+                    {code_blob}
+                    Make sure to include code with the correct pattern, for instance:
+                    Thoughts: Your thoughts
+                    Code:
+                    ```py
+                    # Your python code here
+                    ```<end_code>""".strip())
+        return fix_final_answer_code("\n\n".join(match.strip() for match in matches))
 
 __all__ = ["evaluate_python_code", "LocalPythonInterpreter"]

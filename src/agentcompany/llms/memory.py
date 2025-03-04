@@ -2,14 +2,13 @@ from dataclasses import asdict, dataclass
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Dict, List, TypedDict, Union
 import os
-from .models import ChatMessage, MessageRole
-from .utils import AgentError, make_json_serializable
+from .base import ChatMessage
+from .utils import MessageRole
+from ..driver.errors import AgentError
+from agentcompany.driver.json import make_json_serializable
 import os
 from typing import TypeVar, Generic, Optional, Iterator
 from redis import Redis
-
-if TYPE_CHECKING:
-    from .models import ChatMessage
 
 
 logger = getLogger(__name__)
@@ -112,7 +111,7 @@ class ActionStep(MemoryStep):
                 )
             else:
                 tool_response_message = Message(
-                    role=MessageRole.TOOL_RESPONSE,
+                    role=MessageRole.FUNCTION_RESPONSE,
                     content=[{"type": "text", "text": f"Call id: {self.tool_calls[0].id}\n{message_content}"}],
                 )
 
@@ -121,7 +120,7 @@ class ActionStep(MemoryStep):
             if self.observations is not None and self.tool_calls is not None:
                 messages.append(
                     Message(
-                        role=MessageRole.TOOL_RESPONSE,
+                        role=MessageRole.FUNCTION_RESPONSE,
                         content=[
                             {
                                 "type": "text",

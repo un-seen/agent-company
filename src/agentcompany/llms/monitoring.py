@@ -2,14 +2,7 @@ import json
 from enum import IntEnum
 from typing import List, Optional
 
-from rich import box
-from rich.console import Console, Group
-from rich.panel import Panel
-from rich.rule import Rule
-from rich.syntax import Syntax
-from rich.table import Table
-from rich.text import Text
-from rich.tree import Tree
+from rich.console import Console
 from redis import Redis
 import os
 
@@ -63,14 +56,17 @@ YELLOW_HEX = "#d4b702"
 
 
 class AgentLogger:
-    def __init__(self, name: str, company_name: str, level: LogLevel = LogLevel.INFO, use_redis: bool = False):
+    def __init__(self, name: str, interface_id: str, level: LogLevel = LogLevel.INFO, use_redis: bool = False):
         self.name = name
-        self.company_name = company_name
+        self.interface_id = interface_id
         self.level = level
         self.console = Console()
         if use_redis:
             self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
-            
+    
+    def set_level(self, level: LogLevel):
+        self.level = level
+
     def log(self, *args, level: str | LogLevel = LogLevel.INFO, **kwargs) -> None:
         """Logs a message to the console.
 
@@ -86,7 +82,7 @@ class AgentLogger:
                 if len(args) > 0:
                     data_dict["message"] = " ".join([str(arg) for arg in args])
                 data_dict["role"] = self.name
-                self.redis_client.publish(self.company_name, json.dumps(data_dict))
+                self.redis_client.publish(self.interface_id, json.dumps(data_dict))
 
 
 __all__ = ["AgentLogger", "Monitor"]

@@ -1,4 +1,4 @@
-from agentcompany.driver.models import OpenAIServerModel
+from agentcompany.llms.base import OpenAIServerModel
 from agentcompany.lib.agents.graphql import GraphqlAgent
 
 if __name__ == "__main__":

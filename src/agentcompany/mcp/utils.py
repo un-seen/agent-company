@@ -1,136 +1,13 @@
 import ast
 import base64
-import importlib.metadata
-import importlib.util
 import inspect
-import json
 import re
 import textwrap
 import types
-from functools import lru_cache
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Dict, Tuple, Union
-
-
-if TYPE_CHECKING:
-    from .monitoring import AgentLogger
-
-
-__all__ = ["AgentError"]
-
-
-@lru_cache
-def _is_package_available(package_name: str) -> bool:
-    try:
-        importlib.metadata.version(package_name)
-        return True
-    except importlib.metadata.PackageNotFoundError:
-        return False
-
-
-@lru_cache
-def _is_pillow_available():
-    return importlib.util.find_spec("PIL") is not None
-
-
-BASE_BUILTIN_MODULES = [
-    "collections",
-    "datetime",
-    "itertools",
-    "math",
-    "queue",
-    "random",
-    "re",
-    "stat",
-    "statistics",
-    "time",
-    "unicodedata",
-]
-
-
-class AgentError(Exception):
-    """Base class for other agent-related exceptions"""
-
-    def __init__(self, message, logger: "AgentLogger"):
-        super().__init__(message)
-        self.message = message
-        print(message)
-
-    def dict(self) -> Dict[str, str]:
-        return {"type": self.__class__.__name__, "message": str(self.message)}
-
-
-class AgentParsingError(AgentError):
-    """Exception raised for errors in parsing in the agent"""
-
-    pass
-
-
-class AgentExecutionError(AgentError):
-    """Exception raised for errors in execution in the agent"""
-
-    pass
-
-
-class AgentMaxStepsError(AgentError):
-    """Exception raised for errors in execution in the agent"""
-
-    pass
-
-
-class AgentGenerationError(AgentError):
-    """Exception raised for errors in generation in the agent"""
-
-    pass
-
-
-def make_json_serializable(obj: Any) -> Any:
-    """Recursive function to make objects JSON serializable"""
-    if obj is None:
-        return None
-    elif isinstance(obj, (str, int, float, bool)):
-        # Try to parse string as JSON if it looks like a JSON object/array
-        if isinstance(obj, str):
-            try:
-                if (obj.startswith("{") and obj.endswith("}")) or (obj.startswith("[") and obj.endswith("]")):
-                    parsed = json.loads(obj)
-                    return make_json_serializable(parsed)
-            except json.JSONDecodeError:
-                pass
-        return obj
-    elif isinstance(obj, (list, tuple)):
-        return [make_json_serializable(item) for item in obj]
-    elif isinstance(obj, dict):
-        return {str(k): make_json_serializable(v) for k, v in obj.items()}
-    elif hasattr(obj, "__dict__"):
-        # For custom objects, convert their __dict__ to a serializable format
-        return {"_type": obj.__class__.__name__, **{k: make_json_serializable(v) for k, v in obj.__dict__.items()}}
-    else:
-        # For any other type, convert to string
-        return str(obj)
-
-
-def parse_json_blob(json_blob: str) -> Dict[str, str]:
-    try:
-        first_accolade_index = json_blob.find("{")
-        last_accolade_index = [a.start() for a in list(re.finditer("}", json_blob))][-1]
-        json_blob = json_blob[first_accolade_index : last_accolade_index + 1].replace('\\"', "'")
-        json_data = json.loads(json_blob, strict=False)
-        return json_data
-    except json.JSONDecodeError as e:
-        place = e.pos
-        if json_blob[place - 1 : place + 2] == "},\n":
-            raise ValueError(
-                "JSON is invalid: you probably tried to provide multiple tool calls in one action. PROVIDE ONLY ONE TOOL CALL."
-            )
-        raise ValueError(
-            f"The JSON blob you used is invalid due to the following error: {e}.\n"
-            f"JSON blob was: {json_blob}, decoding failed on that specific part of the blob:\n"
-            f"'{json_blob[place - 4 : place + 5]}'."
-        )
-    except Exception as e:
-        raise ValueError(f"Error in parsing the JSON blob: {e}")
-
+from typing import Any, Dict, Tuple, Union
+from agentcompany.driver.errors import AgentParsingError
+from agentcompany.driver.json import parse_json_blob
 
 def parse_thought(llm_output: str) -> str:
     """Parses the LLM's output to get any thoughts inside."""
@@ -143,40 +20,9 @@ Thoughts: Your thoughts
 Code: Your code<end_code>""".strip()
         )
     return matches[0]
-            
-def parse_python_code_blobs(code_blob: str) -> str:
-    """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
-    pattern = r"```(?:py|python)?\n(.*?)\n```"
-    matches = re.findall(pattern, code_blob, re.DOTALL)
-    if len(matches) == 0:
-        try:  # Maybe the LLM outputted a code blob directly
-            ast.parse(code_blob)
-            return code_blob
-        except SyntaxError:
-            pass
-
-        if "final" in code_blob and "answer" in code_blob:
-            raise ValueError(
-                f"""
-The code blob is invalid, because the regex pattern {pattern} was not found in {code_blob=}. It seems like you're trying to return the final answer, you can do it as follows:
-Code:
-```py
-final_answer("YOUR FINAL ANSWER HERE")
-```<end_code>""".strip()
-            )
-        raise ValueError(
-            f"""
-The code blob is invalid, because the regex pattern {pattern} was not found in {code_blob=}. Make sure to include code with the correct pattern, for instance:
-Thoughts: Your thoughts
-Code:
-```py
-# Your python code here
-```<end_code>""".strip()
-        )
-    return "\n\n".join(match.strip() for match in matches)
 
 
-def parse_json_tool_call(json_blob: str) -> Tuple[str, Union[str, None]]:
+def parse_mcp_request_call(json_blob: str) -> Tuple[str, Union[str, None]]:
     json_blob = json_blob.replace("```json", "").replace("```", "")
     tool_call = parse_json_blob(json_blob)
     tool_name_key, tool_arguments_key = None, None

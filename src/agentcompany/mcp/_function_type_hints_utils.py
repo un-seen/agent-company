@@ -17,11 +17,6 @@ from typing import (
     get_type_hints,
 )
 
-from huggingface_hub.utils import is_torch_available
-
-from .utils import _is_pillow_available
-
-
 def get_imports(filename: Union[str, os.PathLike]) -> List[str]:
     """
     Extracts all the libraries (not relative imports this time) that are imported in a file.
@@ -359,14 +354,4 @@ _BASE_TYPE_MAPPING = {
 def _get_json_schema_type(param_type: str) -> Dict[str, str]:
     if param_type in _BASE_TYPE_MAPPING:
         return copy(_BASE_TYPE_MAPPING[param_type])
-    if str(param_type) == "Image" and _is_pillow_available():
-        from PIL.Image import Image
-
-        if param_type == Image:
-            return {"type": "image"}
-    if str(param_type) == "Tensor" and is_torch_available():
-        from torch import Tensor
-
-        if param_type == Tensor:
-            return {"type": "audio"}
     return {"type": "object"}

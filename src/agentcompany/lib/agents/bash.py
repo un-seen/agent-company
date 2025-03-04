@@ -12,7 +12,6 @@ from agentcompany.driver.memory import (
     ActionStep,
     ToolCall,
 )
-from agentcompany.driver.types import AgentImage, handle_agent_output_types
 from agentcompany.driver.utils import (
     AgentExecutionError,
     AgentGenerationError,
@@ -343,7 +342,7 @@ class BashCodeAgent(MultiStepAgent):
                 level=LogLevel.INFO,
             )
 
-        all_tools = {**self.tools, **self.managed_agents}
+        all_tools = {**self.tools, **self.mcp_servers}
         self.bash_executor = LocalBashInterpreter(
             all_tools,
             self.additional_authorized_imports,
