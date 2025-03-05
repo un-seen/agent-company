@@ -82,7 +82,7 @@ class OpenAIServerLLM(AugmentedLLM):
         self.last_output_token_count = response.usage.completion_tokens
 
         message = ChatMessage.from_dict(
-            response.choices[0].message.model_dump(include={"role", "content", "tool_calls"})
+            response.choices[0].message.model_dump(include={"role", "content", "function_calls"})
         )
         message.raw = response
         if functions_to_call_from is not None:

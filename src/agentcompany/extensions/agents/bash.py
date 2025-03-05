@@ -4,15 +4,15 @@ from collections import deque
 from logging import getLogger
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 
-from agentcompany.driver.monitoring import (
+from agentcompany.llms.monitoring import (
     LogLevel,
 )
 
-from agentcompany.driver.memory import (
+from agentcompany.llms.memory import (
     ActionStep,
-    ToolCall,
+    FunctionCall,
 )
-from agentcompany.driver.utils import (
+from agentcompany.mcp.utils import (
     AgentExecutionError,
     AgentGenerationError,
     AgentParsingError,
@@ -26,7 +26,7 @@ from agentcompany.driver.local_python_executor import (
     LocalPythonInterpreter,
     fix_final_answer_code,
 )
-from agentcompany.driver.models import (
+from agentcompany.llms.base import (
     ChatMessage,
     MessageRole,
 )
@@ -396,8 +396,8 @@ class BashCodeAgent(MultiStepAgent):
             error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
             raise AgentParsingError(error_msg, self.logger)
 
-        log_entry.tool_calls = [
-            ToolCall(
+        log_entry.function_calls = [
+            FunctionCall(
                 name="bash_interpreter",
                 arguments=code_action,
                 id=f"call_{len(self.memory.steps)}",

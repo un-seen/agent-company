@@ -42,7 +42,7 @@ def parse_mcp_request_call(json_blob: str) -> Tuple[str, Union[str, None]]:
             return tool_call[tool_name_key], tool_call[tool_arguments_key]
         else:
             return tool_call[tool_name_key], None
-    error_msg = "No tool name key found in tool call!" + f" Tool call: {json_blob}"
+    error_msg = "No function name key found in function call!" + f" Function Call call: {json_blob}"
     raise AgentParsingError(error_msg)
 
 

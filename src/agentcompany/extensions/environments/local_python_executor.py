@@ -12,7 +12,7 @@ import traceback
 import numpy as np
 import pandas as pd
 from agentcompany.mcp.utils import truncate_content
-from agentcompany.lib.execution_environment.base import ExecutionEnvironment
+from agentcompany.extensions.environments.base import ExecutionEnvironment
 
 
 BASE_BUILTIN_MODULES = [
@@ -1372,7 +1372,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
     def attach_mcp_servers(self, mcp_servers: Dict[str, Callable]):
         self.static_tools.update(mcp_servers)
 
-    def parse_code_blobs(code_blob: str) -> str:
+    def parse_code_blobs(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
         pattern = r"```(?:py|python)?\n(.*?)\n```"
         matches = re.findall(pattern, code_blob, re.DOTALL)

@@ -1,18 +1,18 @@
 from logging import getLogger
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from agentcompany.driver.monitoring import (
+from agentcompany.llms.monitoring import (
     LogLevel,
 )
 
 from redis import Redis
 import os
             
-from agentcompany.driver.memory import ActionStep, ToolCall
-from agentcompany.driver.utils import (
+from agentcompany.llms.memory import ActionStep, FunctionCall
+from agentcompany.mcp.utils import (
     AgentGenerationError
 )
-from agentcompany.driver.models import (
+from agentcompany.llms.base import (
     ChatMessage,
 )
 from agentcompany.driver.prompts import (
@@ -84,7 +84,7 @@ class JSONCodeAgent(MultiStepAgent):
         except Exception as e:
             raise AgentGenerationError(f"Error in generating tool call with model:\n{e}", self.logger) from e
 
-        log_entry.tool_calls = [ToolCall(name=tool_name, arguments=tool_arguments, id=tool_call_id)]
+        log_entry.function_calls = [FunctionCall(name=tool_name, arguments=tool_arguments, id=tool_call_id)]
 
         # Execute
         self.logger.log(

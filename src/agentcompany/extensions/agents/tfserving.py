@@ -5,20 +5,20 @@ import json
 import re
 
 # Import agent-specific errors and utilities
-from agentcompany.driver.monitoring import LogLevel
+from agentcompany.llms.monitoring import LogLevel
 from agentcompany.driver.local_python_executor import fix_final_answer_code
-from agentcompany.driver.models import ChatMessage
+from agentcompany.llms.base import ChatMessage
 from agentcompany.driver.agents import MultiStepAgent
 from agentcompany.driver.local_tfserving_executor import TFServingExecutor
-from agentcompany.driver.utils import (
+from agentcompany.mcp.utils import (
     AgentExecutionError,
     AgentGenerationError,
     AgentParsingError,
     truncate_content,
 )
-from agentcompany.driver.memory import (
+from agentcompany.llms.memory import (
     ActionStep,
-    ToolCall
+    FunctionCall
 )
 
 logger = getLogger(__name__)
@@ -249,8 +249,8 @@ class TfServingAgent(MultiStepAgent):
             )
             raise AgentParsingError(error_msg, self.logger)
 
-        log_entry.tool_calls = [
-            ToolCall(
+        log_entry.function_calls = [
+            FunctionCall(
                 name="tfserving_executor",
                 arguments=code_action,
                 id=f"call_{len(self.memory.steps)}",

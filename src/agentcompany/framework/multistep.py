@@ -7,14 +7,13 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from agentcompany.llms.monitoring import (
     AgentLogger,
 )
-from agentcompany.mcp.base import ModelContextProtocolImpl
 import textwrap
 from redis import Redis
 import os
 from typing import TypedDict
 from jinja2 import StrictUndefined, Template    
-from agentcompany.lib.execution_environment.base import ExecutionEnvironment
-from agentcompany.llms.memory import ActionStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, ToolCall
+from agentcompany.extensions.environments.base import ExecutionEnvironment
+from agentcompany.llms.memory import ActionStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, FunctionCall
 from agentcompany.driver.errors import (
     AgentError,
     AgentExecutionError,
@@ -23,6 +22,7 @@ from agentcompany.driver.errors import (
     AgentParsingError,
 )
 from agentcompany.mcp.base import ModelContextProtocolImpl
+from agentcompany.extensions.pyfunc.base import FinalAnswerFunction
 from agentcompany.mcp.utils import truncate_content
 from agentcompany.llms.monitoring import LogLevel
 from agentcompany.llms.base import (
@@ -36,8 +36,7 @@ logger = getLogger(__name__)
 
 
 
-def populate_template(template: str, variables: Dict[str, Any]) -> str:
-    print(template, variables)
+def populate_template(template: str, variables: Dict[str, ModelContextProtocolImpl]) -> str:
     compiled_template = Template(template, undefined=StrictUndefined)
     try:
         return compiled_template.render(**variables)
@@ -100,7 +99,7 @@ class PromptTemplates(TypedDict):
     system_prompt_variables: List[str]
     planning: PlanningPromptTemplate
     final_answer: FinalAnswerPromptTemplate
-    execution_environment_config: ExecutionEnvironmentConfig
+    executor_environment_config: ExecutionEnvironmentConfig
     
 
 EMPTY_PROMPT_TEMPLATES = PromptTemplates(
@@ -137,7 +136,15 @@ class ReActPattern(ModelContextProtocolImpl):
         final_answer_call (`Callable[[str, Optional[list[str]]], str]`, *optional*): Function to call to provide the final answer.
     """
     
-    execution_environment: ExecutionEnvironment = None
+    description = "This is an agent implementing the ReAct design pattern."
+    name = "ReActPattern"
+    inputs = {"task": {
+        "type": "string",
+        "description": "The task for the agent to solve.",
+    }}
+    output_type = "string"
+    interface_id: str = None
+    executor_environment: ExecutionEnvironment = None
 
     def __init__(
         self,
@@ -149,7 +156,7 @@ class ReActPattern(ModelContextProtocolImpl):
         mcp_servers: List[ModelContextProtocolImpl],
         step_callbacks: List[Callable],
         final_answer_checks: List[Callable],
-        final_answer_call: Callable[[str, Optional[List[str]]], str],
+        final_answer_call: ModelContextProtocolImpl = None,
         max_steps: int = 6,
     ):
         # Identifiers
@@ -168,11 +175,11 @@ class ReActPattern(ModelContextProtocolImpl):
         # MCP Servers
         self._setup_mcp_servers(mcp_servers)
         self.final_answer_checks = final_answer_checks
-        self.mcp_servers["final_answer"] = final_answer_call
+        self.mcp_servers["final_answer"] = final_answer_call or FinalAnswerFunction
         # System Prompt
         self.system_prompt = self.initialize_system_prompt()
         # Environment
-        self.execution_environment_config = self.prompt_templates["execution_environment"]
+        self.executor_environment_config = self.prompt_templates["executor_environment"]
         self._setup_environment()
         # Context
         self.input_messages = None
@@ -189,11 +196,15 @@ class ReActPattern(ModelContextProtocolImpl):
     
     def _setup_environment(self):
         # Get class name from config
-        interface_name = self.execution_environment_config["interface"]
+        interface_name = self.executor_environment_config["interface"]
 
         # Find all registered ExecutionEnvironment subclasses
+        from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
+        
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}
-
+        
+        print(f"*** Environment Classes: {environment_classes}")
+        
         try:
             environment_cls = environment_classes[interface_name]
         except KeyError:
@@ -206,9 +217,9 @@ class ReActPattern(ModelContextProtocolImpl):
         # Instantiate the chosen class
         self.executor_environment = environment_cls(
             self.mcp_servers,
-            **self.execution_environment_config["config"]
+            **self.executor_environment_config["config"]
         )
-        self.execution_environment.attach_mcp_servers(self.mcp_servers)
+        self.executor_environment.attach_mcp_servers(self.mcp_servers)
         
     def _setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
         self.mcp_servers = {}
@@ -228,7 +239,7 @@ class ReActPattern(ModelContextProtocolImpl):
     def initialize_system_prompt(self) -> str:
         variables={
             "mcp_servers": {
-                server_name: server.description
+                server_name: server
                 for server_name, server in self.mcp_servers.items()
             },
         }
@@ -385,7 +396,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.task = task
         if environment_variables is not None:
             self.state.update(environment_variables)
-            self.execution_environment.attach_variables(environment_variables)
+            self.executor_environment.attach_variables(environment_variables)
         self.system_prompt = self.initialize_system_prompt()
         self.memory.system_prompt = SystemPromptStep(system_prompt=self.system_prompt)
         if reset:
@@ -623,14 +634,14 @@ class ReActPattern(ModelContextProtocolImpl):
 
         # TODO Parse as per exection environment
         try:
-            code_action = self.execution_environment.parse_code_blobs(model_output)
+            code_action = self.executor_environment.parse_code_blobs(model_output)
         except Exception as e:
             error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
             raise AgentParsingError(error_msg, self.logger)
 
-        action_step.tool_calls = [
-            ToolCall(
-                name=self.execution_environment_config["interface"],
+        action_step.function_calls = [
+            FunctionCall(
+                name=self.executor_environment_config["interface"],
                 arguments=code_action,
                 id=f"call_{len(self.memory.steps)}",
             )
@@ -640,11 +651,12 @@ class ReActPattern(ModelContextProtocolImpl):
         is_final_answer = False
         
         try:
-            output, execution_logs, is_final_answer = self.execution_environment.__call__(code_action)
+            # TODO pass additional variables instead of {}
+            output, execution_logs, is_final_answer = self.executor_environment.__call__(code_action, {})
             observation = execution_logs
         except Exception as e:
-            if hasattr(self.execution_environment, "state") and "_print_outputs" in self.execution_environment.state:
-                execution_logs = str(self.execution_environment.state["_print_outputs"])
+            if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
+                execution_logs = str(self.executor_environment.state["_print_outputs"])
                 action_step.observations = execution_logs
             error_msg = str(e)
             if "Import of " in error_msg and " is not allowed" in error_msg:
@@ -661,8 +673,8 @@ class ReActPattern(ModelContextProtocolImpl):
         action_step.action_output = output
         return output if is_final_answer else None
     
-    def forward(self, *args, **kwds):
+    def forward(self, task: str):
         """
         MCPContextProtocolImpl forward method.
         """
-        return self.run(*args, **kwds)
+        return self.run(task)

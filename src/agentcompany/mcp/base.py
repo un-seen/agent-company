@@ -3,6 +3,7 @@ from functools import wraps
 from ._function_type_hints_utils import (
     _convert_type_hints_to_json_schema,
 )
+import abc
 import inspect
 
 AUTHORIZED_TYPES = [
@@ -30,7 +31,7 @@ def validate_after_init(cls):
     return cls
 
 
-class ModelContextProtocolImpl:
+class ModelContextProtocolImpl(abc.ABC):
     """
     A base class for the functions used by the agent. Subclass this and implement the `forward` method as well as the
     following class attributes:
@@ -120,6 +121,7 @@ class ModelContextProtocolImpl:
                         f"Nullable argument '{key}' in function signature should have key 'nullable' set to True in inputs."
                     )
 
+    @abc.abstractmethod
     def forward(self, *args, **kwargs):
         return NotImplementedError("Write this method in your subclass of `ModelContextProtocolImpl`.")
 
@@ -137,7 +139,7 @@ class ModelContextProtocolImpl:
 
         outputs = self.forward(*args, **kwargs)
         return outputs
-    
+
     def setup(self):
         """
         Overwrite this method here for any operation that is expensive and needs to be executed before you start using

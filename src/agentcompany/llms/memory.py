@@ -25,7 +25,7 @@ def get_memory_index_name() -> str:
     return index_name
 
 @dataclass
-class ToolCall:
+class FunctionCall:
     name: str
     arguments: Any
     id: str
@@ -54,7 +54,7 @@ class MemoryStep:
 @dataclass
 class ActionStep(MemoryStep):
     model_input_messages: List[Dict[str, str]] | None = None
-    tool_calls: List[ToolCall] | None = None
+    function_calls: List[FunctionCall] | None = None
     start_time: float | None = None
     end_time: float | None = None
     step_number: int | None = None
@@ -70,7 +70,7 @@ class ActionStep(MemoryStep):
         # We overwrite the method to parse the tool_calls and action_output manually
         return {
             "model_input_messages": self.model_input_messages,
-            "tool_calls": [tc.dict() for tc in self.tool_calls] if self.tool_calls else [],
+            "function_calls": [tc.dict() for tc in self.function_calls] if self.function_calls else [],
             "start_time": self.start_time,
             "end_time": self.end_time,
             "step": self.step_number,
@@ -91,11 +91,11 @@ class ActionStep(MemoryStep):
                 Message(role=MessageRole.ASSISTANT, content=[{"type": "text", "text": self.model_output.strip()}])
             )
 
-        if self.tool_calls is not None:
+        if self.function_calls is not None:
             messages.append(
                 Message(
                     role=MessageRole.ASSISTANT,
-                    content=[{"type": "text", "text": str([tc.dict() for tc in self.tool_calls])}],
+                    content=[{"type": "text", "text": str([tc.dict() for tc in self.function_calls])}],
                 )
             )
 
@@ -105,26 +105,26 @@ class ActionStep(MemoryStep):
                 + str(self.error)
                 + "\nNow let's retry: take care not to repeat previous errors! If you have retried several times, try a completely different approach.\n"
             )
-            if self.tool_calls is None:
+            if self.function_calls is None:
                 tool_response_message = Message(
                     role=MessageRole.ASSISTANT, content=[{"type": "text", "text": message_content}]
                 )
             else:
                 tool_response_message = Message(
                     role=MessageRole.FUNCTION_RESPONSE,
-                    content=[{"type": "text", "text": f"Call id: {self.tool_calls[0].id}\n{message_content}"}],
+                    content=[{"type": "text", "text": f"Call id: {self.function_calls[0].id}\n{message_content}"}],
                 )
 
             messages.append(tool_response_message)
         else:
-            if self.observations is not None and self.tool_calls is not None:
+            if self.observations is not None and self.function_calls is not None:
                 messages.append(
                     Message(
                         role=MessageRole.FUNCTION_RESPONSE,
                         content=[
                             {
                                 "type": "text",
-                                "text": f"Call id: {self.tool_calls[0].id}\nObservation:\n{self.observations}",
+                                "text": f"Call id: {self.function_calls[0].id}\nObservation:\n{self.observations}",
                             }
                         ],
                     )

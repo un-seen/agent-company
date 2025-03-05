@@ -43,7 +43,7 @@ planning:
     {{task}}
     ```
     You can leverage these remote servers for executing sub-tasks:
-    {%- for server in mcp_servers.values() %}
+    {%- for server in mcp_servers.items() %}
     - {{ server.name }}: {{ server.description }}
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
