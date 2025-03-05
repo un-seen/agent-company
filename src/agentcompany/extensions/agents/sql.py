@@ -6,19 +6,19 @@ from agentcompany.framework.multistep import ReActPattern
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.llms.openai import OpenAIServerLLM
 
-def PythonCodeAgent(name: str, 
-                    interface_id: str, 
-                    description: str, 
-                    mcp_servers: List[ModelContextProtocolImpl] = [],
-                    step_callbacks: List[Callable] = [],
-                    final_answer_checks: List[Callable] = [], 
-                    final_answer_call: ModelContextProtocolImpl = None) -> ReActPattern:
+def SQLAgent(name: str, 
+             interface_id: str, 
+             description: str, 
+             mcp_servers: List[ModelContextProtocolImpl] = [],
+             step_callbacks: List[Callable] = [],
+             final_answer_checks: List[Callable] = [], 
+             final_answer_call: ModelContextProtocolImpl = None) -> ReActPattern:
     """
-    Create a Python code agent.
+    Create a TfServing code agent.
     """
     default_yaml_path = importlib.resources.files("agentcompany.extensions.prompts").joinpath("default.yaml")
     default_prompt_templates: Dict = yaml.safe_load(default_yaml_path.read_text())
-    agent_yaml_path = importlib.resources.files("agentcompany.extensions.prompts").joinpath("python.yaml")
+    agent_yaml_path = importlib.resources.files("agentcompany.extensions.prompts").joinpath("postgres_sql.yaml")
     prompt_templates: Dict = yaml.safe_load(agent_yaml_path.read_text())
     prompt_templates.update(default_prompt_templates)
     

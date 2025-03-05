@@ -3,7 +3,7 @@ import time
 from collections import deque
 from logging import getLogger
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
-
+import json
 from agentcompany.llms.monitoring import (
     AgentLogger,
 )
@@ -671,7 +671,10 @@ class ReActPattern(ModelContextProtocolImpl):
         action_step.observations = observation
         self.logger.log(text=output, title="Output from code snippet:" if is_final_answer else "Final Answer from code snippet:", level=LogLevel.INFO)
         action_step.action_output = output
-        return output if is_final_answer else None
+        if is_final_answer:
+            self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "text": output, "title": "Final Answer"}))
+            return output
+        return None
     
     def forward(self, task: str):
         """
