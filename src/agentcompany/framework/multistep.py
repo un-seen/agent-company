@@ -127,13 +127,11 @@ class ReActPattern(ModelContextProtocolImpl):
         description (`str`): Description of the agent.
         model (`Callable[[list[dict[str, str]]], ChatMessage]`): Model that will generate the agent's actions.
         prompt_templates (`PromptTemplates`, *optional*): Prompt templates for the agent.
-        system_variables (`list[str]`, *optional*): List of system variables to include in the system prompt.
-        max_steps (`int`, default `6`): Maximum number of steps the agent can take to solve the task.
-        mcp_request_parser (`Callable`, *optional*): Function used to parse the mcp request calls from the LLM output.
         mcp_servers (`list`, *optional*): Managed agents that the agent can call.
         step_callbacks (`list`, *optional*): List of functions to call after each step.
         final_answer_checks (`list`, *optional*): List of Callables to run before returning a final answer for checking validity.
         final_answer_call (`Callable[[str, Optional[list[str]]], str]`, *optional*): Function to call to provide the final answer.
+        max_steps (`int`, default `6`): Maximum number of steps the agent can take to solve the task.
     """
     
     description = "This is an agent implementing the ReAct design pattern."
@@ -176,11 +174,11 @@ class ReActPattern(ModelContextProtocolImpl):
         self._setup_mcp_servers(mcp_servers)
         self.final_answer_checks = final_answer_checks
         self.mcp_servers["final_answer"] = final_answer_call or FinalAnswerFunction
-        # System Prompt
-        self.system_prompt = self.initialize_system_prompt()
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
         self._setup_environment()
+        # System Prompt
+        self.system_prompt = self.initialize_system_prompt()
         # Context
         self.input_messages = None
         self.task = None
@@ -200,6 +198,7 @@ class ReActPattern(ModelContextProtocolImpl):
 
         # Find all registered ExecutionEnvironment subclasses
         from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
+        from agentcompany.extensions.environments.local_postgres_executor import LocalPostgresInterpreter
         
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}
         
@@ -244,8 +243,8 @@ class ReActPattern(ModelContextProtocolImpl):
             },
         }
         variables.update({
-            variable: getattr(self, variable)
-            for variable in self.prompt_templates["system_prompt_variables"]  if hasattr(self, variable)
+            variable: getattr(self.executor_environment, variable)
+            for variable in self.executor_environment_config["system_prompt_variables"]  if hasattr(self.executor_environment, variable)
         })
         system_prompt = populate_template(
             self.prompt_templates["system_prompt"],

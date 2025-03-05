@@ -11,9 +11,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import traceback
 import numpy as np
 import pandas as pd
+import psycopg2
+import logging
+from psycopg2.extras import RealDictCursor
 from agentcompany.mcp.utils import truncate_content
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 
+logger = logging.getLogger(__name__)
 
 BASE_BUILTIN_MODULES = [
     "collections",
@@ -32,7 +36,7 @@ BASE_BUILTIN_MODULES = [
 
 class InterpreterError(ValueError):
     """
-    An error raised when the interpreter cannot evaluate a Python expression, due to syntax error or unsupported
+    An error raised when the interpreter cannot evaluate a SQL expression, due to syntax error or unsupported
     operations.
     """
 
@@ -53,7 +57,7 @@ def custom_print(*args):
     return None
 
 
-BASE_PYTHON_TOOLS = {
+BASE_SQL_TOOLS = {
     "print": custom_print,
     "isinstance": isinstance,
     "range": range,
@@ -1240,7 +1244,7 @@ class FinalAnswerException(Exception):
 
 
 
-def evaluate_python_code(
+def evaluate_sql_code(
     code: str,
     static_tools: Optional[Dict[str, Callable]] = None,
     custom_tools: Optional[Dict[str, Callable]] = None,
@@ -1249,7 +1253,7 @@ def evaluate_python_code(
     max_print_outputs_length: int = DEFAULT_MAX_LEN_OUTPUT,
 ):
     """
-    Evaluate a python expression using the content of the variables stored in a state and only evaluating a given set
+    Evaluate a sql expression using the content of the variables stored in a state and only evaluating a given set
     of functions.
 
     This function will recurse through the nodes of the tree provided.
@@ -1289,7 +1293,8 @@ def evaluate_python_code(
 
     try:
         for node in expression.body:
-            result = evaluate_ast(node, state, static_tools, custom_tools, authorized_imports)
+            print(node, state, static_tools, custom_tools, authorized_imports)
+            raise ValueError(f"Code execution failed at node '{node}' due to code '{code}'")
         state["print_outputs"] = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
         is_final_answer = False
         return result, is_final_answer
@@ -1335,27 +1340,55 @@ def fix_final_answer_code(code: str) -> str:
     code = re.sub(variable_regex, "final_answer_variable", code)
     return code
     
-class LocalPythonInterpreter(ExecutionEnvironment):
+class LocalPostgresInterpreter(ExecutionEnvironment):
     def __init__(
         self,
         mcp_servers: Dict,
-        additional_authorized_imports: List[str],
+        host: str,
+        port: int,
+        dbname: str,
+        user: str,
+        password: str,
+        additional_authorized_imports: List[str]
     ):
         self.custom_tools = {}
         self.state = {}
         self.max_print_outputs_length = DEFAULT_MAX_LEN_OUTPUT
         self.additional_authorized_imports = additional_authorized_imports
+        self.pg_config = {
+            "host": host,
+            "port": port,
+            "dbname": dbname,
+            "user": user,
+            "password": password
+        }
+        logger.info(f"Connecting to the database {dbname} on {host}:{port}")
+        self.pg_conn = psycopg2.connect(**self.pg_config)
+        self.sql_schema = {}
+        logger.info("Fetching schema from the database")
+        with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
+            tables = [row["table_name"] for row in cur.fetchall()]
+            for table in tables:
+                logger.info(f"Fetching schema for table {table}")
+                cur.execute(
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = %s;",
+                    (table,)
+                )
+                table_schema = {row["column_name"]: row["data_type"] for row in cur.fetchall()}
+                self.sql_schema[table] = table_schema
+        # TODO: assert self.authorized imports are all installed 
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         # Add base trusted tools to list
         self.static_tools = {
             **mcp_servers,
-            **BASE_PYTHON_TOOLS.copy(),
+            **BASE_SQL_TOOLS.copy(),
         }
-        # TODO: assert self.authorized imports are all installed locally
+        
 
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
         self.state.update(additional_variables)
-        output, is_final_answer = evaluate_python_code(
+        output, is_final_answer = evaluate_sql_code(
             code_action,
             static_tools=self.static_tools,
             custom_tools=self.custom_tools,
@@ -1374,7 +1407,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
 
     def parse_code_blobs(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
-        pattern = r"```(?:py|python)?\n(.*?)\n```"
+        pattern = r"```(?:sql|mysql|psql)?\n(.*?)\n```"
         matches = re.findall(pattern, code_blob, re.DOTALL)
         if len(matches) == 0:
             try:  # Maybe the LLM outputted a code blob directly
@@ -1399,8 +1432,8 @@ class LocalPythonInterpreter(ExecutionEnvironment):
                     Thoughts: Your thoughts
                     Code:
                     ```py
-                    # Your python code here
+                    # Your SQL code here
                     ```<end_code>""".strip())
         return fix_final_answer_code("\n\n".join(match.strip() for match in matches))
 
-__all__ = ["evaluate_sql_code", "LocalSQLInterpreter"]
+__all__ = ["evaluate_sql_code", "LocalPostgresInterpreter"]

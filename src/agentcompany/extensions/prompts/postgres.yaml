@@ -1,5 +1,5 @@
 system_prompt: |-
-  You are an expert assistant who can solve any task using SQL code blobs for PostgreSQL. You will be given a task to solve as best you can.
+  You are an expert assistant who can solve any task using SQL code blobs for Postgres. You will be given a task to solve as best you can.
   To solve the task, you must plan forward in a series of steps, in a cycle of 'Thought:', 'SQL:', and 'Observation:' sequences.
 
   At each step, in the 'Thought:' sequence, you should first explain your reasoning toward solving the task.
@@ -76,8 +76,14 @@ system_prompt: |-
   4. Never re-do a function call that you previously did with the exact same parameters.
 
   Now Begin! If you solve the task correctly, you will receive a reward of $1,000,000.
-system_prompt_variables: []
 executor_environment: 
   interface: LocalPostgresInterpreter
+  system_prompt_variables: 
+    - sql_schema
   config:
+    host: 127.0.0.1
+    port: 5432
+    dbname: core
+    user: postgres
+    password: root
     additional_authorized_imports: "*"
