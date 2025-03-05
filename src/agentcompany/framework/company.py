@@ -3,8 +3,8 @@ import threading
 import time
 import os
 from redis import Redis
-from agentcompany.driver import ManagerAgent
-from agentcompany.driver.models import OpenAIServerModel
+from agentcompany.driver import CompanyAgent
+from agentcompany.llms.base import OpenAIServerModel
 from agentcompany.driver.runner import FunctionRunner
 import logfire
 from typing import Any
@@ -14,7 +14,7 @@ if os.environ.get("LOGFIRE_TOKEN"):
     logfire.configure(token=os.environ["LOGFIRE_TOKEN"])
 
 
-class BasicWorkflow(abc.ABC):
+class RunnerMCP(abc.ABC):
     def __init__(self, workflow_name: str, model_name: str = "gpt-4o-mini"):
         self.workflow_name = workflow_name
         self.user_input_queue_name = f"user_input:{workflow_name}"
@@ -42,7 +42,7 @@ class BasicWorkflow(abc.ABC):
     @abc.abstractmethod
     def create_runner(self) -> FunctionRunner:
         """
-        Returns a ManagerAgent instance.
+        Returns a FunctionRunner instance.
         Must be implemented by subclasses.
         """
         raise NotImplementedError("create_manager_agent method must be implemented by subclasses.")
@@ -76,7 +76,7 @@ class BasicWorkflow(abc.ABC):
         print("Worker thread stopped.")
         
 
-class BasicCompany(abc.ABC):
+class CompanyMCP(abc.ABC):
     def __init__(self, company_name: str, model_name: str = "gpt-4o-mini"):
         self.company_name = company_name
         self.user_input_queue_name = f"user_input:{company_name}"
@@ -89,6 +89,10 @@ class BasicCompany(abc.ABC):
         # Create the worker thread as a daemon so that it dies when the main thread exits.
         self.worker_thread = threading.Thread(target=self._worker, daemon=True)
 
+    def attach_llm(self, llm: Any) -> None:
+        """Attach a language model to the agent."""
+        self.model = llm
+        
     def start(self) -> None:
         """Starts the worker thread."""
         self.worker_thread.start()
@@ -104,9 +108,9 @@ class BasicCompany(abc.ABC):
         return self.company_name
 
     @abc.abstractmethod
-    def create_manager_agent(self) -> ManagerAgent:
+    def create_company_agent(self) -> CompanyAgent:
         """
-        Returns a ManagerAgent instance.
+        Returns a CompanyAgent instance.
         Must be implemented by subclasses.
         """
         raise NotImplementedError("create_manager_agent method must be implemented by subclasses.")
@@ -116,7 +120,7 @@ class BasicCompany(abc.ABC):
         Worker thread method. It listens for messages on the Redis queue (blocking pop)
         and processes any messages that arrive.
         """
-        manager_agent = self.create_manager_agent()
+        manager_agent = self.create_company_agent()
         while not self._stop_event.is_set():
             try:
                 # lpop returns a message or None.
@@ -139,4 +143,4 @@ class BasicCompany(abc.ABC):
         print("Worker thread stopped.")
 
 
-__all__ = ["BasicCompany"]
+__all__ = ["CompanyMCP"]

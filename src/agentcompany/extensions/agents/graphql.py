@@ -2,47 +2,30 @@ from logging import getLogger
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import json
-from agentcompany.driver.surreal_executor import SurrealExecutor
+from agentcompany.execution_environment.surreal_executor import SurrealExecutor
 import re
-from agentcompany.driver.monitoring import (
+from agentcompany.llms.monitoring import (
     LogLevel,
 )
 
-from agentcompany.driver.memory import (
+from agentcompany.llms.memory import (
     ActionStep,
-    ToolCall,
+    FunctionCall,
 )
-from agentcompany.driver.types import AgentImage, handle_agent_output_types
-from agentcompany.driver.utils import (
-    AgentError,
+from agentcompany.mcp.utils import (
     AgentExecutionError,
     AgentGenerationError,
-    AgentMaxStepsError,
     AgentParsingError,
-    parse_thought,
-    parse_python_code_blobs,
-    parse_json_tool_call,
     truncate_content,
 )
-from agentcompany.driver.default_tools import TOOL_MAPPING, FinalAnswerTool
-from agentcompany.driver.local_bash_executor import LocalBashInterpreter
 from agentcompany.driver.local_python_executor import (
-    BASE_BUILTIN_MODULES,
-    LocalPythonInterpreter,
     fix_final_answer_code,
 )
-from agentcompany.driver.models import (
+from agentcompany.llms.base import (
     ChatMessage,
-    MessageRole,
 )
 import re
 from agentcompany.driver.agents import MultiStepAgent
-from agentcompany.driver.tools import (
-    DEFAULT_TOOL_DESCRIPTION_TEMPLATE,
-    Tool,
-    get_tool_description_with_args,
-)
-from agentcompany.driver.types import AgentType
 
 
 logger = getLogger(__name__)
@@ -402,8 +385,8 @@ class GraphqlAgent(MultiStepAgent):
             )
             raise AgentParsingError(error_msg, self.logger)
 
-        log_entry.tool_calls = [
-            ToolCall(
+        log_entry.function_calls = [
+            FunctionCall(
                 name="surrealgraphql_interpreter",
                 arguments=code_action,
                 id=f"call_{len(self.memory.steps)}",
