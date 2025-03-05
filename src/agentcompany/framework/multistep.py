@@ -161,6 +161,11 @@ class ReActPattern(ModelContextProtocolImpl):
         self.name = name
         self.description = description
         self.interface_id = interface_id
+        # Logging
+        verbosity_level: int = 1
+        self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
+        # Storage Client
+        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
         # Prompt Templates
         self.prompt_templates = prompt_templates or EMPTY_PROMPT_TEMPLATES
         # LLM
@@ -186,11 +191,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.step_callbacks = step_callbacks if step_callbacks is not None else []
         # Memory
         self.memory = AgentMemory(name, interface_id, self.system_prompt)
-        # Logging
-        verbosity_level: int = 1
-        self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
-        # Storage Client
-        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+
     
     def _setup_environment(self):
         # Get class name from config
@@ -200,12 +201,10 @@ class ReActPattern(ModelContextProtocolImpl):
         from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
         from agentcompany.extensions.environments.local_postgres_executor import LocalPostgresInterpreter
         
-        environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}
-        
-        print(f"*** Environment Classes: {environment_classes}")
-        
+        environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
         try:
             environment_cls = environment_classes[interface_name]
+            self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "text": f"Using execution environment '{interface_name}'"}))
         except KeyError:
             available = list(environment_classes.keys())
             raise ValueError(
