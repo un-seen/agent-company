@@ -72,7 +72,7 @@ def fix_final_answer_code(code: str) -> str:
     # First, find if there's a direct assignment to final_answer
     # Use word boundary and negative lookbehind to ensure it's not an object attribute
     assignment_pattern = r"(?<!\.)(?<!\w)\bfinal_answer\s*="
-    if "final_answer(" not in code or not re.search(assignment_pattern, code):
+    if "final_answer(" not in code.lower() or not re.search(assignment_pattern, code.lower()):
         # If final_answer tool is not called in this blob, then doing the replacement is hazardous because it could false the model's memory for next steps.
         # Let's not modify the code and leave the subsequent assignment error happen.
         return code
@@ -105,7 +105,6 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
         for idx, statement in enumerate(node.expressions):
             if statement.this in static_tools:
-                # TODO capture arguments as well
                 print("Found static tool")
                 print(statement)
                 function_name = statement.this.lower()
@@ -155,6 +154,8 @@ def evaluate_sql_code(
         authorized_imports (List[str]): List of modules that are allowed to be imported.
         max_print_outputs_length (int): Maximum length for the captured print outputs.
     """
+    if not (code.lower().startswith("select") or code.lower().startswith("create") or code.lower().startswith("insert") or code.lower().startswith("update") or code.lower().startswith("delete")):
+        code = f"SELECT {code}"
     try:
         expression = sqlglot.parse(code)
     except SyntaxError as e:
@@ -274,7 +275,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
                 return code_blob
             except SyntaxError:
                 pass
-            if "final" in code_blob and "answer" in code_blob:
+            if "final" in code_blob.lower() and "answer" in code_blob.lower():
                 raise ValueError(f"""
                         Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
                         Here is your code snippet:

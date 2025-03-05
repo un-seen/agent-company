@@ -667,10 +667,10 @@ class ReActPattern(ModelContextProtocolImpl):
         truncated_output = truncate_content(str(output))
         observation += "Last output from code snippet:\n" + truncated_output
         action_step.observations = observation
-        self.logger.log(text=output, title="Output from code snippet:" if is_final_answer else "Final Answer from code snippet:", level=LogLevel.INFO)
+        self.logger.log(text=truncated_output, title="Output from code snippet:" if is_final_answer else "Final Answer from code snippet:", level=LogLevel.INFO)
         action_step.action_output = output
         if is_final_answer:
-            self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "text": output, "title": "Final Answer"}))
+            self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "text": truncated_output, "title": "Final Answer"}))
             return output
         return None
     
