@@ -262,7 +262,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
     def attach_variables(self, variables: dict):
         self.state.update(variables)
 
-    def attach_mcp_servers(self, mcp_servers: Dict[str, Callable]):
+    def attach_mcp_servers(self, mcp_servers: Dict[str, ModelContextProtocolImpl]):
         self.static_tools.update(mcp_servers)
 
     def parse_code_blobs(self, code_blob: str) -> str:

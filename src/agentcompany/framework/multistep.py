@@ -200,10 +200,12 @@ class ReActPattern(ModelContextProtocolImpl):
         # Find all registered ExecutionEnvironment subclasses
         from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
         from agentcompany.extensions.environments.local_postgres_executor import LocalPostgresInterpreter
+        from agentcompany.extensions.environments.local_tfserving_executor import LocalTfServingInterpreter
         
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
         try:
             environment_cls = environment_classes[interface_name]
+            print(f"Instantiating execution environment '{interface_name}'")
             self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "text": f"Using execution environment '{interface_name}'"}))
         except KeyError:
             available = list(environment_classes.keys())

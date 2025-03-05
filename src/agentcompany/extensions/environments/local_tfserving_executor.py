@@ -3,16 +3,46 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict
 from PIL import Image
 import numpy as np
 import io
+import re
+import json
+from agentcompany.extensions.environments.base import ExecutionEnvironment
+from agentcompany.mcp.base import ModelContextProtocolImpl
         
 DEFAULT_MAX_LEN_OUTPUT = 5000
 
+def fix_final_answer_code(code: str) -> str:
+    """
+    Sometimes an LLM can try to assign a variable to final_answer, which would break the final_answer() tool.
+    This function fixes this behaviour by replacing variable assignments to final_answer with final_answer_variable,
+    while preserving function calls to final_answer().
+    """
+    # First, find if there's a direct assignment to final_answer
+    # Use word boundary and negative lookbehind to ensure it's not an object attribute
+    assignment_pattern = r"(?<!\.)(?<!\w)\bfinal_answer\s*="
+    if "final_answer(" not in code.lower() or not re.search(assignment_pattern, code.lower()):
+        # If final_answer tool is not called in this blob, then doing the replacement is hazardous because it could false the model's memory for next steps.
+        # Let's not modify the code and leave the subsequent assignment error happen.
+        return code
 
-class TfServingExecutorInput(TypedDict):
+    # Pattern for replacing variable assignments
+    # Looks for 'final_answer' followed by '=' with optional whitespace
+    # Negative lookbehind ensures we don't match object attributes
+    assignment_regex = r"(?<!\.)(?<!\w)(\bfinal_answer)(\s*=)"
+    code = re.sub(assignment_regex, r"final_answer_variable\2", code)
+
+    # Pattern for replacing variable usage but not function calls
+    # Negative lookahead (?!\s*\() ensures we don't match function calls
+    # Negative lookbehind (?<!\.|\w) ensures we don't match object methods or other variables
+    variable_regex = r"(?<!\.)(?<!\w)(\bfinal_answer\b)(?!\s*\()"
+    code = re.sub(variable_regex, "final_answer_variable", code)
+    return code
+
+class TfServingInput(TypedDict):
     endpoint: str
     file_url: str    
 
 
-class TFServingExecutor:
+class LocalTfServingInterpreter(ExecutionEnvironment):
     """
     A simple executor class for TensorFlow Serving that takes as input:
       - A dictionary of TFServing endpoints (model_name: endpoint_url).
@@ -27,23 +57,32 @@ class TFServingExecutor:
     
     def __init__(
         self,
-        tfserving_endpoints: Optional[Dict[str, str]] = None,
-        allowed_models: Optional[List[str]] = None,
-        max_print_outputs_length: Optional[int] = None,
+        mcp_servers: Dict[str, ModelContextProtocolImpl],
+        endpoints: List[Dict[str, str]],
+        allowed_endpoints: Optional[List[str]] = None,
     ):
         # Dictionary of TFServing endpoints (model_name: endpoint_url).
-        self.endpoints = tfserving_endpoints if tfserving_endpoints is not None else {}
-        
+        self.static_tools = mcp_servers
+        self.endpoints = endpoints if endpoints is not None else []
+        self.endpoint_schema = {}
+        for endpoint in self.endpoints:
+            self.endpoint_schema[endpoint["model_name"]] = endpoint["model_url"]
         # Define a whitelist of allowed model names.
-        if allowed_models is None:
-            self.allowed_models = list(self.endpoints.keys()) if self.endpoints else []
+        if allowed_endpoints is None:
+            self.allowed_endpoints = list(self.endpoint_schema.keys()) if self.endpoint_schema else []
         else:
-            self.allowed_models = allowed_models
+            self.allowed_models = allowed_endpoints
 
         self.state: Dict[str, Any] = {}  # Additional state variables (if needed)
-        self.max_print_outputs_length = max_print_outputs_length or DEFAULT_MAX_LEN_OUTPUT
+        self.max_print_outputs_length = DEFAULT_MAX_LEN_OUTPUT
         self.print_outputs = ""  # Log buffer for all command outputs
 
+    def attach_variables(self, variables: dict):
+        self.state.update(variables)
+
+    def attach_mcp_servers(self, mcp_servers: Dict[str, ModelContextProtocolImpl]):
+        self.static_tools.update(mcp_servers)
+        
     def _is_model_allowed(self, model_name: str) -> bool:
         """
         Check if the specified model name is in the whitelist.
@@ -81,7 +120,7 @@ class TFServingExecutor:
         except Exception as e:
             raise ValueError(f"Failed to preprocess image: {str(e)}")
 
-    def __call__(self, action: TfServingExecutorInput, additional_variables: Dict[str, Any] = None) -> Tuple[Any, str, bool]:
+    def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
         """
         Executes the TFServing prediction request based on the provided action.
 
@@ -98,8 +137,9 @@ class TFServingExecutor:
         """
         # Extract model_name and file_url from the action dictionary
         try:
-            model_name = action["model_name"]
-            file_url = action["file_url"]
+            code_action = json.loads(code_action)
+            model_name = code_action["model_name"]
+            file_url = code_action["file_url"]
         except KeyError as e:
             raise ValueError(f"Action dictionary missing required key: {str(e)}")
 
@@ -108,7 +148,7 @@ class TFServingExecutor:
             raise ValueError(f"Model '{model_name}' is not allowed. Allowed models: {self.allowed_models}")
 
         # Get the corresponding endpoint
-        endpoint = self.endpoints.get(model_name)
+        endpoint = self.endpoint_schema.get(model_name)
         if not endpoint:
             raise ValueError(f"No endpoint defined for model '{model_name}'")
 
@@ -121,8 +161,8 @@ class TFServingExecutor:
 
         # Execute the TFServing request
         try:
-            print(f"Sending request to {endpoint}")
-            response = requests.post(endpoint, json=payload, timeout=120)
+            print(f"Sending request to {endpoint}. Wait...")
+            response = requests.post(endpoint, json=payload, timeout=240)
             response.raise_for_status()
             output = response.json()  # Return raw JSON string
         except requests.exceptions.RequestException as e:
@@ -137,3 +177,38 @@ class TFServingExecutor:
         is_final_answer = True
 
         return output, self.print_outputs, is_final_answer
+
+    def parse_code_blobs(self, code_blob: str) -> str:
+        """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
+        pattern = r"```(?:json)?\n(.*?)\n```"
+        matches = re.findall(pattern, code_blob, re.DOTALL)
+        if len(matches) == 0:
+            try:  # Maybe the LLM outputted a code blob directly
+                json.loads(code_blob)
+                return code_blob
+            except SyntaxError:
+                pass
+            if "final" in code_blob.lower() and "answer" in code_blob.lower():
+                raise ValueError(f"""
+                        Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
+                        Here is your code snippet:
+                        {code_blob}
+                        It seems like you're trying to return the final answer, you can do it as follows:
+                        Code:
+                        ```json
+                        {{
+                            "final_answer": "Your final answer here"
+                        }}
+                        ```<end_code>""".strip())
+            raise ValueError(f"""Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
+                    Here is your code snippet:
+                    {code_blob}
+                    Make sure to include code with the correct pattern, for instance:
+                    Thoughts: Your thoughts
+                    Code:
+                    ```json
+                    {{
+                       /* Your JSON code here */
+                    }}
+                    ```<end_code>""".strip())
+        return fix_final_answer_code("\n\n".join(match.strip() for match in matches))
