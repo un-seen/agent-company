@@ -65,6 +65,9 @@ class ModelContextProtocolImpl(abc.ABC):
         super().__init_subclass__(**kwargs)
         validate_after_init(cls)
 
+    def get_description(self) -> str:
+        return self.description
+
     def validate_arguments(self):
         required_attributes = {
             "description": str,

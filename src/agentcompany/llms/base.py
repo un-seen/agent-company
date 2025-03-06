@@ -5,7 +5,9 @@ from agentcompany.llms.utils import (
 )
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.llms.utils import ChatMessage
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Callable
+
+BaseLLM = Callable[[List[Dict[str, str]]], ChatMessage]
 
 class AugmentedLLM:
     def __init__(self, **kwargs):

@@ -5,10 +5,10 @@ import os
 from redis import Redis
 from agentcompany.driver import CompanyAgent
 from agentcompany.llms.base import OpenAIServerModel
-from agentcompany.driver.runner import FunctionRunner
 import logfire
 from typing import Any
 
+# TODO make it work
 # Configure logging if token is provided.
 if os.environ.get("LOGFIRE_TOKEN"):
     logfire.configure(token=os.environ["LOGFIRE_TOKEN"])

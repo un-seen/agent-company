@@ -10,8 +10,6 @@ from agentcompany.llms.monitoring import (
 import textwrap
 from redis import Redis
 import os
-from typing import TypedDict
-from jinja2 import StrictUndefined, Template    
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.llms.memory import ActionStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, FunctionCall
 from agentcompany.driver.errors import (
@@ -25,98 +23,23 @@ from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.extensions.pyfunc.base import FinalAnswerFunction
 from agentcompany.mcp.utils import truncate_content
 from agentcompany.llms.monitoring import LogLevel
+from agentcompany.framework.prompt_template import PromptTemplates, EMPTY_PROMPT_TEMPLATES, populate_template
 from agentcompany.llms.base import (
     ChatMessage,
+    BaseLLM
 )
 from agentcompany.llms.utils import (
     MessageRole
 )
+from agentcompany.framework.base import FrameworkPattern
 
 logger = getLogger(__name__)
 
 
 
-def populate_template(template: str, variables: Dict[str, ModelContextProtocolImpl]) -> str:
-    compiled_template = Template(template, undefined=StrictUndefined)
-    try:
-        return compiled_template.render(**variables)
-    except Exception as e:
-        raise Exception(f"Error during jinja template rendering: {type(e).__name__}: {e}")
-
-class PlanningPromptTemplate(TypedDict):
-    """
-    Prompt templates for the planning step.
-
-    Args:
-        initial_facts (`str`): Initial facts prompt.
-        initial_plan (`str`): Initial plan prompt.
-        update_facts_pre_messages (`str`): Update facts pre-messages prompt.
-        update_facts_post_messages (`str`): Update facts post-messages prompt.
-        update_plan_pre_messages (`str`): Update plan pre-messages prompt.
-        update_plan_post_messages (`str`): Update plan post-messages prompt.
-    """
-
-    initial_facts: str
-    initial_plan: str
-    update_facts_pre_messages: str
-    update_facts_post_messages: str
-    update_plan_pre_messages: str
-    update_plan_post_messages: str
 
 
-class FinalAnswerPromptTemplate(TypedDict):
-    """
-    Prompt templates for the final answer.
-
-    Args:
-        pre_messages (`str`): Pre-messages prompt.
-        post_messages (`str`): Post-messages prompt.
-    """
-
-    pre_messages: str
-    post_messages: str
-
-
-class ExecutionEnvironmentConfig(TypedDict):
-    """
-    Configuration for the execution environment.
-    """
-    interface: str
-    config: Dict[str, Any]
-
-
-class PromptTemplates(TypedDict):
-    """
-    Prompt templates for the agent.
-
-    Args:
-        system_prompt (`str`): System prompt.
-        planning ([`~agents.PlanningPromptTemplate`]): Planning prompt templates.
-        managed_agent ([`~agents.ManagedAgentPromptTemplate`]): Managed agent prompt templates.
-        final_answer ([`~agents.FinalAnswerPromptTemplate`]): Final answer prompt templates.
-    """
-    system_prompt: str
-    system_prompt_variables: List[str]
-    planning: PlanningPromptTemplate
-    final_answer: FinalAnswerPromptTemplate
-    executor_environment_config: ExecutionEnvironmentConfig
-    
-
-EMPTY_PROMPT_TEMPLATES = PromptTemplates(
-    system_prompt="",
-    planning=PlanningPromptTemplate(
-        initial_facts="",
-        initial_plan="",
-        update_facts_pre_messages="",
-        update_facts_post_messages="",
-        update_plan_pre_messages="",
-        update_plan_post_messages="",
-    ),
-    final_answer=FinalAnswerPromptTemplate(pre_messages="", post_messages=""),
-)
-
-
-class ReActPattern(ModelContextProtocolImpl):
+class ReActPattern(ModelContextProtocolImpl, FrameworkPattern):
     """
     Agent class that solves the given task step by step, using the ReAct design pattern:
     While the objective is not reached, the agent will perform a cycle of action (given by the LLM) and observation (obtained from the environment).
@@ -149,8 +72,7 @@ class ReActPattern(ModelContextProtocolImpl):
         name: str,
         interface_id: str,
         description: str,
-        model: Callable[[List[Dict[str, str]]], ChatMessage],
-        prompt_templates: Optional[PromptTemplates],
+        model: BaseLLM,
         mcp_servers: List[ModelContextProtocolImpl],
         step_callbacks: List[Callable],
         final_answer_checks: List[Callable],
@@ -176,12 +98,12 @@ class ReActPattern(ModelContextProtocolImpl):
         # Environment State
         self.state = {}
         # MCP Servers
-        self._setup_mcp_servers(mcp_servers)
+        self.setup_mcp_servers(mcp_servers)
         self.final_answer_checks = final_answer_checks
         self.mcp_servers["final_answer"] = final_answer_call or FinalAnswerFunction
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
-        self._setup_environment()
+        self.setup_environment()
         # System Prompt
         self.system_prompt = self.initialize_system_prompt()
         # Context
@@ -193,7 +115,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.memory = AgentMemory(name, interface_id, self.system_prompt)
 
     
-    def _setup_environment(self):
+    def setup_environment(self):
         # Get class name from config
         interface_name = self.executor_environment_config["interface"]
 
@@ -220,7 +142,7 @@ class ReActPattern(ModelContextProtocolImpl):
         )
         self.executor_environment.attach_mcp_servers(self.mcp_servers)
         
-    def _setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
+    def setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
         self.mcp_servers = {}
         if mcp_servers:
             assert all(server.name and server.description for server in mcp_servers), (
@@ -228,13 +150,6 @@ class ReActPattern(ModelContextProtocolImpl):
             )
             self.mcp_servers = {server.name: server for server in mcp_servers}
             
-    @property
-    def logs(self):
-        return [self.memory.system_prompt] + self.memory.steps
-
-    def set_verbosity_level(self, level: int):
-        self.logger.set_level(level)
-        
     def initialize_system_prompt(self) -> str:
         variables={
             "mcp_servers": {
@@ -252,21 +167,6 @@ class ReActPattern(ModelContextProtocolImpl):
         )
         return system_prompt
         
-    def write_memory_to_messages(
-        self,
-        summary_mode: Optional[bool] = False,
-    ) -> List[Dict[str, str]]:
-        """
-        Reads past llm_outputs, actions, and observations or errors from the memory into a series of messages
-        that can be used as input to the LLM. Adds a number of keywords (such as PLAN, error, etc) to help
-        the LLM.
-        """
-        messages = self.memory.system_prompt.to_messages(summary_mode=summary_mode)
-        for memory_step in self.memory.steps:
-            messages.extend(memory_step.to_messages(summary_mode=summary_mode))
-        return messages
-            
-
     def extract_action(self, model_output: str, split_token: str) -> Tuple[str, str]:
         """
         Parse action from the LLM output
@@ -359,11 +259,52 @@ class ReActPattern(ModelContextProtocolImpl):
                 f"As a reminder, this server's description is the following:\n{available_mcp_servers[server_name]}"
             )
             raise AgentExecutionError(error_msg, self.logger)
+    
+    def _validate_final_answer(self, final_answer: Any):
+        for check_function in self.final_answer_checks:
+            try:
+                assert check_function(final_answer, self.memory)
+            except Exception as e:
+                raise AgentError(f"Check {check_function.__name__} failed with error: {e}", self.logger)
 
-    def step(self, action_step: ActionStep) -> Union[None, Any]:
-        """To be implemented in children classes. Should return either None if the step is not final."""
-        pass    
-        
+    def _execute_step(self, task: str, action_step: ActionStep) -> Union[None, Any]:
+        if self.planning_interval is not None and self.step_number % self.planning_interval == 1:
+            self._planning_step(task, is_first_step=(self.step_number == 1), step=self.step_number)
+        final_answer = self.step(action_step)
+        if final_answer is not None and self.final_answer_checks:
+            self._validate_final_answer(final_answer)
+        return final_answer
+    
+    def _finalize_step(self, action_step: ActionStep, step_start_time: float):
+        action_step.end_time = time.time()
+        action_step.duration = action_step.end_time - step_start_time
+        self.memory.steps.append(action_step)
+        for callback in self.step_callbacks:
+            # For compatibility with old callbacks that don't take the agent as an argument
+            callback(action_step) if len(inspect.signature(callback).parameters) == 1 else callback(
+                action_step, agent=self
+            )
+        self.step_number += 1
+    
+    def _handle_max_steps_reached(self, task: str, images: List[str], step_start_time: float) -> ActionStep:
+        error_message = "Reached max steps."
+        final_answer = self.provide_final_answer(task, images)
+        final_action_step = ActionStep(
+            step_number=self.step_number, error=AgentMaxStepsError(error_message, self.logger)
+        )
+        final_action_step = ActionStep(error=AgentMaxStepsError(error_message, self.logger))
+        final_action_step.action_output = final_answer
+        final_action_step.end_time = time.time()
+        final_action_step.duration = final_action_step.end_time - step_start_time
+        self.memory.steps.append(final_action_step)
+        for callback in self.step_callbacks:
+            # For compatibility with old callbacks that don't take the agent as an argument
+            if len(inspect.signature(callback).parameters) == 1:
+                callback(final_action_step)
+            else:
+                callback(final_action_step, agent=self)
+        return final_action_step
+    
     def run(
         self,
         task: str,
@@ -406,51 +347,6 @@ class ReActPattern(ModelContextProtocolImpl):
             return self._run(task=self.task, images=images, max_steps=max_steps)
         # Outputs are returned only at the end as a string. We only look at the last step
         return deque(self._run(task=self.task, images=images, max_steps=max_steps), maxlen=1,)[0]
-
-    def _validate_final_answer(self, final_answer: Any):
-        for check_function in self.final_answer_checks:
-            try:
-                assert check_function(final_answer, self.memory)
-            except Exception as e:
-                raise AgentError(f"Check {check_function.__name__} failed with error: {e}", self.logger)
-
-    def _execute_step(self, task: str, action_step: ActionStep) -> Union[None, Any]:
-        if self.planning_interval is not None and self.step_number % self.planning_interval == 1:
-            self.planning_step(task, is_first_step=(self.step_number == 1), step=self.step_number)
-        final_answer = self.step(action_step)
-        if final_answer is not None and self.final_answer_checks:
-            self._validate_final_answer(final_answer)
-        return final_answer
-    
-    def _finalize_step(self, action_step: ActionStep, step_start_time: float):
-        action_step.end_time = time.time()
-        action_step.duration = action_step.end_time - step_start_time
-        self.memory.steps.append(action_step)
-        for callback in self.step_callbacks:
-            # For compatibility with old callbacks that don't take the agent as an argument
-            callback(action_step) if len(inspect.signature(callback).parameters) == 1 else callback(
-                action_step, agent=self
-            )
-        self.step_number += 1
-    
-    def _handle_max_steps_reached(self, task: str, images: List[str], step_start_time: float) -> ActionStep:
-        error_message = "Reached max steps."
-        final_answer = self.provide_final_answer(task, images)
-        final_action_step = ActionStep(
-            step_number=self.step_number, error=AgentMaxStepsError(error_message, self.logger)
-        )
-        final_action_step = ActionStep(error=AgentMaxStepsError(error_message, self.logger))
-        final_action_step.action_output = final_answer
-        final_action_step.end_time = time.time()
-        final_action_step.duration = final_action_step.end_time - step_start_time
-        self.memory.steps.append(final_action_step)
-        for callback in self.step_callbacks:
-            # For compatibility with old callbacks that don't take the agent as an argument
-            if len(inspect.signature(callback).parameters) == 1:
-                callback(final_action_step)
-            else:
-                callback(final_action_step, agent=self)
-        return final_action_step
     
     def _run(self, task: str, images: List[str] | None = None, max_steps: int = None) -> Generator[ActionStep, None, None]:
         """
@@ -486,7 +382,7 @@ class ReActPattern(ModelContextProtocolImpl):
 
         yield final_answer
 
-    def planning_step(self, task, is_first_step: bool, step: int) -> None:
+    def _planning_step(self, task, is_first_step: bool, step: int) -> None:
         input_messages, facts_message, plan_message = (
             self._generate_initial_plan(task) if is_first_step else self._generate_updated_plan(task, step)
         )
@@ -599,9 +495,6 @@ class ReActPattern(ModelContextProtocolImpl):
                 model_output_message_facts=facts_message,
             )
         )
-
-    def get_description(self) -> str:
-        return self.description
 
     def step(self, action_step: ActionStep) -> Union[None, Any]:
         """
