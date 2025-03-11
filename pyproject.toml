@@ -35,6 +35,10 @@
     # Include only packages starting with "agent_company".
     include = ["agentcompany*"]
 
+    [tool.setuptools.package-data]
+    "agentcompany" = ["*.yaml"] # Include all YAML files in the agentcompany package
+
+
     # [tool.uv]
     # You can place uv-specific configuration here if needed.
     # For example, you might specify script entry points, environment settings, etc.
