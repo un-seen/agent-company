@@ -39,7 +39,7 @@ logger = getLogger(__name__)
 
 
 
-class ReActPattern(ModelContextProtocolImpl, FrameworkPattern):
+class ReActPattern(ModelContextProtocolImpl):
     """
     Agent class that solves the given task step by step, using the ReAct design pattern:
     While the objective is not reached, the agent will perform a cycle of action (given by the LLM) and observation (obtained from the environment).
@@ -73,6 +73,7 @@ class ReActPattern(ModelContextProtocolImpl, FrameworkPattern):
         interface_id: str,
         description: str,
         model: BaseLLM,
+        prompt_templates: PromptTemplates,
         mcp_servers: List[ModelContextProtocolImpl],
         step_callbacks: List[Callable],
         final_answer_checks: List[Callable],
@@ -89,7 +90,7 @@ class ReActPattern(ModelContextProtocolImpl, FrameworkPattern):
         # Storage Client
         self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
         # Prompt Templates
-        self.prompt_templates = prompt_templates or EMPTY_PROMPT_TEMPLATES
+        self.prompt_templates = prompt_templates
         # LLM
         self.model = model
         # Planning
@@ -114,6 +115,26 @@ class ReActPattern(ModelContextProtocolImpl, FrameworkPattern):
         # Memory
         self.memory = AgentMemory(name, interface_id, self.system_prompt)
 
+    @property
+    def logs(self):
+        return [self.memory.system_prompt] + self.memory.steps
+
+    def set_verbosity_level(self, level: int):
+        self.logger.set_level(level)
+    
+    def write_memory_to_messages(
+        self,
+        summary_mode: Optional[bool] = False,
+    ) -> List[Dict[str, str]]:
+        """
+        Reads past llm_outputs, actions, and observations or errors from the memory into a series of messages
+        that can be used as input to the LLM. Adds a number of keywords (such as PLAN, error, etc) to help
+        the LLM.
+        """
+        messages = self.memory.system_prompt.to_messages(summary_mode=summary_mode)
+        for memory_step in self.memory.steps:
+            messages.extend(memory_step.to_messages(summary_mode=summary_mode))
+        return messages
     
     def setup_environment(self):
         # Get class name from config
