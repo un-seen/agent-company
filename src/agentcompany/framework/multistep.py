@@ -31,7 +31,6 @@ from agentcompany.llms.base import (
 from agentcompany.llms.utils import (
     MessageRole
 )
-from agentcompany.framework.base import FrameworkPattern
 
 logger = getLogger(__name__)
 
