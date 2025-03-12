@@ -36,8 +36,7 @@
     include = ["agentcompany*"]
 
     [tool.setuptools.package-data]
-    "agentcompany" = ["*.yaml"] # Include all YAML files in the agentcompany package
-
+    "agentcompany" = ["**/*.yaml", "**/*.yml"]
 
     # [tool.uv]
     # You can place uv-specific configuration here if needed.
