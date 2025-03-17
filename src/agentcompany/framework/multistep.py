@@ -113,6 +113,8 @@ class ReActPattern(ModelContextProtocolImpl):
         self.step_callbacks = step_callbacks if step_callbacks is not None else []
         # Memory
         self.memory = AgentMemory(name, interface_id, self.system_prompt)
+        
+        super().__init__()
 
     @property
     def logs(self):
