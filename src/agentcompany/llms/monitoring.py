@@ -67,7 +67,7 @@ class AgentLogger:
     def set_level(self, level: LogLevel):
         self.level = level
 
-    def log(self, *args, level: str | LogLevel = LogLevel.INFO, **kwargs) -> None:
+    def log(self, level: str | LogLevel = LogLevel.INFO, **kwargs) -> None:
         """Logs a message to the console.
 
         Args:
@@ -79,11 +79,13 @@ class AgentLogger:
             # self.console.print(*args, **kwargs)
             if hasattr(self, "redis_client"):
                 data_dict = kwargs.copy()
-                if len(args) > 0:
-                    data_dict["message"] = " ".join([str(arg) for arg in args])
                 data_dict["role"] = self.name
                 data_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
-                print(f"Publishing to {self.interface_id}: {data_dict}")
+                if not "content" in data_dict or not isinstance(data_dict["content"], dict):
+                    data_dict["content"] = {}
+                    data_dict["content"].update(kwargs)
+                elif isinstance(data_dict["content"], dict):
+                    data_dict["content"] = kwargs
                 self.redis_client.publish(self.interface_id, json.dumps(data_dict))
 
 

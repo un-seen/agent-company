@@ -573,7 +573,7 @@ class ReActPattern(ModelContextProtocolImpl):
             error_msg = str(e)
             if "Import of " in error_msg and " is not allowed" in error_msg:
                 self.logger.log(
-                    "Warning to user: Code execution failed due to an unauthorized import - Consider passing said import under `additional_authorized_imports` when initializing your CodeAgent.",
+                    text="Warning to user: Code execution failed due to an unauthorized import - Consider passing said import under `additional_authorized_imports` when initializing your CodeAgent.",
                     level=LogLevel.INFO,
                 )
             raise AgentExecutionError(error_msg, self.logger)
@@ -584,7 +584,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=truncated_output, title="Output from code snippet:" if is_final_answer else "Final Answer from code snippet:", level=LogLevel.INFO)
         action_step.action_output = output
         if is_final_answer:
-            self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "text": truncated_output, "title": "Final Answer"}))
+            self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "content": {"text": truncated_output, "title": "Final Answer"}}))
             return output
         return None
     
