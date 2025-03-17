@@ -1,7 +1,7 @@
 import json
 from enum import IntEnum
 from typing import List, Optional
-
+from datetime import datetime, timezone
 from rich.console import Console
 from redis import Redis
 import os
@@ -82,6 +82,7 @@ class AgentLogger:
                 if len(args) > 0:
                     data_dict["message"] = " ".join([str(arg) for arg in args])
                 data_dict["role"] = self.name
+                data_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
                 self.redis_client.publish(self.interface_id, json.dumps(data_dict))
 
 
