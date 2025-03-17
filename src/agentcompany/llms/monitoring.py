@@ -83,6 +83,7 @@ class AgentLogger:
                     data_dict["message"] = " ".join([str(arg) for arg in args])
                 data_dict["role"] = self.name
                 data_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+                print(f"Publishing to {self.interface_id}: {data_dict}")
                 self.redis_client.publish(self.interface_id, json.dumps(data_dict))
 
 
