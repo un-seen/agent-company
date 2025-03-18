@@ -87,8 +87,8 @@ class AgentLogger:
                 elif isinstance(data_dict["content"], dict):
                     data_dict["content"] = kwargs
                 self.redis_client.publish(self.interface_id, json.dumps(data_dict))
-            else:
-                print("\n".join([f"{k}: {v}" for k, v in kwargs.items() ]))
+            # Print to console
+            print("\n".join([f"{k}: {v}" for k, v in kwargs.items() ]))
 
 
 __all__ = ["AgentLogger", "Monitor"]
