@@ -2,9 +2,11 @@ import json
 from enum import IntEnum
 from typing import List, Optional
 from datetime import datetime, timezone
-from rich.console import Console
 from redis import Redis
 import os
+from rich.console import Console
+from rich.markdown import Markdown
+
 
 class Monitor:
     def __init__(self, tracked_model, logger):
@@ -55,6 +57,26 @@ class LogLevel(IntEnum):
 YELLOW_HEX = "#d4b702"
 
 
+def print_formatted_content(data: dict) -> None:
+    """
+    Prints formatted markdown content with colored output using Rich.
+    
+    Args:
+        data (dict): Dictionary containing 'title' and 'text' keys
+    """
+    console = Console()
+    
+    # Create markdown content
+    if "title" not in data:
+        data["title"] = ""
+    if "text" not in data:
+        data["text"] = ""
+    markdown_content = f"# {data['title']}\n\n{data['text']}"
+    
+    # Print formatted markdown
+    console.print(Markdown(markdown_content))
+
+
 class AgentLogger:
     def __init__(self, name: str, interface_id: str, level: LogLevel = LogLevel.INFO, use_redis: bool = False):
         self.name = name
@@ -88,7 +110,7 @@ class AgentLogger:
                     data_dict["content"] = kwargs
                 self.redis_client.publish(self.interface_id, json.dumps(data_dict))
             # Print to console
-            print("\n".join([f"{k}: {v}" for k, v in kwargs.items() ]))
+            print_formatted_content(kwargs)
 
 
 __all__ = ["AgentLogger", "Monitor"]
