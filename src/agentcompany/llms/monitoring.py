@@ -88,7 +88,7 @@ class AgentLogger:
                     data_dict["content"] = kwargs
                 self.redis_client.publish(self.interface_id, json.dumps(data_dict))
             else:
-                self.console.print(*[f"{k}: {v}" for k, v in kwargs.items() ], style=f"bold {YELLOW_HEX}")
+                print("\n".join([f"{k}: {v}" for k, v in kwargs.items() ]))
 
 
 __all__ = ["AgentLogger", "Monitor"]
