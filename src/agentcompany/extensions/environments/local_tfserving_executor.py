@@ -115,7 +115,6 @@ class LocalTfServingInterpreter(ExecutionEnvironment):
             # Convert to list of lists (tensor shape: [224, 224, 3] for RGB)
             tensor = image_array.tolist()
             # Return as a list of one tensor (batch size 1)
-            print(f"Preprocessed image with shape {image_array.shape}")
             return [tensor]
         except Exception as e:
             raise ValueError(f"Failed to preprocess image: {str(e)}")
@@ -161,7 +160,6 @@ class LocalTfServingInterpreter(ExecutionEnvironment):
 
         # Execute the TFServing request
         try:
-            print(f"Sending request to {endpoint}. Wait...")
             response = requests.post(endpoint, json=payload, timeout=240)
             response.raise_for_status()
             output = response.json()  # Return raw JSON string

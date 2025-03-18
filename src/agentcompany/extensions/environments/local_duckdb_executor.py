@@ -104,7 +104,6 @@ def evaluate_ast(
     # Check if the expression is a sqlglot SELECT statement.
     # (sqlglot returns expressions from the sqlglot.exp module;
     # adjust the type check if needed.)
-    print(f"Eval ast node: {node}")
     if isinstance(node, sqlglot.exp.Select):
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
@@ -120,7 +119,6 @@ def evaluate_ast(
                     response_value.args["is_string"] = True
                 node.args["expressions"] = node.expressions[:idx] + [response_value] + node.expressions[idx+1:]
         sql_query = node.sql(dialect="postgres")
-        print(f"Executing SQL query: {sql_query}")
         try:
             result = conn.sql(sql_query)
             return result

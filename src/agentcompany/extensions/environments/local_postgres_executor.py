@@ -99,14 +99,11 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
     # Check if the expression is a sqlglot SELECT statement.
     # (sqlglot returns expressions from the sqlglot.exp module;
     # adjust the type check if needed.)
-    print(f"Eval ast node: {node}")
     if isinstance(node, sqlglot.exp.Select):
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
         for idx, statement in enumerate(node.expressions):
             if statement.this in static_tools:
-                print("Found static tool")
-                print(statement)
                 function_name = statement.this.lower()
                 function_call = static_tools[function_name]
                 function_arguments = [exp.this for exp in statement.expressions]
@@ -116,9 +113,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
                     response_value.args["this"] = function_response
                     response_value.args["is_string"] = True
                 node.args["expressions"] = node.expressions[:idx] + [response_value] + node.expressions[idx+1:]
-                print(node)
         sql_query = node.sql(dialect="postgres")
-        print(f"Executing SQL query: {sql_query}")
         try:
             with pg_conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(sql_query)

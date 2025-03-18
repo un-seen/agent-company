@@ -7,7 +7,6 @@ class AgentError(Exception):
     def __init__(self, message, logger: "AgentLogger"):
         super().__init__(message)
         self.message = message
-        print(message)
 
     def dict(self) -> Dict[str, str]:
         return {"type": self.__class__.__name__, "message": str(self.message)}
