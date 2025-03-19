@@ -85,6 +85,7 @@ class AgentLogger:
         self.console = Console()
         if use_redis:
             self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+            self.redis_client.delete(f"{self.interface_id}/{self.name}/log")
     
     def set_level(self, level: LogLevel):
         self.level = level
@@ -108,7 +109,7 @@ class AgentLogger:
                     data_dict["content"].update(kwargs)
                 elif isinstance(data_dict["content"], dict):
                     data_dict["content"] = kwargs
-                self.redis_client.publish(self.interface_id, json.dumps(data_dict))
+                self.redis_client.rpush(f"{self.interface_id}/{self.name}/log", json.dumps(data_dict))
             # Print to console
             print_formatted_content(kwargs)
 

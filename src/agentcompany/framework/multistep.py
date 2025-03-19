@@ -113,8 +113,12 @@ class ReActPattern(ModelContextProtocolImpl):
         self.step_callbacks = step_callbacks if step_callbacks is not None else []
         # Memory
         self.memory = AgentMemory(name, interface_id, self.system_prompt)
-        
         super().__init__()
+        # Clean Input Messages
+        self.redis_client.delete(f"{self.interface_id}/{self.name}/input_messages")
+        self.redis_client.delete(f"{self.interface_id}/{self.name}/plan")
+        self.redis_client.delete(f"{self.interface_id}/{self.name}/fact")
+        self.redis_client.delete(f"{self.interface_id}/{self.name}/ack")
 
     @property
     def logs(self):
@@ -300,7 +304,7 @@ class ReActPattern(ModelContextProtocolImpl):
     def _finalize_step(self, action_step: ActionStep, step_start_time: float):
         action_step.end_time = time.time()
         action_step.duration = action_step.end_time - step_start_time
-        self.memory.steps.append(action_step)
+        self.memory.append_step(action_step)
         for callback in self.step_callbacks:
             # For compatibility with old callbacks that don't take the agent as an argument
             callback(action_step) if len(inspect.signature(callback).parameters) == 1 else callback(
@@ -318,7 +322,7 @@ class ReActPattern(ModelContextProtocolImpl):
         final_action_step.action_output = final_answer
         final_action_step.end_time = time.time()
         final_action_step.duration = final_action_step.end_time - step_start_time
-        self.memory.steps.append(final_action_step)
+        self.memory.append_step(final_action_step)
         for callback in self.step_callbacks:
             # For compatibility with old callbacks that don't take the agent as an argument
             if len(inspect.signature(callback).parameters) == 1:
@@ -363,7 +367,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.memory.system_prompt = SystemPromptStep(system_prompt=self.system_prompt)
         if reset:
             self.memory.reset()
-        self.memory.steps.append(TaskStep(task=self.task, task_images=images))
+        self.memory.append_step(TaskStep(task=self.task, task_images=images))
         if stream:
             # The steps are returned as they are executed through a generator to iterate on.
             return self._run(task=self.task, images=images, max_steps=max_steps)
@@ -508,7 +512,12 @@ class ReActPattern(ModelContextProtocolImpl):
             plan = textwrap.dedent(
                 f"""I still need to solve the task I was given:\n```\n{self.task}\n```\n\nHere is my new/updated plan of action to solve the task:\n```\n{plan_message.content}\n```"""
             )
-        self.memory.steps.append(
+        
+        # Record in Memory    
+        self.redis_client.rpush(f"{self.interface_id}/{self.name}/fact", facts)
+        self.redis_client.rpush(f"{self.interface_id}/{self.name}/plan", plan)
+        
+        self.memory.append_step(
             PlanningStep(
                 model_input_messages=input_messages,
                 facts=facts,
@@ -526,7 +535,10 @@ class ReActPattern(ModelContextProtocolImpl):
         memory_messages = self.write_memory_to_messages()
 
         self.input_messages = memory_messages.copy()
-
+        
+        # Log Input Messages to LLM 
+        self.redis_client.rpush(f"{self.interface_id}/{self.name}/input_messages", json.dumps(self.input_messages))
+        
         # Add new step in logs
         action_step.model_input_messages = memory_messages.copy()
         try:
@@ -542,7 +554,7 @@ class ReActPattern(ModelContextProtocolImpl):
         
         self.logger.log(
             text=model_output,
-            title="Output message of the LLM:",
+            title=f"Output message of the LLM({self.interface_id}/{self.name}):",
             level=LogLevel.INFO,
         )
 

@@ -315,6 +315,9 @@ class AgentMemory:
     def reset(self):
         self.steps.reset()
 
+    def append_step(self, step: Union[TaskStep, ActionStep, PlanningStep]):
+        self.steps.append(step)
+        
     def get_succinct_steps(self) -> list[dict]:
         return [
             {key: value for key, value in step.dict().items() if key != "model_input_messages"} for step in self.steps
