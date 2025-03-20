@@ -418,7 +418,19 @@ class ReActPattern(ModelContextProtocolImpl):
     
     def _generate_initial_plan(self, task: str) -> Tuple[ChatMessage, ChatMessage]:
         # Empty Facts Initially
-        self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content="")
+        if len(self.prompt_templates["planning"]["initial_facts"]) > 0:
+            variables = {}
+            if "initial_facts_variables" in self.executor_environment_config:
+                variables.update({
+                    variable: getattr(self.executor_environment, variable)
+                    for variable in self.executor_environment_config["initial_facts_variables"] if hasattr(self.executor_environment, variable)
+                })
+            self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content=populate_template(
+                self.prompt_templates["planning"]["initial_facts"],
+                variables=variables,
+            ))
+        else:
+            self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content="")
         # Initial Plan
         variables = {
             "task": task,

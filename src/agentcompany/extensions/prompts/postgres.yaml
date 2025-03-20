@@ -27,6 +27,8 @@ system_prompt: |-
   Now Begin! 
 executor_environment: 
   interface: LocalPostgresInterpreter
+  initial_facts_variables:
+    - sql_schema
   initial_plan_variables: 
     - sql_schema
   update_facts_pre_variables: 
@@ -39,6 +41,13 @@ executor_environment:
     password: root
     additional_authorized_imports: "*"
 planning:
+  initial_facts: |-
+    The information about the tables and columns in the sql database:
+    ```
+    {{sql_schema}}
+    ```
+
+    There are no other tables and columns in the sql database except the ones listed above.
   initial_plan : |-
     {{role}}
 

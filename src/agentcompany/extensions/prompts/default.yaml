@@ -1,4 +1,5 @@
 planning:
+  initial_facts: |-
   initial_plan : |-
     {{role}}
 
