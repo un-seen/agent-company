@@ -38,8 +38,8 @@ planning:
   initial_plan : |-
     You are a world expert at making efficient plans to solve any task.
     
-    Now for the given task, develop a step-by-step high-level plan taking into account the list of facts.
-    This plan should involve individual tasks based on the available tools, that if executed correctly will yield the correct answer.
+    Now for the given task, develop a step-by-step plan with minimal steps taking into account the list of facts.
+    This plan should involve individual tasks based on the available functions, that if executed correctly will yield the correct answer.
     Do not skip steps, do not add any steps not explicitly required in the task. 
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 
@@ -90,7 +90,7 @@ planning:
 
     Now write your new list of facts below.
   update_plan_pre_messages: |-
-    You are a world expert at making efficient plans to solve any task using a set of carefully crafted tools.
+    You are a world expert at making efficient plans to solve any task.
 
     You have been given a task:
     ```
@@ -118,10 +118,10 @@ planning:
     {{facts_update}}
     ```
 
-    Now for the given task, develop a step-by-step high-level plan taking into account the above inputs and list of facts.
-    This plan should involve individual tasks based on the available tools, that if executed correctly will yield the correct answer.
+    Now for the given task, develop a step-by-step plan with minimum step count taking into account the above inputs and list of facts.
+    This plan should involve individual tasks, that if executed correctly will yield the correct answer.
     Beware that you have {remaining_steps} steps remaining.
-    Do not skip steps, do not add any superfluous steps. Only write the high-level plan, DO NOT DETAIL INDIVIDUAL TOOL CALLS.
+    Do not skip steps, do not add any superfluous steps. Only write the high-level plan.
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 
     Now write your new plan below.

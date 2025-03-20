@@ -405,6 +405,7 @@ class ReActPattern(ModelContextProtocolImpl):
         yield final_answer
 
     def _planning_step(self, task, is_first_step: bool, step: int) -> None:
+        self.logger.log(title=f"Planning Step: {step}")
         facts_message, plan_message = (
             self._generate_initial_plan(task) if is_first_step else self._generate_updated_plan(task, step)
         )
@@ -451,9 +452,9 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
-        self.logger.log(text=message_prompt_plan["content"][0]["text"], title=f"Initial Plan Message ({self.interface_id}/{self.name}):")
+        self.logger.log(text=message_prompt_plan["content"][0]["text"], title=f"Initial Plan Message ({self.interface_id}/{self.name}):", level=2)
         plan_message: ChatMessage = self.model([message_prompt_plan], stop_sequences=["<end_plan>"])
-        self.logger.log(text=plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
+        self.logger.log(text=plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):", level=2)
         return facts_message, plan_message
     
     def _generate_updated_plan(self, task: str, step: int) -> Tuple[ChatMessage, ChatMessage]:
@@ -506,8 +507,8 @@ class ReActPattern(ModelContextProtocolImpl):
             [update_plan_pre] + memory_messages + [update_plan_post], stop_sequences=["<end_plan>"]
         )
         # Return the updated facts and plan
-        self.logger.log(text=plan_message.content, title="Updated Plan Message:")
-        self.logger.log(text=facts_message.content, title="Updated Facts Message:")
+        self.logger.log(text=plan_message.content, title="Updated Plan Message:", level=2)
+        self.logger.log(text=facts_message.content, title="Updated Facts Message:", level=2)
         return facts_message, plan_message
 
     def _record_planning_step(
@@ -583,7 +584,7 @@ class ReActPattern(ModelContextProtocolImpl):
             )
         ]
 
-        self.logger.log(title="Executing parsed code:", text=code_action, level=LogLevel.INFO)
+        self.logger.log(title="Code:", text=code_action)
         is_final_answer = False
         
         try:
