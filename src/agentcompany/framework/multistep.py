@@ -569,6 +569,8 @@ class ReActPattern(ModelContextProtocolImpl):
         is_final_answer = False
         execution_logs = ""
         environment_response = ""
+        error_msg = ""
+        code_action = ""
         is_response_empty_or_error = True
         # Get next step from plan
         plan_steps = extract_steps(self.plan_message.content)
@@ -578,12 +580,17 @@ class ReActPattern(ModelContextProtocolImpl):
         else:
             next_step = self.plan_message.content
         self.logger.log(text=next_step, title="Next Plan Step", level=LogLevel.INFO)
+        
+        # Execute code in environment
         while is_response_empty_or_error:
             # Set system prompt as the first message
             self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False)
             # Add facts message to input messages
             if len(self.facts_message.content) > 0:
                 self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
+            if len(error_msg) > 0 and len(code_action) > 0:
+                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Last code action: \n {code_action}"}]}])
+                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": error_msg}]}])
             # TODO add error message if available        
             # Add next step to input messages
             self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": next_step}]}])
@@ -607,7 +614,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 model_output = chat_message.content
                 action_step.model_output = model_output
             except Exception as e:
-                raise AgentGenerationError(f"Error in executing code:\n{e}", self.logger) from e
+                raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
             self.logger.log(
                 text=model_output,
                 title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
@@ -616,17 +623,10 @@ class ReActPattern(ModelContextProtocolImpl):
             try:
                 code_action = self.executor_environment.parse_code_blobs(model_output)
                 self.logger.log(title="Code:", text=code_action)
-                action_step.function_calls = [
-                    FunctionCall(
-                        name=self.executor_environment_config["interface"],
-                        arguments=code_action,
-                        id=f"call_{len(self.memory.steps)}",
-                    )
-                ]    
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-                raise AgentParsingError(error_msg, self.logger)
-        
+                continue
+            self.logger.log(text=code_action, title="Code Action:")
             # Execute code in environment
             try:
                 environment_response, execution_logs, is_final_answer = self.executor_environment(code_action=code_action, additional_variables={})
@@ -635,7 +635,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     execution_logs = str(self.executor_environment.state["_print_outputs"])
                     action_step.observations = execution_logs
                 error_msg = str(e)
-                raise AgentExecutionError(error_msg, self.logger)
+                continue
             # Verify if response is empty or error
             self.logger.log(text=observation, title="Output from code execution:" if not is_final_answer else "Final Output from code execution:")
             is_response_empty_or_error = len(environment_response) == 0 or "error" in environment_response
@@ -645,6 +645,13 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=environment_response, title="Environment Response:")
         truncated_response = truncate_content(str(environment_response))
         observation = "Output from code execution:\n" + truncated_response
+        action_step.function_calls = [
+            FunctionCall(
+                name=self.executor_environment_config["interface"],
+                arguments=code_action,
+                id=f"call_{len(self.memory.steps)}",
+            )
+        ]    
         action_step.observations = observation
         action_step.action_output = environment_response
         # Push final input message
