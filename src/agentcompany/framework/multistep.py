@@ -611,7 +611,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Do not write code that will repeat the same error or give an empty response!"}]}])
             # TODO add error message if available        
             # Add next step to input messages
-            self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": next_step}]}])
+            self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": f"\n\n{next_step}"}]}])
             # Add all action steps to input messages
             # for step in self.memory.steps:
             #    if isinstance(step, ActionStep):
