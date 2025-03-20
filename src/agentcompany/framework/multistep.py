@@ -580,7 +580,7 @@ class ReActPattern(ModelContextProtocolImpl):
         else:
             next_step = self.plan_message.content
         self.logger.log(text=next_step, title="Next Plan Step", level=LogLevel.INFO)
-        
+        previous_attempts = []
         # Execute code in environment
         while is_response_empty_or_error:
             # Set system prompt as the first message
@@ -588,9 +588,12 @@ class ReActPattern(ModelContextProtocolImpl):
             # Add facts message to input messages
             if len(self.facts_message.content) > 0:
                 self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
-            if len(error_msg) > 0 and len(code_action) > 0:
+            # Add previous attempts to input messages
+            for attempt in previous_attempts:
+                code_action = attempt["code"]
+                error_msg = attempt["error"]
                 self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Last code action: \n {code_action}"}]}])
-                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": error_msg}]}])
+                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Error: {error_msg}"}]}])
             # TODO add error message if available        
             # Add next step to input messages
             self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": next_step}]}])
@@ -625,6 +628,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 self.logger.log(title="Code:", text=code_action)
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                previous_attempts.append({"code": code_action, "error": error_msg})
                 continue
             self.logger.log(text=code_action, title="Code Action:")
             # Execute code in environment
@@ -635,8 +639,9 @@ class ReActPattern(ModelContextProtocolImpl):
                     execution_logs = str(self.executor_environment.state["_print_outputs"])
                     action_step.observations = execution_logs
                 error_msg = str(e)
+                previous_attempts.append({"code": code_action, "error": error_msg})
                 continue
-            # Verify if response is empty or error
+            # TODO add proper critique, verify if response is empty or error
             self.logger.log(text=observation, title="Output from code execution:" if not is_final_answer else "Final Output from code execution:")
             is_response_empty_or_error = len(environment_response) == 0 or "error" in environment_response
         
