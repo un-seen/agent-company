@@ -36,9 +36,9 @@ from agentcompany.llms.utils import (
 logger = getLogger(__name__)
 
 def capture_next_step(text):
-    pattern = r'\[next_step\]\s*<start_step>(.*?)<end_step>'
+    pattern = r'\[next_step\]\s*<start_step>\s*(.*?)\s*<end_step>'
     match = re.search(pattern, text, re.DOTALL)
-    return match.group(1).strip().replace("\n", " ") if match else None
+    return match.group(1).strip() if match else None
 
 class ReActPattern(ModelContextProtocolImpl):
     """
