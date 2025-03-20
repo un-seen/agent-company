@@ -14,7 +14,7 @@ planning:
     
     Now for the given task, develop a step-by-step plan taking into account the list of facts.
     
-    You can leverage these functions for executing the steps:
+    You can leverage these functions for executing the steps in the plan:
     {%- for server in mcp_servers.values() %}
     - {{ server.name }}: {{ server.description }}
         Takes inputs: {{server.inputs}}
@@ -24,11 +24,12 @@ planning:
     You do not have any other functions than the ones listed above. You must only use them to solve the task.
     
     Here are the rules you should always follow to write your plan:
-    1. You must prefix every step with "\n<start_step>" and suffix with "<end_step>".
-    2. Each step must be concise and to the point so that it can be verified with a single test.
-    3. Do not skip steps, do not add any steps not explicitly required in the task.
-    4. The first step must be additionally prefixed with "[next_step]"
-
+    1. Steps must be written in the same order as execution.
+    2. You must prefix every step with "\n<start_step>" and suffix with "<end_step>".
+    3. Each step must be concise and to the point so that it can be verified with a single test.
+    4. Each step is in a single line and every step is separated by a newline.
+    5. Do not skip steps, do not add any steps not explicitly required in the task.
+    
     After writing the final step of the plan, write the '<end_plan>' tag and stop there.
 
     Now begin!
@@ -84,9 +85,9 @@ planning:
     Read the conversation history above and update the current plan as follows:
 
     Here are the rules you should always follow to write your plan:
-    1. You must prefix the step that has successfully completed with "[completed]".
-    2. You must prefix the step that has failed with "[failed]".
-    3. You must prefix the next step with "[next_step]".
+    1. You must replace the <start_step> and <end_step> tags with <start_completed_step> and <end_completed_step> respectively if the step has been executed successfully.
+    2. You must update only the step if the step execution has failed but keep <start_step> and <end_step> tags.
+    3. You must update an existing step if the facts have changed but keep <start_step> and <end_step> tags.
     
     After writing the final step of the plan, write the '<end_plan>' tag and stop there.
 

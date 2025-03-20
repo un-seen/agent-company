@@ -35,10 +35,12 @@ from agentcompany.llms.utils import (
 
 logger = getLogger(__name__)
 
-def capture_next_step(text):
-    pattern = r'\[next_step\]\s*<start_step>\s*(.*?)\s*<end_step>'
-    match = re.search(pattern, text, re.DOTALL)
-    return match.group(1).strip() if match else None
+def extract_steps(text):
+    pattern = r'<start_step>\s*(.*?)\s*<end_step>'
+    steps = re.findall(pattern, text, re.DOTALL)
+    # Clean each step to remove extra whitespace
+    steps = [step.strip() for step in steps]
+    return steps
 
 class ReActPattern(ModelContextProtocolImpl):
     """
@@ -569,9 +571,11 @@ class ReActPattern(ModelContextProtocolImpl):
         if len(self.facts_message.content) > 0:
             self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
         # Get next step from plan
-        next_step = capture_next_step(self.plan_message.content)
-        if not next_step:
-            self.logger.log(text="No next step found in the plan.", title="Code Step", level=LogLevel.INFO)
+        plan_steps = extract_steps(self.plan_message.content)
+        if len(plan_steps) > 0:
+            next_step = plan_steps[0]
+            self.plan_message.content = "\n".join(plan_steps[1:])
+        else:
             next_step = self.plan_message.content
         self.logger.log(text=next_step, title="Code Step", level=LogLevel.INFO)
         # Add next step to input messages
