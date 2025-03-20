@@ -573,6 +573,8 @@ class ReActPattern(ModelContextProtocolImpl):
         Returns None if the step is not final.
         """
         self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False)
+        
+        self.plan_message.content.split("[next_step]")
         self.input_messages.extend(self.planning_step.to_messages(summary_mode=False))
         for step in self.memory.steps:
             if isinstance(step, ActionStep):
