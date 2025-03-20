@@ -15,7 +15,7 @@ planning:
     Also list where to find each of these, for instance a website, a file... - maybe the task contains some sources that you should re-use here.
 
     ### 3. Facts to derive
-    List here anything that we want to derive from the above by logical reasoning, for instance computation or simulation.
+    List here anything that must be derived from the above by logical reasoning, for instance computation or simulation to solve the task.
 
     Keep in mind that "facts" will typically be specific names, dates, values, etc. Your answer should use the below headings:
     ### 1. Facts given in the task
@@ -67,7 +67,7 @@ planning:
 
     List of facts that you know:
     ```
-    {{answer_facts}}
+    {{facts}}
     ```
 
     Now begin! Write your plan below.

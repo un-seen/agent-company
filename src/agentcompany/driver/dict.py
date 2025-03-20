@@ -1,3 +1,6 @@
+import copy
+
+
 def flatten_dict(data, parent_key='', sep='.'):
     """
     Flatten a nested dict into a flat dictionary.
@@ -63,3 +66,29 @@ def unflatten_dict(flat_dict, sep='.'):
         current[keys[-1]] = value
 
     return result
+
+def merge_dicts(original, new_dict):
+    """
+    Merges two nested dictionaries, preserving all keys from the original dict,
+    while adding or updating keys from the new dict. Nested dictionaries are
+    merged recursively.
+    
+    Args:
+        original (dict): The base dictionary to merge into
+        new_dict (dict): The dictionary with updates/additions
+    
+    Returns:
+        dict: Merged dictionary with combined contents
+    """
+    merged = copy.deepcopy(original)
+    
+    for key, new_value in new_dict.items():
+        original_value = merged.get(key)
+        
+        if isinstance(original_value, dict) and isinstance(new_value, dict):
+            merged[key] = merge_dicts(original_value, new_value)
+        else:
+            merged[key] = copy.deepcopy(new_value)
+    
+    return merged
+

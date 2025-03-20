@@ -1,7 +1,8 @@
 
 import yaml
 import importlib.resources
-from typing import Callable, List, Dict  
+from typing import Callable, List, Dict 
+from agentcompany.driver.dict import merge_dicts 
 from agentcompany.framework.multistep import ReActPattern
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.llms.openai import OpenAIServerLLM
@@ -19,8 +20,8 @@ def TfServingAgent(name: str,
     default_yaml_path = importlib.resources.files("agentcompany.extensions.prompts").joinpath("default.yaml")
     default_prompt_templates: Dict = yaml.safe_load(default_yaml_path.read_text())
     agent_yaml_path = importlib.resources.files("agentcompany.extensions.prompts").joinpath("tfserving.yaml")
-    prompt_templates: Dict = yaml.safe_load(agent_yaml_path.read_text())
-    prompt_templates.update(default_prompt_templates)
+    updated_prompt_templates: Dict = yaml.safe_load(agent_yaml_path.read_text())
+    prompt_templates = merge_dicts(default_prompt_templates, updated_prompt_templates)
     
     return ReActPattern(
         name=name, 

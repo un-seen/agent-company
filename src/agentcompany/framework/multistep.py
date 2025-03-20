@@ -436,6 +436,12 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=message_prompt_facts["content"][0]["text"], title=f"Initial Facts Message Input ({self.interface_id}/{self.name}):", level=2)
         facts_message = self.model([message_prompt_facts])
         self.logger.log(text=facts_message.content, title=f"Initial Facts Message Output ({self.interface_id}/{self.name}):")
+        variables = {
+            "task": task,
+            "role": self.description,
+            "mcp_servers": self.mcp_servers,
+            "facts": facts_message.content,
+        }
         message_prompt_plan = {
             "role": MessageRole.USER,
             "content": [
@@ -443,12 +449,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     "type": "text",
                     "text": populate_template(
                         self.prompt_templates["planning"]["initial_plan"],
-                        variables={
-                            "task": task,
-                            "role": self.description,
-                            "mcp_servers": self.mcp_servers,
-                            "answer_facts": facts_message.content,
-                        },
+                        variables=variables,
                     ),
                 }
             ],
