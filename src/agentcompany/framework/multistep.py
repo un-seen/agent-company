@@ -588,14 +588,13 @@ class ReActPattern(ModelContextProtocolImpl):
         action_step.model_input_messages = self.input_messages.copy()
         try:
             chat_message: ChatMessage = self.model(
-                self.input_messages,
-                stop_sequences=["<end_code>", "Observation:"],
+                self.input_messages
             )
             action_step.model_output_message = chat_message
             model_output = chat_message.content
             action_step.model_output = model_output
         except Exception as e:
-            raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
+            raise AgentGenerationError(f"Error in executing code:\n{e}", self.logger) from e
         self.logger.log(
             text=model_output,
             title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
@@ -603,7 +602,7 @@ class ReActPattern(ModelContextProtocolImpl):
         # TODO Parse as per exection environment
         try:
             code_action = self.executor_environment.parse_code_blobs(model_output)
-            self.logger.log(title="Execution Code:", text=code_action)
+            self.logger.log(title="Code:", text=code_action)
         except Exception as e:
             error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
             raise AgentParsingError(error_msg, self.logger)
@@ -633,7 +632,7 @@ class ReActPattern(ModelContextProtocolImpl):
         truncated_response = truncate_content(str(environment_response))
         observation = "Output from code execution:\n" + truncated_response
         action_step.observations = observation
-        self.logger.log(text=observation, title="Execution Code Output:" if not is_final_answer else "Final Output:")
+        self.logger.log(text=observation, title="Output from code execution:" if not is_final_answer else "Final Output from code execution:")
         action_step.action_output = environment_response
         if is_final_answer:
             self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "content": [{"text": truncated_response, "title": "Final Answer"}]}))

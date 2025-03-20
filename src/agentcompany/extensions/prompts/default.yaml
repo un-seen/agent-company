@@ -36,8 +36,8 @@ planning:
     You do not have any other functions than the ones listed above. You must only use them to solve the task.
     
     Here are the rules you should always follow to write your plan:
-    1. You must prefix every step with "-" .
-    2. You must prefix the first step with "✳️".
+    1. You must prefix every step with "[pending]" .
+    2. You must prefix the first step with "[next]".
     3. Each step must be concise and to the point so that it can be verified with a single test.
     4. Do not skip steps, do not add any steps not explicitly required in the task.
 
@@ -93,15 +93,14 @@ planning:
         Returns an output of type: {{server.output_type}}
     {%- endfor %}
 
-    Read the conversation history above and write a new plan as follows:
+    Read the conversation history above and update the current plan as follows:
 
     Here are the rules you should always follow to write your plan:
-    1. You must prefix every new step with "-" .
-    2. You must prefix the next step with "✳️".
-    3. You must prefix the step that has successfully completed with [x].
-    4. You must prefix the step that has failed with [].
+    1. You must prefix every new step with "[pending]" .
+    2. You must prefix the next step with "[next_step]".
+    3. You must prefix the step that has successfully completed with [completed].
+    4. You must prefix the step that has failed with [failed].
     5. Each step must be concise and to the point so that it can be verified with a single test.
-    6. Update or Remove steps that are no longer relevant.    
     
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 

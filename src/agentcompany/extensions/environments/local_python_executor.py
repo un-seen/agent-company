@@ -1375,7 +1375,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
 
     def parse_code_blobs(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
-        pattern = r"```(?:py|python)?\n(.*?)\n```"
+        pattern = r"```(?:python)?\n(.*?)\n```"
         matches = re.findall(pattern, code_blob, re.DOTALL)
         if len(matches) == 0:
             try:  # Maybe the LLM outputted a code blob directly
