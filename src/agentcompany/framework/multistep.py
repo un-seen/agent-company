@@ -584,16 +584,17 @@ class ReActPattern(ModelContextProtocolImpl):
         # Execute code in environment
         while is_response_empty_or_error:
             # Set system prompt as the first message
-            self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False)
+            self.input_messages = []
+            # Add previous attempts to input messages
+            for idx, attempt in enumerate(previous_attempts, 1):
+                code_action = attempt["code"]
+                error_msg = attempt["error"]
+                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"\nPrevious Code Attempt ({idx}):\n\n {code_action}"}]}])
+                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"\nEnvironment Error for Code Attempt ({idx}): {error_msg}"}]}])
             # Add facts message to input messages
             if len(self.facts_message.content) > 0:
                 self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
-            # Add previous attempts to input messages
-            for attempt in previous_attempts:
-                code_action = attempt["code"]
-                error_msg = attempt["error"]
-                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Last code action: \n {code_action}"}]}])
-                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Error: {error_msg}"}]}])
+            self.input_messages.extend(self.memory.system_prompt.to_messages(summary_mode=False))
             # TODO add error message if available        
             # Add next step to input messages
             self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": next_step}]}])
