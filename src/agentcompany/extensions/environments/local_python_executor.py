@@ -1354,7 +1354,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
             error_msg = ' '.join(match.group(1).split())
             return error_msg
         else:
-            return "No error message found."
+            return execution_logs
 
     def parse_code_blobs(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""

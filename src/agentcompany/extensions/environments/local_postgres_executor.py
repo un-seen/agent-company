@@ -213,6 +213,29 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         self.pg_conn.close()
         self.pg_conn = psycopg2.connect(**self.pg_config)
 
+    def parse_error_logs(self, execution_logs: str) -> str:
+        # Regex pattern to capture the full InterpreterError including multiline messages
+        lines = execution_logs.split('\n')
+        error_lines = []
+        capture = False
+        for line in lines:
+            if 'psycopg2.errors' in line:
+                # Extract the part of the line starting from 'psycopg2.errors'
+                start_idx = line.find('psycopg2.errors')
+                error_line = line[start_idx:]
+                error_lines.append(error_line)
+                capture = True
+            elif capture:
+                # Check if the current line indicates the end of the error message
+                if line.startswith('File ') or line.startswith('During handling') or line.strip() == '':
+                    capture = False
+                else:
+                    error_lines.append(line.strip())
+        # Join the captured lines into a single string
+        if error_lines:
+            return ' '.join(error_lines).strip()
+        return execution_logs
+        
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
         self.state.update(additional_variables)
         self.reset_connection()
