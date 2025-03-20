@@ -598,6 +598,9 @@ class ReActPattern(ModelContextProtocolImpl):
             # Set system prompt as the first message
             self.input_messages = []
             self.input_messages.extend(self.memory.system_prompt.to_messages(summary_mode=False))
+            # Add facts message to input messages
+            if len(self.facts_message.content) > 0:
+                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
             # Add previous attempts to input messages
             if len(previous_attempts) > 0:
                 for idx, attempt in enumerate(previous_attempts, 1):
@@ -605,10 +608,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     error_msg = attempt["error"]
                     self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"\nPrevious Code Attempt ({idx}):\n\n {code_action}\n\n"}]}])
                     self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"\nEnvironment Error for Code Attempt ({idx}): {error_msg}\n\n"}]}])
-                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Do not repeat the same error or repeat an empty response from a previous code attempt!"}]}])
-            # Add facts message to input messages
-            if len(self.facts_message.content) > 0:
-                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
+                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Do not write code that will repeat the same error or give an empty response!"}]}])
             # TODO add error message if available        
             # Add next step to input messages
             self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": next_step}]}])
