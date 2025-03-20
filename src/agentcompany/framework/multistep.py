@@ -446,11 +446,28 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
-        plan_message = self.model([message_prompt_plan], stop_sequences=["<end_plan>"])
+        plan_message: ChatMessage = self.model([message_prompt_plan], stop_sequences=["<end_plan>"])
+        self.logger.log(text=plan_message.content, title="Initial Plan Message:")
+        self.logger.log(text=facts_message.content, title="Initial Facts Message:")
         return input_messages, facts_message, plan_message
     
     def _generate_updated_plan(self, task: str, step: int) -> Tuple[ChatMessage, ChatMessage]:
 
+        # Do not take the system prompt message from the memory
+        # summary_mode=False: Do not take previous plan steps to avoid influencing the new plan
+        memory_messages = self.write_memory_to_messages()[1:]
+        # Facts
+        facts_update_pre = {
+            "role": MessageRole.SYSTEM,
+            "content": [{"type": "text", "text": self.prompt_templates["planning"]["update_facts_pre_messages"]}],
+        }
+        facts_update_post = {
+            "role": MessageRole.USER,
+            "content": [{"type": "text", "text": self.prompt_templates["planning"]["update_facts_post_messages"]}],
+        }
+        input_messages = [facts_update_pre] + memory_messages + [facts_update_post]
+        facts_message = self.model(input_messages)
+        
         update_plan_pre = {
             "role": MessageRole.SYSTEM,
             "content": [
@@ -462,19 +479,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
-        # Do not take the system prompt message from the memory
-        # summary_mode=False: Do not take previous plan steps to avoid influencing the new plan
-        memory_messages = self.write_memory_to_messages()[1:]
-        facts_update_pre = {
-            "role": MessageRole.SYSTEM,
-            "content": [{"type": "text", "text": self.prompt_templates["planning"]["update_facts_pre_messages"]}],
-        }
-        facts_update_post = {
-            "role": MessageRole.USER,
-            "content": [{"type": "text", "text": self.prompt_templates["planning"]["update_facts_post_messages"]}],
-        }
-        input_messages = [facts_update_pre] + memory_messages + [facts_update_post]
-        facts_message = self.model(input_messages)
+        # Plan
         update_plan_post = {
             "role": MessageRole.USER,
             "content": [
@@ -492,9 +497,12 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
-        plan_message = self.model(
+        plan_message: ChatMessage = self.model(
             [update_plan_pre] + memory_messages + [update_plan_post], stop_sequences=["<end_plan>"]
         )
+        # Return the updated facts and plan
+        self.logger.log(text=plan_message.content, title="Updated Plan Message:")
+        self.logger.log(text=facts_message.content, title="Updated Facts Message:")
         return input_messages, facts_message, plan_message
 
     def _record_planning_step(
@@ -516,7 +524,7 @@ class ReActPattern(ModelContextProtocolImpl):
         # Record in Memory    
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/fact", facts)
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/plan", plan)
-        
+        # Update Memory
         self.memory.append_step(
             PlanningStep(
                 facts=facts,
