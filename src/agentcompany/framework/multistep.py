@@ -583,7 +583,7 @@ class ReActPattern(ModelContextProtocolImpl):
         environment_response = ""
         error_msg = ""
         code_action = ""
-        is_response_empty_or_error = True
+        is_response_empty = True
         # Get next step from plan
         plan_steps = extract_steps(self.plan_message.content)
         if len(plan_steps) > 0:
@@ -594,7 +594,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=next_step, title="Next Plan Step", level=LogLevel.INFO)
         previous_attempts = []
         # Execute code in environment
-        while is_response_empty_or_error:
+        while is_response_empty:
             # Set system prompt as the first message
             self.input_messages = []
             self.input_messages.extend(self.memory.system_prompt.to_messages(summary_mode=False))
