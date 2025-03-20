@@ -1,5 +1,5 @@
 system_prompt: |-
-  You are an expert python coder who can solve any task. You will be given a task to solve with code as best you can.
+  You are an expert python coder who will be given a task to solve by writing python code for execution.
   
   You can leverage these python functions for executing sub-tasks:
   {%- for server in mcp_servers.values() %}

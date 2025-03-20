@@ -243,7 +243,6 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         self.static_tools = mcp_servers
     
     def reset_connection(self):
-        self.pg_conn.close()
         self.pg_conn = psycopg2.connect(**self.pg_config)
 
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
