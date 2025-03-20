@@ -290,7 +290,9 @@ class ReActPattern(ModelContextProtocolImpl):
                 raise AgentError(f"Check {check_function.__name__} failed with error: {e}", self.logger)
 
     def _execute_step(self, task: str, action_step: ActionStep) -> Union[None, Any]:
+        self.logger.log(title=f"Planning Step: {self.step_number}")
         self._planning_step(task, is_first_step=(self.step_number == 0), step=self.step_number)
+        self.logger.log(title=f"Execution Step {self.step_number}:")
         final_answer = self.step(action_step)
         if final_answer is not None and self.final_answer_checks:
             self._validate_final_answer(final_answer)
@@ -405,7 +407,6 @@ class ReActPattern(ModelContextProtocolImpl):
         yield final_answer
 
     def _planning_step(self, task, is_first_step: bool, step: int) -> None:
-        self.logger.log(title=f"Planning Step: {step}")
         facts_message, plan_message = (
             self._generate_initial_plan(task) if is_first_step else self._generate_updated_plan(task, step)
         )
@@ -432,7 +433,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
-        self.logger.log(text=message_prompt_facts["content"][0]["text"], title=f"Initial Facts Message Input ({self.interface_id}/{self.name}):")
+        self.logger.log(text=message_prompt_facts["content"][0]["text"], title=f"Initial Facts Message Input ({self.interface_id}/{self.name}):", level=2)
         facts_message = self.model([message_prompt_facts])
         self.logger.log(text=facts_message.content, title=f"Initial Facts Message Output ({self.interface_id}/{self.name}):")
         message_prompt_plan = {
@@ -454,7 +455,7 @@ class ReActPattern(ModelContextProtocolImpl):
         }
         self.logger.log(text=message_prompt_plan["content"][0]["text"], title=f"Initial Plan Message ({self.interface_id}/{self.name}):", level=2)
         plan_message: ChatMessage = self.model([message_prompt_plan], stop_sequences=["<end_plan>"])
-        self.logger.log(text=plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):", level=2)
+        self.logger.log(text=plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
         return facts_message, plan_message
     
     def _generate_updated_plan(self, task: str, step: int) -> Tuple[ChatMessage, ChatMessage]:
@@ -507,8 +508,8 @@ class ReActPattern(ModelContextProtocolImpl):
             [update_plan_pre] + memory_messages + [update_plan_post], stop_sequences=["<end_plan>"]
         )
         # Return the updated facts and plan
-        self.logger.log(text=plan_message.content, title="Updated Plan Message:", level=2)
-        self.logger.log(text=facts_message.content, title="Updated Facts Message:", level=2)
+        self.logger.log(text=plan_message.content, title="Updated Plan Message:")
+        self.logger.log(text=facts_message.content, title="Updated Facts Message:")
         return facts_message, plan_message
 
     def _record_planning_step(
