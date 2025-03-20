@@ -17,10 +17,10 @@ def PostgresAgent(name: str,
     Create a Postgres SQL code agent.
     """
     default_yaml_path = importlib.resources.files("agentcompany.extensions.prompts").joinpath("default.yaml")
-    default_prompt_templates: Dict = yaml.safe_load(default_yaml_path.read_text())
+    prompt_templates: Dict = yaml.safe_load(default_yaml_path.read_text())
     agent_yaml_path = importlib.resources.files("agentcompany.extensions.prompts").joinpath("postgres.yaml")
-    prompt_templates: Dict = yaml.safe_load(agent_yaml_path.read_text())
-    prompt_templates.update(default_prompt_templates)
+    updated_prompt_templates: Dict = yaml.safe_load(agent_yaml_path.read_text())
+    prompt_templates.update(updated_prompt_templates)
     
     return ReActPattern(
         name=name, 
