@@ -1,4 +1,4 @@
-import builtins
+
 import re
 import sqlglot
 from importlib import import_module
@@ -13,6 +13,7 @@ import logging
 from agentcompany.driver.dict import dict_rows_to_markdown_table
 from psycopg2.extras import RealDictCursor
 from agentcompany.mcp.utils import truncate_content
+from agentcompany.extensions.environments.exceptions import InterpreterError, ERRORS
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 
 logger = logging.getLogger(__name__)
@@ -22,37 +23,8 @@ BASE_BUILTIN_MODULES = [
     "unicodedata",
 ]
 
-
-class InterpreterError(ValueError):
-    """
-    An error raised when the interpreter cannot evaluate a SQL expression, due to syntax error or unsupported
-    operations.
-    """
-
-    pass
-
-
-ERRORS = {
-    name: getattr(builtins, name)
-    for name in dir(builtins)
-    if isinstance(getattr(builtins, name), type) and issubclass(getattr(builtins, name), BaseException)
-}
-
 PRINT_OUTPUTS, DEFAULT_MAX_LEN_OUTPUT = "", 50000
 OPERATIONS_COUNT, MAX_OPERATIONS = 0, 10000000
-
-
-class BreakException(Exception):
-    pass
-
-
-class ContinueException(Exception):
-    pass
-
-
-class ReturnException(Exception):
-    def __init__(self, value):
-        self.value = value
 
 
 def get_iterable(obj):
@@ -62,7 +34,6 @@ def get_iterable(obj):
         return list(obj)
     else:
         raise InterpreterError("Object is not iterable")
-
 
 def fix_final_answer_code(code: str) -> str:
     """

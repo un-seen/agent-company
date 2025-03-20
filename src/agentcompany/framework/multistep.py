@@ -629,6 +629,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 self.logger.log(title="Code:", text=code_action)
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                error_msg = self.executor_environment.parse_error_logs(error_msg)
                 previous_attempts.append({"code": code_action, "error": error_msg})
                 continue
             self.logger.log(text=code_action, title="Code Action:")
@@ -640,6 +641,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     execution_logs = str(self.executor_environment.state["_print_outputs"])
                     action_step.observations = execution_logs
                 error_msg = str(e)
+                error_msg = self.executor_environment.parse_error_logs(error_msg)
                 previous_attempts.append({"code": code_action, "error": error_msg})
                 continue
             # TODO add proper critique, verify if response is empty or error

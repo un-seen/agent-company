@@ -14,7 +14,7 @@ import pandas as pd
 from agentcompany.mcp.utils import truncate_content
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.mcp.base import ModelContextProtocolImpl
-
+from agentcompany.extensions.environments.exceptions import InterpreterError, ReturnException, ERRORS, BreakException, ContinueException
 
 BASE_BUILTIN_MODULES = [
     "collections",
@@ -29,22 +29,6 @@ BASE_BUILTIN_MODULES = [
     "time",
     "unicodedata",
 ]
-
-
-class InterpreterError(ValueError):
-    """
-    An error raised when the interpreter cannot evaluate a Python expression, due to syntax error or unsupported
-    operations.
-    """
-
-    pass
-
-
-ERRORS = {
-    name: getattr(builtins, name)
-    for name in dir(builtins)
-    if isinstance(getattr(builtins, name), type) and issubclass(getattr(builtins, name), BaseException)
-}
 
 PRINT_OUTPUTS, DEFAULT_MAX_LEN_OUTPUT = "", 50000
 OPERATIONS_COUNT, MAX_OPERATIONS = 0, 10000000
@@ -108,19 +92,6 @@ BASE_PYTHON_TOOLS = {
     "type": type,
     "complex": complex,
 }
-
-
-class BreakException(Exception):
-    pass
-
-
-class ContinueException(Exception):
-    pass
-
-
-class ReturnException(Exception):
-    def __init__(self, value):
-        self.value = value
 
 
 def get_iterable(obj):
@@ -1372,6 +1343,8 @@ class LocalPythonInterpreter(ExecutionEnvironment):
 
     def attach_mcp_servers(self, mcp_servers: Dict[str, ModelContextProtocolImpl]):
         self.static_tools.update(mcp_servers)
+
+    
 
     def parse_code_blobs(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
