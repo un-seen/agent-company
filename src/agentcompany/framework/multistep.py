@@ -417,10 +417,11 @@ class ReActPattern(ModelContextProtocolImpl):
             "task": task, 
             "role": self.description,
         }
-        variables.update({
-            variable: getattr(self.executor_environment, variable)
-            for variable in self.executor_environment_config["initial_facts_variables"]  if hasattr(self.executor_environment, variable)
-        })
+        if "initial_facts_variables" in self.executor_environment_config:
+            variables.update({
+                variable: getattr(self.executor_environment, variable)
+                for variable in self.executor_environment_config["initial_facts_variables"]  if hasattr(self.executor_environment, variable)
+            })
         message_prompt_facts = {
             "role": MessageRole.USER,
             "content": [
@@ -434,13 +435,14 @@ class ReActPattern(ModelContextProtocolImpl):
             ],
         }
         self.logger.log(text=message_prompt_facts["content"][0]["text"], title=f"Initial Facts Message Input ({self.interface_id}/{self.name}):", level=2)
-        facts_message = self.model([message_prompt_facts])
-        self.logger.log(text=facts_message.content, title=f"Initial Facts Message Output ({self.interface_id}/{self.name}):")
+        self.facts_message = self.model([message_prompt_facts])
+        self.logger.log(text=self.facts_message.content, title=f"Initial Facts Message Output ({self.interface_id}/{self.name}):")
         variables = {
             "task": task,
             "role": self.description,
             "mcp_servers": self.mcp_servers,
-            "facts": facts_message.content,
+            "facts": self.facts_message.content,
+            "max_steps": self.max_steps,
         }
         message_prompt_plan = {
             "role": MessageRole.USER,
@@ -455,9 +457,9 @@ class ReActPattern(ModelContextProtocolImpl):
             ],
         }
         self.logger.log(text=message_prompt_plan["content"][0]["text"], title=f"Initial Plan Message ({self.interface_id}/{self.name}):", level=2)
-        plan_message: ChatMessage = self.model([message_prompt_plan], stop_sequences=["<end_plan>"])
-        self.logger.log(text=plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
-        return facts_message, plan_message
+        self.plan_message: ChatMessage = self.model([message_prompt_plan], stop_sequences=["<end_plan>"])
+        self.logger.log(text=self.plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
+        return self.facts_message, self.plan_message
     
     def _generate_updated_plan(self, task: str, step: int) -> Tuple[ChatMessage, ChatMessage]:
 
@@ -465,29 +467,74 @@ class ReActPattern(ModelContextProtocolImpl):
         # summary_mode=False: Do not take previous plan steps to avoid influencing the new plan
         memory_messages = self.write_memory_to_messages()[1:]
         # Facts
+        variables = {
+            "task": task,
+            "role": self.description,
+        }
+        if "update_facts_pre_variables" in self.executor_environment_config:
+            variables.update({
+                variable: getattr(self.executor_environment, variable)
+                for variable in self.executor_environment_config["update_facts_pre_variables"]  if hasattr(self.executor_environment, variable)
+            })
         facts_update_pre = {
             "role": MessageRole.SYSTEM,
-            "content": [{"type": "text", "text": self.prompt_templates["planning"]["update_facts_pre_messages"]}],
+            "content": [
+                {
+                    "type": "text", 
+                    "text": populate_template(
+                        self.prompt_templates["planning"]["update_facts_pre_messages"],
+                        variables=variables,
+                    ),
+                }
+            ],
         }
+        variables = {
+            "facts": self.facts_message.content,
+        }
+        if "update_facts_post_variables" in self.executor_environment_config:
+            variables.update({
+                variable: getattr(self.executor_environment, variable)
+                for variable in self.executor_environment_config["update_facts_post_variables"]  if hasattr(self.executor_environment, variable)
+            })
         facts_update_post = {
             "role": MessageRole.USER,
-            "content": [{"type": "text", "text": self.prompt_templates["planning"]["update_facts_post_messages"]}],
+            "content": [
+                {
+                    "type": "text", 
+                    "text": populate_template(
+                        self.prompt_templates["planning"]["update_facts_post_messages"],
+                        variables=variables,
+                    ),
+                }
+            ],
         }
         input_messages = [facts_update_pre] + memory_messages + [facts_update_post]
-        facts_message = self.model(input_messages)
-        
+        # Facts Message
+        self.facts_message = self.model(input_messages)
+        # Plan
+        variables = {
+            "role": self.description,
+            "task": task,
+            "plan": self.plan_message,
+            "facts": self.facts_message.content,
+        }
         update_plan_pre = {
             "role": MessageRole.SYSTEM,
             "content": [
                 {
                     "type": "text",
                     "text": populate_template(
-                        self.prompt_templates["planning"]["update_plan_pre_messages"], variables={"task": task}
+                        self.prompt_templates["planning"]["update_plan_pre_messages"], 
+                        variables=variables
                     ),
                 }
             ],
         }
         # Plan
+        variables = {
+            "mcp_servers": self.mcp_servers,
+            "max_steps": self.max_steps,
+        }
         update_plan_post = {
             "role": MessageRole.USER,
             "content": [
@@ -495,23 +542,18 @@ class ReActPattern(ModelContextProtocolImpl):
                     "type": "text",
                     "text": populate_template(
                         self.prompt_templates["planning"]["update_plan_post_messages"],
-                        variables={
-                            "task": task,
-                            "mcp_servers": self.mcp_servers,
-                            "facts_update": facts_message.content,
-                            "remaining_steps": (self.max_steps - step),
-                        },
+                        variables=variables,
                     ),
                 }
             ],
         }
-        plan_message: ChatMessage = self.model(
+        self.plan_message: ChatMessage = self.model(
             [update_plan_pre] + memory_messages + [update_plan_post], stop_sequences=["<end_plan>"]
         )
         # Return the updated facts and plan
-        self.logger.log(text=plan_message.content, title="Updated Plan Message:")
-        self.logger.log(text=facts_message.content, title="Updated Facts Message:")
-        return facts_message, plan_message
+        self.logger.log(text=self.plan_message.content, title="Updated Plan Message:")
+        self.logger.log(text=self.facts_message.content, title="Updated Facts Message:")
+        return self.facts_message, self.plan_message
 
     def _record_planning_step(
         self, facts_message: ChatMessage, plan_message: ChatMessage, is_first_step: bool
