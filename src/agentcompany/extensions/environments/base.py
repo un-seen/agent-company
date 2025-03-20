@@ -19,16 +19,8 @@ class ExecutionEnvironment(abc.ABC):
         raise NotImplementedError("parse_code_blobs not implemented.")
     
     def parse_error_logs(self, execution_logs: str) -> str:
-        # Regex pattern to capture the full InterpreterError including multiline messages
-        pattern = r'InterpreterError:\s*(.*?)\n(?:LINE|\^)'
-        match = re.search(pattern, execution_logs, re.DOTALL)
-        if match:
-            # Replace excessive whitespace/newlines with a single space for readability
-            error_msg = ' '.join(match.group(1).split())
-            return error_msg
-        else:
-            return "No error message found."
-    
+        return execution_logs
+        
     @abc.abstractmethod
     def attach_variables(self, variables: dict):
         raise NotImplementedError("attach_variables not implemented.")

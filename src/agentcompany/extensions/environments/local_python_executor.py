@@ -1,4 +1,5 @@
 import ast
+import re
 import builtins
 import difflib
 import inspect
@@ -1344,7 +1345,16 @@ class LocalPythonInterpreter(ExecutionEnvironment):
     def attach_mcp_servers(self, mcp_servers: Dict[str, ModelContextProtocolImpl]):
         self.static_tools.update(mcp_servers)
 
-    
+    def parse_error_logs(self, execution_logs: str) -> str:
+        # Regex pattern to capture the full InterpreterError including multiline messages
+        pattern = r'InterpreterError:\s*(.*?)\n(?:LINE|\^)'
+        match = re.search(pattern, execution_logs, re.DOTALL)
+        if match:
+            # Replace excessive whitespace/newlines with a single space for readability
+            error_msg = ' '.join(match.group(1).split())
+            return error_msg
+        else:
+            return "No error message found."
 
     def parse_code_blobs(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""

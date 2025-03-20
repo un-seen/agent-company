@@ -92,8 +92,9 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
                 result = cursor.fetchall()
             return result
         except Exception as e:
-            logger.error(f"Error executing SQL: {e}")
-            raise InterpreterError(f"Error executing SQL: {e}")
+            error_msg = str(e)
+            logger.error(f"Error executing SQL: {error_msg}")
+            raise InterpreterError(f"Error executing SQL: {error_msg}")
     else:
         raise InterpreterError(f"Unsupported AST node type: {type(node)}")
     
