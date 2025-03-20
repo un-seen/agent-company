@@ -605,7 +605,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     error_msg = attempt["error"]
                     self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"\nPrevious Code Attempt ({idx}):\n\n {code_action}\n\n"}]}])
                     self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"\nEnvironment Error for Code Attempt ({idx}): {error_msg}\n\n"}]}])
-                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Do not repeat the same mistake! Try to fix the error and provide a new code attempt."}]}])
+                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": f"Do not repeat the same error or repeat an empty response from a previous code attempt!"}]}])
             # Add facts message to input messages
             if len(self.facts_message.content) > 0:
                 self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
