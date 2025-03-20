@@ -470,12 +470,8 @@ class ReActPattern(ModelContextProtocolImpl):
         variables = {
             "task": task,
             "role": self.description,
+            "facts": self.facts_message.content,
         }
-        if "update_facts_pre_variables" in self.executor_environment_config:
-            variables.update({
-                variable: getattr(self.executor_environment, variable)
-                for variable in self.executor_environment_config["update_facts_pre_variables"]  if hasattr(self.executor_environment, variable)
-            })
         facts_update_pre = {
             "role": MessageRole.SYSTEM,
             "content": [
@@ -488,14 +484,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
-        variables = {
-            "facts": self.facts_message.content,
-        }
-        if "update_facts_post_variables" in self.executor_environment_config:
-            variables.update({
-                variable: getattr(self.executor_environment, variable)
-                for variable in self.executor_environment_config["update_facts_post_variables"]  if hasattr(self.executor_environment, variable)
-            })
+        variables = {}
         facts_update_post = {
             "role": MessageRole.USER,
             "content": [
@@ -515,8 +504,8 @@ class ReActPattern(ModelContextProtocolImpl):
         variables = {
             "role": self.description,
             "task": task,
-            "plan": self.plan_message,
             "facts": self.facts_message.content,
+            "plan": self.plan_message,
         }
         update_plan_pre = {
             "role": MessageRole.SYSTEM,
@@ -583,8 +572,11 @@ class ReActPattern(ModelContextProtocolImpl):
         Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
         Returns None if the step is not final.
         """
-        self.input_messages = self.planning_step.to_messages(summary_mode=False) 
-        self.input_messages.extend(self.memory.system_prompt.to_messages(summary_mode=False))
+        self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False)
+        self.input_messages.extend(self.planning_step.to_messages(summary_mode=False))
+        for step in self.memory.steps:
+            if isinstance(step, ActionStep):
+                self.input_messages.extend(step.to_messages())        
         # Log Input Messages to LLM 
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/input_messages", json.dumps(self.input_messages))
         input_messages_str = "\n".join([msg["content"][0]["text"] for msg in self.input_messages])

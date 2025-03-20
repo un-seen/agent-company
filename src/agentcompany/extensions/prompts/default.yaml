@@ -7,8 +7,8 @@ planning:
     {{task}}
     ```
 
-    You will now write the list facts that you want to know for completing the task.
-    To do so, you will have to think about the task within the constraints of your role.
+    You will now write the list facts that is relevant to the task.
+    You will have to think about the task within the constraints of your role.
     
     Now begin!
   initial_plan : |-
@@ -18,10 +18,14 @@ planning:
     ```
     {{task}}
     ```
-    
-    Now for the given task, develop a step-by-step plan with minimal steps taking into account the list of facts.
-    Do not skip steps, do not add any steps not explicitly required in the task. 
 
+    List of facts you can use:  
+    ```
+    {{facts}}
+    ```
+    
+    Now for the given task, develop a step-by-step plan taking into account the list of facts.
+    
     You can leverage these functions for executing the steps:
     {%- for server in mcp_servers.values() %}
     - {{ server.name }}: {{ server.description }}
@@ -30,14 +34,7 @@ planning:
     {%- endfor %}
 
     You do not have any other functions than the ones listed above. You must only use them to solve the task.
-
-    List of facts that you need to know:  
-    ```
-    {{facts}}
-    ```
-
-    Write a step by step plan with maximum {{ max_steps }} steps. 
-
+    
     Here are the rules you should always follow to write your plan:
     1. You must prefix every step with "-" .
     2. You must prefix the first step with "✳️".
@@ -46,7 +43,7 @@ planning:
 
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 
-    Now begin! Write your plan below.
+    Now begin!
   update_facts_pre_messages: |-
     {{role}}
     
@@ -54,13 +51,14 @@ planning:
     ```
     {{task}}
     ```
-    
-    Find the conversation history below:
-  update_facts_post_messages: |-
-    Your current complete understanding of facts is as follows:
+
+    List of facts you can use:  
     ```
     {{ facts }}
     ```
+    
+    Find the conversation history below:
+  update_facts_post_messages: |-
     Read the conversation history above and find any new facts or invalidate some false ones.
     Please update your list of facts based on the previous history, and provide these headings:
     ### 1. Facts that are established.
@@ -75,16 +73,16 @@ planning:
     {{task}}
     ```
 
+    List of facts you can use:  
+    ```
+    {{ facts }}
+    ```
+    
     Your current plan is as follows:
     ```
     {{ plan }}
     ```
     
-    It is based on the following facts:
-    ```
-    {{ facts }}
-    ```
-
     Find the conversation history below:
   update_plan_post_messages: |-
 
@@ -107,7 +105,7 @@ planning:
     
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 
-    Now begin! Write your plan below.
+    Now begin! 
 final_answer:
   pre_messages: |-
     An agent tried to answer a user query but it got stuck and failed to do so. You are tasked with providing an answer instead. Here is the agent's memory:

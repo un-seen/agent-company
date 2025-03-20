@@ -98,6 +98,6 @@ planning:
     {{sql_schema}}
     ```
     
-    You will now write the list of fact based relationships between columns that you want to know.
+    You will now write the list of facts about tables and columns that are relevant to the task.
     
     Now begin!
