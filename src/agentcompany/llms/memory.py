@@ -175,7 +175,7 @@ class TaskStep(MemoryStep):
     task_images: List[str] | None = None
 
     def to_messages(self, summary_mode: bool, **kwargs) -> List[Dict[str, str]]:
-        content = [{"type": "text", "text": f"New task:\n{self.task}"}]
+        content = [{"type": "text", "text": f"Task:\n{self.task}"}]
         if self.task_images:
             for image in self.task_images:
                 content.append({"type": "image", "image": image})

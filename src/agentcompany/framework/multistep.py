@@ -474,9 +474,6 @@ class ReActPattern(ModelContextProtocolImpl):
             "content": [{"type": "text", "text": self.prompt_templates["planning"]["update_facts_post_messages"]}],
         }
         input_messages = [facts_update_pre] + memory_messages + [facts_update_post]
-        print(f"Task: {task} Step: {step}")
-        print(input_messages)
-        print(memory_messages)
         facts_message = self.model(input_messages)
         update_plan_post = {
             "role": MessageRole.USER,
