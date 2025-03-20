@@ -29,6 +29,8 @@ system_prompt: |-
   Now Begin! 
 executor_environment: 
   interface: LocalPostgresInterpreter
+  initial_plan_variables: 
+    - sql_schema
   update_facts_pre_variables: 
     - sql_schema
   config:
@@ -39,6 +41,39 @@ executor_environment:
     password: root
     additional_authorized_imports: "*"
 planning:
+  initial_plan : |-
+    {{role}}
+
+    Here is the task:
+    ```
+    {{task}}
+    ```
+
+    The information about the tables and columns in the sql database:
+    ```
+    {{sql_schema}}
+    ```
+    
+    Now for the given task, develop a step-by-step coding plan.
+    
+    You can leverage these functions for executing the steps:
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+    {%- endfor %}
+
+    You do not have any other functions than the ones listed above. You must only use them to solve the task.
+    
+    Here are the rules you should always follow to write your plan:
+    1. You must prefix every step with "\n<start_step>" and suffix with "<end_step>".
+    2. Each step must be concise and to the point so that it can be verified with a single test.
+    3. Do not skip steps, do not add any steps not explicitly required in the task.
+    4. The first step must be additionally prefixed with "[next_step]"
+
+    After writing the final step of the plan, write the '<end_plan>' tag and stop there.
+
+    Now begin!
   update_facts_pre_messages: |-
     {{role}}
     

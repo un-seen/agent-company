@@ -425,6 +425,11 @@ class ReActPattern(ModelContextProtocolImpl):
             "facts": self.facts_message.content,
             "max_steps": self.max_steps,
         }
+        if "initial_plan_variables" in self.executor_environment_config:
+            variables.update({
+                variable: getattr(self.executor_environment, variable)
+                for variable in self.executor_environment_config["initial_plan_variables"] if hasattr(self.executor_environment, variable)
+            })
         message_prompt_plan = {
             "role": MessageRole.USER,
             "content": [
