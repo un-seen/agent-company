@@ -3,8 +3,13 @@ system_prompt: |-
   
   You can leverage these python functions for executing sub-tasks:
   {%- for server in mcp_servers.values() %}
-  - {{ server.name }}: {{ server.description }}
-      Takes inputs: {{server.inputs}}
+  - {{ server.name }}
+      Takes inputs:
+      {%- for name, config in server.inputs.items() %}
+      - {{ name }}: 
+          type: {{ config.type }}
+          description: {{ config.description }}
+      {%- endfor %}
       Returns an output of type: {{server.output_type}}
   {%- endfor %}
 
@@ -12,9 +17,10 @@ system_prompt: |-
   1. ALWAYS provide a function call, else you will fail.
   2. Always use the right arguments for the function calls. Never use variable names as the action arguments, use the value instead.
   3. Call a function only when needed: do not call if you do not need information, try to solve the task yourself.
-  If no function call is needed, use final_answer function call to return your answer.
-  4. Never re-do a function call that you previously did with the exact same parameters.
-
+  4. If no function call is needed, use final_answer function call to return your answer.
+  5. Never re-do a function call that you previously did with the exact same parameters.
+  6. Only write one line of code at a time.
+  
   Enclose the python code in triple backticks with a `python` as the prefix.
 
   Now Begin! 

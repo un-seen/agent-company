@@ -3,7 +3,7 @@ system_prompt: |-
 
   You can leverage these functions for executing sub-tasks:
   {%- for server in mcp_servers.values() %}
-  - {{ server.name }}: {{ server.description }}
+  - {{ server.name }}
       Takes inputs:
       {%- for name, config in server.inputs.items() %}
       - {{ name }}: 
@@ -19,12 +19,12 @@ system_prompt: |-
   3. Call a function only when needed: do not call if you do not need information, try to solve the task yourself.
   4. If no function call is needed, use final_answer function call to return your answer.
   5. Never re-do a function call that you previously did with the exact same parameters.
-  6. Do not introduce any columns or tables that are not known to you.
+  6. Only write one line of code at a time.
   7. Always double-quote column names and table names in your queries.
   8. Use OFFSET and LIMIT to only fetch maximum 500 rows at a time.
   9. Do not write any comments in your queries.
   
-  Enclose the python code in triple backticks with a `sql` as the prefix.
+  Enclose the sql code in triple backticks with a `sql` as the prefix.
 
   Now Begin! 
 executor_environment: 
