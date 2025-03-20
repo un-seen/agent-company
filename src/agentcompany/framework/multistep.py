@@ -560,19 +560,21 @@ class ReActPattern(ModelContextProtocolImpl):
         """
         # Set system prompt as the first message
         self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False)
-        # Get next step from plan
-        next_step = capture_next_step(self.plan_message.content)
+        # Add facts message to input messages
         if len(self.facts_message.content) > 0:
             self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
+        # Get next step from plan
+        next_step = capture_next_step(self.plan_message.content)
         if not next_step:
             self.logger.log(text="No next step found in the plan.", title="Code Step", level=LogLevel.INFO)
             next_step = self.plan_message.content
         self.logger.log(text=next_step, title="Code Step", level=LogLevel.INFO)
         # Add next step to input messages
         self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": next_step}]}])
-        for step in self.memory.steps:
-            if isinstance(step, ActionStep):
-                self.input_messages.extend(step.to_messages())        
+        # Add all action steps to input messages
+        # for step in self.memory.steps:
+        #    if isinstance(step, ActionStep):
+        #        self.input_messages.extend(step.to_messages())
         # Log Input Messages to LLM 
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/input_messages", json.dumps(self.input_messages))
         input_messages_str = "\n".join([msg["content"][0]["text"] for msg in self.input_messages])
@@ -618,11 +620,6 @@ class ReActPattern(ModelContextProtocolImpl):
                 execution_logs = str(self.executor_environment.state["_print_outputs"])
                 action_step.observations = execution_logs
             error_msg = str(e)
-            if "Import of " in error_msg and " is not allowed" in error_msg:
-                self.logger.log(
-                    text="Warning to user: Code execution failed due to an unauthorized import - Consider passing said import under `additional_authorized_imports` when initializing your CodeAgent.",
-                    level=LogLevel.INFO,
-                )
             raise AgentExecutionError(error_msg, self.logger)
 
         truncated_response = truncate_content(str(environment_response))
