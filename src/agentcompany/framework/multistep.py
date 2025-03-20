@@ -664,7 +664,7 @@ class ReActPattern(ModelContextProtocolImpl):
             # TODO add proper critique, verify if response is empty or error
             is_response_empty = len(environment_response) == 0
             if is_response_empty:
-                error_msg = "Empty response from code execution."
+                error_msg = "Empty response. In the next attempt change the code to get a response."
                 previous_attempts.append({"code": code_action, "error": error_msg})
                 continue
         # Truncate environment response and make observation
