@@ -221,19 +221,21 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         }
         logger.info(f"Connecting to the database {dbname} on {host}:{port}")
         self.pg_conn = psycopg2.connect(**self.pg_config)
-        self.sql_schema = {}
+        
+        self.sql_schema = []
         logger.info("Fetching schema from the database")
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
             tables = [row["table_name"] for row in cur.fetchall()]
             for table in tables:
-                logger.info(f"Fetching schema for table {table}")
+                self.sql_schema.append(f"Table {table} has columns:")
                 cur.execute(
                     "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = %s;",
                     (table,)
                 )
-                table_schema = {row["column_name"]: row["data_type"] for row in cur.fetchall()}
-                self.sql_schema[table] = table_schema
+                for row in cur.fetchall():
+                    self.sql_schema.append(f"- {row['column_name']}, has data type {row['data_type']}")                
+        self.sql_schema = "\n".join(self.sql_schema)
         # TODO: assert self.authorized imports are all installed 
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         # Add base trusted tools to list

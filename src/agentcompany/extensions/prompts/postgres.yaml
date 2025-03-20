@@ -119,7 +119,7 @@ planning:
     {{role}}
     ```
 
-    Here is the schema of the sql database:
+    The confirmed facts about the sql database is listed here:
     ```
     {{sql_schema}}
     ```

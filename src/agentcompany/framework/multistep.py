@@ -433,7 +433,7 @@ class ReActPattern(ModelContextProtocolImpl):
         }
         self.logger.log(text=message_prompt_facts["content"][0]["text"], title=f"Initial Facts Message Input ({self.interface_id}/{self.name}):")
         facts_message = self.model([message_prompt_facts])
-        self.logger.log(text=facts_message.content, title="Initial Facts Message Output ({self.interface_id}/{self.name}):")
+        self.logger.log(text=facts_message.content, title=f"Initial Facts Message Output ({self.interface_id}/{self.name}):")
         message_prompt_plan = {
             "role": MessageRole.USER,
             "content": [
