@@ -153,20 +153,20 @@ class PlanningStep(MemoryStep):
 
     def to_messages(self, summary_mode: bool, **kwargs) -> List[Dict[str, str]]:
         messages = []
-        messages.append(Message(role=MessageRole.ASSISTANT, content=[
-                {
-                    "type": "text", 
-                    "text": f"[PLAN]:\n{self.plan.strip()}"
-                }
-            ]))
-        
-        if summary_mode:
+        if not summary_mode:
             messages.append(Message(role=MessageRole.ASSISTANT, content=[
-                {
-                    "type": "text", 
-                    "text": f"[FACTS LIST]:\n{self.facts.strip()}"
-                }
-            ]))    
+                    {
+                        "type": "text", 
+                        "text": f"[FACTS]:\n{self.facts.strip()}"
+                    }
+                ])) 
+        messages.append(Message(role=MessageRole.ASSISTANT, content=[
+            {
+                "type": "text", 
+                "text": f"[PLAN]:\n{self.plan.strip()}"
+            }
+        ]))
+    
         return messages
 
 

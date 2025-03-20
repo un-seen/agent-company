@@ -36,9 +36,14 @@ planning:
     {{facts}}
     ```
 
-    Write a step by step plan  with maximum {{ max_steps }} steps. 
-    You must prefix every step with "-" 
-    You must prefix the first step with "✳️"
+    Write a step by step plan with maximum {{ max_steps }} steps. 
+
+    Here are the rules you should always follow to write your plan:
+    1. You must prefix every step with "-" .
+    2. You must prefix the first step with "✳️".
+    3. Each step must be a single sentence.
+    4. Each step must be a logical step to solve the task.
+    5. Do not skip steps, do not add any steps not explicitly required in the task.
 
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 
@@ -93,12 +98,17 @@ planning:
 
     Read the conversation history above and write a new plan as follows:
 
-    1. Prefix step that has successfully completed with [x].
-    2. Prefix step that has failed with [].
-    3. Remove steps that are no longer relevant.
-    4. Update the plan based on the new facts.
-    5. Add new steps if needed but total steps must be less than {{ max_steps }}.
-    6. Prefix next step to execute with ✳️
+    Here are the rules you should always follow to write your plan:
+    1. You must prefix every new step with "-" .
+    2. You must prefix the next step with "✳️".
+    3. You must prefix the step that has successfully completed with [x].
+    4. You must prefix the step that has failed with [].
+    5. Each step must be a single sentence.
+    6. Each step must be a logical step to solve the task.
+    7. Do not skip steps, do not add any steps not explicitly required in the task.
+    8. Remove steps that are no longer relevant.
+    9. Update existing steps based on the new facts if needed.
+    10. Add new steps if needed but total steps must be less than {{ max_steps }}.
     
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 
