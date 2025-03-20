@@ -7,9 +7,8 @@ planning:
     {{task}}
     ```
 
-    You will now write the list facts we need to know to complete the task.
+    You will now write the list facts that you want to know for completing the task.
     To do so, you will have to think about the task within the constraints of your role.
-    After writing the final step of the plan, write the '\n<end_facts>' tag and stop there.
     
     Now begin!
   initial_plan : |-
