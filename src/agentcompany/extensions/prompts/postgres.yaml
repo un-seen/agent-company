@@ -93,12 +93,11 @@ planning:
     {{task}}
     ```
 
-    You will now write the list facts that you want to know for completing the task.
-    To do so, you will have to think about the task within the constraints of your role.
-    
-    The confirmed facts about the one and only database that you can access is listed here:
+    The complete set of facts about the one and only database that you can access is listed here:
     ```
     {{sql_schema}}
     ```
-
+    
+    You will now write the list of fact based relationships between columns that you want to know.
+    
     Now begin!

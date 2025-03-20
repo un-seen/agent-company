@@ -41,9 +41,8 @@ planning:
     Here are the rules you should always follow to write your plan:
     1. You must prefix every step with "-" .
     2. You must prefix the first step with "✳️".
-    3. Each step must be a single sentence.
-    4. Each step must be a logical step to solve the task.
-    5. Do not skip steps, do not add any steps not explicitly required in the task.
+    3. Each step must be concise and to the point so that it can be verified with a single test.
+    4. Do not skip steps, do not add any steps not explicitly required in the task.
 
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 
@@ -64,7 +63,7 @@ planning:
     ```
     Read the conversation history above and find any new facts or invalidate some false ones.
     Please update your list of facts based on the previous history, and provide these headings:
-    ### 1. Facts that we confirmed
+    ### 1. Facts that are established.
     ### 2. Facts still unknown
     
     Now begin!
@@ -103,12 +102,8 @@ planning:
     2. You must prefix the next step with "✳️".
     3. You must prefix the step that has successfully completed with [x].
     4. You must prefix the step that has failed with [].
-    5. Each step must be a single sentence.
-    6. Each step must be a logical step to solve the task.
-    7. Do not skip steps, do not add any steps not explicitly required in the task.
-    8. Remove steps that are no longer relevant.
-    9. Update existing steps based on the new facts if needed.
-    10. Add new steps if needed but total steps must be less than {{ max_steps }}.
+    5. Each step must be concise and to the point so that it can be verified with a single test.
+    6. Update or Remove steps that are no longer relevant.    
     
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 

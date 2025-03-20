@@ -583,8 +583,8 @@ class ReActPattern(ModelContextProtocolImpl):
         Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
         Returns None if the step is not final.
         """
-        memory_messages = self.write_memory_to_messages()
-        self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False) + self.planning_step.to_messages(summary_mode=False) 
+        self.input_messages = self.planning_step.to_messages(summary_mode=False) 
+        self.input_messages.extend(self.memory.system_prompt.to_messages(summary_mode=False))
         # Log Input Messages to LLM 
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/input_messages", json.dumps(self.input_messages))
         input_messages_str = "\n".join([msg["content"][0]["text"] for msg in self.input_messages])
@@ -593,7 +593,7 @@ class ReActPattern(ModelContextProtocolImpl):
             title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):"
         )
         # Add new step in logs
-        action_step.model_input_messages = memory_messages.copy()
+        action_step.model_input_messages = self.input_messages.copy()
         try:
             chat_message: ChatMessage = self.model(
                 self.input_messages,
