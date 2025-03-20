@@ -577,7 +577,7 @@ class ReActPattern(ModelContextProtocolImpl):
             self.plan_message.content = "\n".join(plan_steps[1:])
         else:
             next_step = self.plan_message.content
-        self.logger.log(text=next_step, title="Code Step", level=LogLevel.INFO)
+        self.logger.log(text=next_step, title="Next Plan Step", level=LogLevel.INFO)
         # Add next step to input messages
         self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": next_step}]}])
         # Add all action steps to input messages
