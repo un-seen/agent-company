@@ -566,7 +566,9 @@ class ReActPattern(ModelContextProtocolImpl):
         if next_step:
             self.input_messages.extend([{"role": MessageRole.USER, "content": [{"text": next_step}]}])
         else:
-            raise AgentError("No next step found in the plan.", self.logger)
+            self.logger.log(text="No next step found in the plan.", title="Code Step", level=LogLevel.INFO)
+            next_step = self.plan_message.content
+        self.logger.log(text=next_step, title="Code Step", level=LogLevel.INFO)
         for step in self.memory.steps:
             if isinstance(step, ActionStep):
                 self.input_messages.extend(step.to_messages())        
