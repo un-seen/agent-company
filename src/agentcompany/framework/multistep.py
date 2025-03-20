@@ -548,10 +548,13 @@ class ReActPattern(ModelContextProtocolImpl):
         memory_messages = self.write_memory_to_messages()
 
         self.input_messages = memory_messages.copy()
-        
         # Log Input Messages to LLM 
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/input_messages", json.dumps(self.input_messages))
-        
+        input_messages_str = "\n".join([msg["content"][0]["text"] for msg in self.input_messages])
+        self.logger.log(
+            text=input_messages_str,
+            title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):"
+        )
         # Add new step in logs
         action_step.model_input_messages = memory_messages.copy()
         try:
@@ -564,16 +567,14 @@ class ReActPattern(ModelContextProtocolImpl):
             action_step.model_output = model_output
         except Exception as e:
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
-        
         self.logger.log(
             text=model_output,
-            title=f"Output message of the LLM({self.interface_id}/{self.name}):",
-            level=LogLevel.INFO,
+            title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
         )
-
         # TODO Parse as per exection environment
         try:
             code_action = self.executor_environment.parse_code_blobs(model_output)
+            self.logger.log(title="Execution Code:", text=code_action)
         except Exception as e:
             error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
             raise AgentParsingError(error_msg, self.logger)
@@ -584,15 +585,10 @@ class ReActPattern(ModelContextProtocolImpl):
                 arguments=code_action,
                 id=f"call_{len(self.memory.steps)}",
             )
-        ]
-
-        self.logger.log(title="Code:", text=code_action)
+        ]        
         is_final_answer = False
-        
         try:
-            # TODO pass additional variables instead of {}
-            output, execution_logs, is_final_answer = self.executor_environment.__call__(code_action, {})
-            observation = execution_logs
+            environment_response, execution_logs, is_final_answer = self.executor_environment(code_action=code_action, additional_variables={})
         except Exception as e:
             if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
                 execution_logs = str(self.executor_environment.state["_print_outputs"])
@@ -605,14 +601,14 @@ class ReActPattern(ModelContextProtocolImpl):
                 )
             raise AgentExecutionError(error_msg, self.logger)
 
-        truncated_output = truncate_content(str(output))
-        observation += "Last output from code snippet:\n" + truncated_output
+        truncated_response = truncate_content(str(environment_response))
+        observation = "Output from code execution:\n" + truncated_response
         action_step.observations = observation
-        self.logger.log(text=truncated_output, title="Output from code snippet:" if is_final_answer else "Final Answer from code snippet:", level=LogLevel.INFO)
-        action_step.action_output = output
+        self.logger.log(text=observation, title="Execution Code Output:" if not is_final_answer else "Final Output:")
+        action_step.action_output = environment_response
         if is_final_answer:
-            self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "content": {"text": truncated_output, "title": "Final Answer"}}))
-            return output
+            self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "content": [{"text": truncated_response, "title": "Final Answer"}]}))
+            return environment_response
         return None
     
     def forward(self, task: str):

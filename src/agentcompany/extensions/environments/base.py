@@ -3,6 +3,7 @@ from typing import Dict
 from typing import Tuple, Callable, Any
 from agentcompany.mcp.base import ModelContextProtocolImpl
 
+# TODO - Implement on top of the ModelContextProtocolImpl class
 class ExecutionEnvironment(abc.ABC):
 
     state: Dict[str, Any]
@@ -25,5 +26,5 @@ class ExecutionEnvironment(abc.ABC):
         raise NotImplementedError("attach_mcp_servers not implemented.")
     
     @abc.abstractmethod
-    def __call__(self, *args, **kwds) -> Tuple[Any, str, bool]:
-        return super().__call__(*args, **kwds)
+    def __call__(self, code_action: str, additional_variables: dict) -> Tuple[Any, str, bool]:
+        return super().__call__(code_action, additional_variables)
