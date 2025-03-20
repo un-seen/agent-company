@@ -92,3 +92,26 @@ def merge_dicts(original, new_dict):
     
     return merged
 
+def dict_rows_to_markdown_table(rows: list[dict]) -> str:
+    if not rows:
+        return ""
+
+    # Extract headers from keys of first row
+    headers = rows[0].keys()
+
+    # Markdown header row
+    header_row = "| " + " | ".join(headers) + " |"
+
+    # Markdown separator row
+    separator_row = "|" + "|".join(['---'] * len(headers)) + "|"
+
+    # Markdown data rows
+    data_rows = []
+    for row in rows:
+        row_values = [str(row[key]).replace("\n", " ").replace("|", "\\|") for key in headers]
+        data_row = "| " + " | ".join(row_values) + " |"
+        data_rows.append(data_row)
+
+    # Combine all parts into final Markdown table
+    markdown_table = "\n".join([header_row, separator_row] + data_rows)
+    return markdown_table

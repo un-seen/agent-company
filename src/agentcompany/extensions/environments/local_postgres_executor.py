@@ -10,6 +10,7 @@ import sqlglot.expressions
 from agentcompany.mcp.base import ModelContextProtocolImpl
 import psycopg2
 import logging
+from agentcompany.driver.dict import dict_rows_to_markdown_table
 from psycopg2.extras import RealDictCursor
 from agentcompany.mcp.utils import truncate_content
 from agentcompany.extensions.environments.base import ExecutionEnvironment
@@ -240,11 +241,16 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         # Add base trusted tools to list
         self.static_tools = mcp_servers
-        
+    
+    def reset_connection(self):
+        self.pg_conn.close()
+        self.pg_conn = psycopg2.connect(**self.pg_config)
 
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
         self.state.update(additional_variables)
-        output, is_final_answer = evaluate_sql_code(
+        if self.pg_conn.closed:
+            self.reset_connection()
+        tupled_rows, is_final_answer = evaluate_sql_code(
             self.pg_conn,
             code_action,
             static_tools=self.static_tools,
@@ -253,8 +259,9 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             authorized_imports=self.authorized_imports,
             max_print_outputs_length=self.max_print_outputs_length,
         )
+        markdown_table = dict_rows_to_markdown_table(tupled_rows)
         logs = self.state["print_outputs"]
-        return output, logs, is_final_answer
+        return markdown_table, logs, is_final_answer
 
     def attach_variables(self, variables: dict):
         self.state.update(variables)
