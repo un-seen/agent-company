@@ -650,6 +650,9 @@ class ReActPattern(ModelContextProtocolImpl):
             # Execute code in environment
             try:
                 environment_response, execution_logs, is_final_answer = self.executor_environment(code_action=code_action, additional_variables={})
+                truncated_response = truncate_content(str(environment_response))
+                observation = "Output from code execution:\n" + truncated_response
+                self.logger.log(text=observation, title="Output from code execution:" if not is_final_answer else "Final Output from code execution:")
             except Exception as e:
                 if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
                     execution_logs = str(self.executor_environment.state["_print_outputs"])
@@ -659,14 +662,11 @@ class ReActPattern(ModelContextProtocolImpl):
                 previous_attempts.append({"code": code_action, "error": error_msg})
                 continue
             # TODO add proper critique, verify if response is empty or error
-            self.logger.log(text=observation, title="Output from code execution:" if not is_final_answer else "Final Output from code execution:")
             is_response_empty_or_error = len(environment_response) == 0 or "error" in environment_response
-        
         # Truncate environment response and make observation
         self.logger.log(text=execution_logs, title="Execution Logs:")
         self.logger.log(text=environment_response, title="Environment Response:")
-        truncated_response = truncate_content(str(environment_response))
-        observation = "Output from code execution:\n" + truncated_response
+        
         action_step.function_calls = [
             FunctionCall(
                 name=self.executor_environment_config["interface"],
