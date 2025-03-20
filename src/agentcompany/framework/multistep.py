@@ -183,10 +183,6 @@ class ReActPattern(ModelContextProtocolImpl):
                 for server_name, server in self.mcp_servers.items()
             },
         }
-        variables.update({
-            variable: getattr(self.executor_environment, variable)
-            for variable in self.executor_environment_config["system_prompt_variables"]  if hasattr(self.executor_environment, variable)
-        })
         system_prompt = populate_template(
             self.prompt_templates["system_prompt"],
             variables=variables,
@@ -409,31 +405,35 @@ class ReActPattern(ModelContextProtocolImpl):
         yield final_answer
 
     def _planning_step(self, task, is_first_step: bool, step: int) -> None:
-        input_messages, facts_message, plan_message = (
+        facts_message, plan_message = (
             self._generate_initial_plan(task) if is_first_step else self._generate_updated_plan(task, step)
         )
-        self._record_planning_step(input_messages, facts_message, plan_message, is_first_step)
+        self._record_planning_step(facts_message, plan_message, is_first_step)
     
     def _generate_initial_plan(self, task: str) -> Tuple[ChatMessage, ChatMessage]:
-        input_messages = [
-            {
-                "role": MessageRole.USER,
-                "content": [
-                    {
-                        "type": "text",
-                        "text": populate_template(
-                            self.prompt_templates["planning"]["initial_facts"], 
-                            variables={
-                                "task": task, 
-                                "role": self.description
-                            }
-                        ),
-                    }
-                ],
-            },
-        ]
-        facts_message = self.model(input_messages)
-
+        variables = {
+            "task": task, 
+            "role": self.description,
+        }
+        variables.update({
+            variable: getattr(self.executor_environment, variable)
+            for variable in self.executor_environment_config["initial_facts_variables"]  if hasattr(self.executor_environment, variable)
+        })
+        message_prompt_facts = {
+            "role": MessageRole.USER,
+            "content": [
+                {
+                    "type": "text",
+                    "text": populate_template(
+                        self.prompt_templates["planning"]["initial_facts"], 
+                        variables=variables
+                    ),
+                }
+            ],
+        }
+        self.logger.log(text=message_prompt_facts["content"][0]["text"], title="Initial Facts Message Input:")
+        facts_message = self.model([message_prompt_facts])
+        self.logger.log(text=facts_message.content, title="Initial Facts Message Output:")
         message_prompt_plan = {
             "role": MessageRole.USER,
             "content": [
@@ -451,10 +451,10 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
+        self.logger.log(text=message_prompt_plan["content"][0]["text"], title="Initial Plan Message:")
         plan_message: ChatMessage = self.model([message_prompt_plan], stop_sequences=["<end_plan>"])
-        self.logger.log(text=plan_message.content, title="Initial Plan Message:")
-        self.logger.log(text=facts_message.content, title="Initial Facts Message:")
-        return input_messages, facts_message, plan_message
+        self.logger.log(text=plan_message.content, title="Initial Plan Message Output:")
+        return facts_message, plan_message
     
     def _generate_updated_plan(self, task: str, step: int) -> Tuple[ChatMessage, ChatMessage]:
 
@@ -508,10 +508,10 @@ class ReActPattern(ModelContextProtocolImpl):
         # Return the updated facts and plan
         self.logger.log(text=plan_message.content, title="Updated Plan Message:")
         self.logger.log(text=facts_message.content, title="Updated Facts Message:")
-        return input_messages, facts_message, plan_message
+        return facts_message, plan_message
 
     def _record_planning_step(
-        self, input_messages: list, facts_message: ChatMessage, plan_message: ChatMessage, is_first_step: bool
+        self, facts_message: ChatMessage, plan_message: ChatMessage, is_first_step: bool
     ) -> None:
         if is_first_step:
             facts = textwrap.dedent(f"""Here are the facts that I know so far:\n```\n{facts_message.content}\n```""")
