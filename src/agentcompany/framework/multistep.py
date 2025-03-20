@@ -431,9 +431,9 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
-        self.logger.log(text=message_prompt_facts["content"][0]["text"], title="Initial Facts Message Input:")
+        self.logger.log(text=message_prompt_facts["content"][0]["text"], title=f"Initial Facts Message Input ({self.interface_id}/{self.name}):")
         facts_message = self.model([message_prompt_facts])
-        self.logger.log(text=facts_message.content, title="Initial Facts Message Output:")
+        self.logger.log(text=facts_message.content, title="Initial Facts Message Output ({self.interface_id}/{self.name}):")
         message_prompt_plan = {
             "role": MessageRole.USER,
             "content": [
@@ -451,9 +451,9 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
-        self.logger.log(text=message_prompt_plan["content"][0]["text"], title="Initial Plan Message:")
+        self.logger.log(text=message_prompt_plan["content"][0]["text"], title=f"Initial Plan Message ({self.interface_id}/{self.name}):")
         plan_message: ChatMessage = self.model([message_prompt_plan], stop_sequences=["<end_plan>"])
-        self.logger.log(text=plan_message.content, title="Initial Plan Message Output:")
+        self.logger.log(text=plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
         return facts_message, plan_message
     
     def _generate_updated_plan(self, task: str, step: int) -> Tuple[ChatMessage, ChatMessage]:
