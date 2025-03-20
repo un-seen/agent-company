@@ -565,11 +565,11 @@ class ReActPattern(ModelContextProtocolImpl):
         Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
         Returns None if the step is not final.
         """
-        # Set system prompt as the first message
-        self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False)
-        # Add facts message to input messages
-        if len(self.facts_message.content) > 0:
-            self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
+        # Execute Code     
+        is_final_answer = False
+        execution_logs = ""
+        environment_response = ""
+        is_response_empty_or_error = True
         # Get next step from plan
         plan_steps = extract_steps(self.plan_message.content)
         if len(plan_steps) > 0:
@@ -578,64 +578,78 @@ class ReActPattern(ModelContextProtocolImpl):
         else:
             next_step = self.plan_message.content
         self.logger.log(text=next_step, title="Next Plan Step", level=LogLevel.INFO)
-        # Add next step to input messages
-        self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": next_step}]}])
-        # Add all action steps to input messages
-        # for step in self.memory.steps:
-        #    if isinstance(step, ActionStep):
-        #        self.input_messages.extend(step.to_messages())
-        # Log Input Messages to LLM 
-        self.redis_client.rpush(f"{self.interface_id}/{self.name}/input_messages", json.dumps(self.input_messages))
-        input_messages_str = "\n".join([msg["content"][0]["text"] for msg in self.input_messages])
-        self.logger.log(
-            text=input_messages_str,
-            title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):"
-        )
-        # Add new step in logs
-        action_step.model_input_messages = self.input_messages.copy()
-        try:
-            chat_message: ChatMessage = self.model(
-                self.input_messages
+        while is_response_empty_or_error:
+            # Set system prompt as the first message
+            self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False)
+            # Add facts message to input messages
+            if len(self.facts_message.content) > 0:
+                self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.facts_message.content}]}])
+            # TODO add error message if available        
+            # Add next step to input messages
+            self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": next_step}]}])
+            # Add all action steps to input messages
+            # for step in self.memory.steps:
+            #    if isinstance(step, ActionStep):
+            #        self.input_messages.extend(step.to_messages())
+            # Log Input Messages to LLM 
+            input_messages_str = "\n".join([msg["content"][0]["text"] for msg in self.input_messages])
+            self.logger.log(
+                text=input_messages_str,
+                title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):"
             )
-            action_step.model_output_message = chat_message
-            model_output = chat_message.content
-            action_step.model_output = model_output
-        except Exception as e:
-            raise AgentGenerationError(f"Error in executing code:\n{e}", self.logger) from e
-        self.logger.log(
-            text=model_output,
-            title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
-        )
-        # TODO Parse as per exection environment
-        try:
-            code_action = self.executor_environment.parse_code_blobs(model_output)
-            self.logger.log(title="Code:", text=code_action)
-        except Exception as e:
-            error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-            raise AgentParsingError(error_msg, self.logger)
-
-        action_step.function_calls = [
-            FunctionCall(
-                name=self.executor_environment_config["interface"],
-                arguments=code_action,
-                id=f"call_{len(self.memory.steps)}",
+            # Execute LLM
+            try:
+                chat_message: ChatMessage = self.model(
+                    self.input_messages
+                )
+                action_step.model_input_messages = self.input_messages.copy()
+                action_step.model_output_message = chat_message
+                model_output = chat_message.content
+                action_step.model_output = model_output
+            except Exception as e:
+                raise AgentGenerationError(f"Error in executing code:\n{e}", self.logger) from e
+            self.logger.log(
+                text=model_output,
+                title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
             )
-        ]        
-        is_final_answer = False
-        try:
-            environment_response, execution_logs, is_final_answer = self.executor_environment(code_action=code_action, additional_variables={})
-        except Exception as e:
-            if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                execution_logs = str(self.executor_environment.state["_print_outputs"])
-                action_step.observations = execution_logs
-            error_msg = str(e)
-            raise AgentExecutionError(error_msg, self.logger)
-
+            # Parse code as per exection environment
+            try:
+                code_action = self.executor_environment.parse_code_blobs(model_output)
+                self.logger.log(title="Code:", text=code_action)
+                action_step.function_calls = [
+                    FunctionCall(
+                        name=self.executor_environment_config["interface"],
+                        arguments=code_action,
+                        id=f"call_{len(self.memory.steps)}",
+                    )
+                ]    
+            except Exception as e:
+                error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                raise AgentParsingError(error_msg, self.logger)
+        
+            # Execute code in environment
+            try:
+                environment_response, execution_logs, is_final_answer = self.executor_environment(code_action=code_action, additional_variables={})
+            except Exception as e:
+                if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
+                    execution_logs = str(self.executor_environment.state["_print_outputs"])
+                    action_step.observations = execution_logs
+                error_msg = str(e)
+                raise AgentExecutionError(error_msg, self.logger)
+            # Verify if response is empty or error
+            self.logger.log(text=observation, title="Output from code execution:" if not is_final_answer else "Final Output from code execution:")
+            is_response_empty_or_error = len(environment_response) == 0 or "error" in environment_response
+        
+        # Truncate environment response and make observation
+        self.logger.log(text=execution_logs, title="Execution Logs:")
+        self.logger.log(text=environment_response, title="Environment Response:")
         truncated_response = truncate_content(str(environment_response))
         observation = "Output from code execution:\n" + truncated_response
         action_step.observations = observation
-        self.logger.log(text=observation, title="Output from code execution:" if not is_final_answer else "Final Output from code execution:")
         action_step.action_output = environment_response
+        # Push final input message
+        self.redis_client.rpush(f"{self.interface_id}/{self.name}/input_messages", json.dumps(self.input_messages))
+        # Check if final answer
         if is_final_answer:
             self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "content": [{"text": truncated_response, "title": "Final Answer"}]}))
             return environment_response
