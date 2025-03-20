@@ -161,12 +161,7 @@ def evaluate_sql_code(
         return e.value, is_final_answer
     except Exception as e:
         error_trace = traceback.format_exc()
-        error_content = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
-        error_msg = (
-            f"Code execution failed at node '{node}' in code '{code}' due to exception:\n{error_trace}",
-            PRINT_OUTPUTS,
-            error_content
-        )
+        error_msg = f"Code execution failed at node '{node}' in code '{code}' due to exception:\n{error_trace}"
         raise InterpreterError(error_msg)
     
     
