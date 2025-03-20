@@ -1,16 +1,4 @@
 planning:
-  initial_facts: |-
-    {{role}}
-    
-    Here is the task:
-    ```
-    {{task}}
-    ```
-
-    You will now write the list facts that is relevant to the task.
-    You will have to think about the task within the constraints of your role.
-    
-    Now begin!
   initial_plan : |-
     {{role}}
 
@@ -36,7 +24,7 @@ planning:
     You do not have any other functions than the ones listed above. You must only use them to solve the task.
     
     Here are the rules you should always follow to write your plan:
-    1. You must prefix every step with "<step>" and suffix with "<end_step>".
+    1. You must prefix every step with "\n<start_step>" and suffix with "<end_step>".
     2. Each step must be concise and to the point so that it can be verified with a single test.
     3. Do not skip steps, do not add any steps not explicitly required in the task.
     4. The first step must be additionally prefixed with "[next_step]"
@@ -54,12 +42,12 @@ planning:
 
     List of facts you can use:  
     ```
-    {{ facts }}
+    {{facts}}
     ```
     
     Find the conversation history below:
   update_facts_post_messages: |-
-    Read the conversation history above and find any new facts or invalidate some false ones.
+    Read the conversation history above and find any new facts or invalidate the false ones.
     Please update your list of facts based on the previous history, and provide these headings:
     ### 1. Facts that are established.
     ### 2. Facts still unknown
@@ -75,7 +63,7 @@ planning:
 
     List of facts you can use:  
     ```
-    {{ facts }}
+    {{facts}}
     ```
     
     Your current plan is as follows:

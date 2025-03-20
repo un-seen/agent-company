@@ -29,7 +29,7 @@ system_prompt: |-
   Now Begin! 
 executor_environment: 
   interface: LocalPostgresInterpreter
-  initial_facts_variables: 
+  update_facts_pre_variables: 
     - sql_schema
   config:
     host: 127.0.0.1
@@ -39,7 +39,7 @@ executor_environment:
     password: root
     additional_authorized_imports: "*"
 planning:
-  initial_facts: |-
+  update_facts_pre_messages: |-
     {{role}}
     
     Here is the task:
@@ -47,11 +47,14 @@ planning:
     {{task}}
     ```
 
-    The complete set of facts about the one and only database that you can access is listed here:
+    List of complete facts about the tables and columns in sql schema:
     ```
     {{sql_schema}}
     ```
+
+    List of additional facts you can use:
+    ```
+    {{facts}}
+    ```
     
-    You will now write the list of facts about tables and columns that are relevant to the task.
-    
-    Now begin!
+    Find the conversation history below:

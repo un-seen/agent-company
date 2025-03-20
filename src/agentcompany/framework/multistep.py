@@ -1,5 +1,6 @@
 import inspect
 import time
+import re
 from collections import deque
 from logging import getLogger
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
@@ -35,8 +36,10 @@ from agentcompany.llms.utils import (
 logger = getLogger(__name__)
 
 
-
-
+def capture_next_step(text):
+    pattern = r'\[next_step\]<step>(.*?)</end_step>'
+    match = re.search(pattern, text, re.DOTALL)
+    return match.group(1) if match else None
 
 class ReActPattern(ModelContextProtocolImpl):
     """
@@ -413,30 +416,9 @@ class ReActPattern(ModelContextProtocolImpl):
         self._record_planning_step(facts_message, plan_message, is_first_step)
     
     def _generate_initial_plan(self, task: str) -> Tuple[ChatMessage, ChatMessage]:
-        variables = {
-            "task": task, 
-            "role": self.description,
-        }
-        if "initial_facts_variables" in self.executor_environment_config:
-            variables.update({
-                variable: getattr(self.executor_environment, variable)
-                for variable in self.executor_environment_config["initial_facts_variables"]  if hasattr(self.executor_environment, variable)
-            })
-        message_prompt_facts = {
-            "role": MessageRole.USER,
-            "content": [
-                {
-                    "type": "text",
-                    "text": populate_template(
-                        self.prompt_templates["planning"]["initial_facts"], 
-                        variables=variables
-                    ),
-                }
-            ],
-        }
-        self.logger.log(text=message_prompt_facts["content"][0]["text"], title=f"Initial Facts Message Input ({self.interface_id}/{self.name}):", level=2)
-        self.facts_message = self.model([message_prompt_facts])
-        self.logger.log(text=self.facts_message.content, title=f"Initial Facts Message Output ({self.interface_id}/{self.name}):")
+        # Empty Facts Initially
+        self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content="")
+        # Initial Plan
         variables = {
             "task": task,
             "role": self.description,
@@ -472,6 +454,11 @@ class ReActPattern(ModelContextProtocolImpl):
             "role": self.description,
             "facts": self.facts_message.content,
         }
+        if "update_facts_pre_variables" in self.executor_environment_config:
+            variables.update({
+                variable: getattr(self.executor_environment, variable)
+                for variable in self.executor_environment_config["update_facts_pre_variables"] if hasattr(self.executor_environment, variable)
+            })
         facts_update_pre = {
             "role": MessageRole.SYSTEM,
             "content": [
@@ -573,9 +560,13 @@ class ReActPattern(ModelContextProtocolImpl):
         Returns None if the step is not final.
         """
         self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False)
-        
-        self.plan_message.content.split("[next_step]")
-        self.input_messages.extend(self.planning_step.to_messages(summary_mode=False))
+        next_step = capture_next_step(self.plan_message.content)
+        if len(self.facts_message.content) > 0:
+            self.input_messages.extend([{"role": MessageRole.SYSTEM, "content": [{"text": self.facts_message.content}]}])
+        if next_step:
+            self.input_messages.extend([{"role": MessageRole.USER, "content": [{"text": next_step}]}])
+        else:
+            raise AgentError("No next step found in the plan.", self.logger)
         for step in self.memory.steps:
             if isinstance(step, ActionStep):
                 self.input_messages.extend(step.to_messages())        
