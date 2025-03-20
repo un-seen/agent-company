@@ -36,11 +36,11 @@ planning:
 
     Now begin!
   initial_plan : |-
-    You are a world expert at making efficient plans to solve any task using a set of carefully crafted tools.
+    You are a world expert at making efficient plans to solve any task.
     
-    Now for the given task, develop a step-by-step high-level plan taking into account the above inputs and list of facts.
+    Now for the given task, develop a step-by-step high-level plan taking into account the list of facts.
     This plan should involve individual tasks based on the available tools, that if executed correctly will yield the correct answer.
-    Do not skip steps, do not add any superfluous steps. Only write the high-level plan, DO NOT DETAIL INDIVIDUAL TOOL CALLS.
+    Do not skip steps, do not add any steps not explicitly required in the task. 
     After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
 
     Here is your task:
@@ -62,6 +62,8 @@ planning:
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
     {%- endfor %}
+
+    You do not have any other capabilities than the ones listed above. You must use them to solve the task.
 
     List of facts that you know:
     ```
