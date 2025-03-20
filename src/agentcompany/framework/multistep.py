@@ -294,8 +294,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 raise AgentError(f"Check {check_function.__name__} failed with error: {e}", self.logger)
 
     def _execute_step(self, task: str, action_step: ActionStep) -> Union[None, Any]:
-        if self.planning_interval is not None and self.step_number % self.planning_interval == 1:
-            self._planning_step(task, is_first_step=(self.step_number == 1), step=self.step_number)
+        self._planning_step(task, is_first_step=(self.step_number == 1), step=self.step_number)
         final_answer = self.step(action_step)
         if final_answer is not None and self.final_answer_checks:
             self._validate_final_answer(final_answer)
@@ -385,6 +384,7 @@ class ReActPattern(ModelContextProtocolImpl):
         final_answer = None
         self.step_number = 0
         max_steps = max_steps if max_steps is not None else self.max_steps
+        # TODO make plan to complete task in max_steps
         while final_answer is None and self.step_number < max_steps:
             step_start_time = time.time()
             action_step = ActionStep(
