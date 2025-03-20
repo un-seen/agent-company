@@ -294,7 +294,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 raise AgentError(f"Check {check_function.__name__} failed with error: {e}", self.logger)
 
     def _execute_step(self, task: str, action_step: ActionStep) -> Union[None, Any]:
-        self._planning_step(task, is_first_step=(self.step_number == 1), step=self.step_number)
+        self._planning_step(task, is_first_step=(self.step_number == 0), step=self.step_number)
         final_answer = self.step(action_step)
         if final_answer is not None and self.final_answer_checks:
             self._validate_final_answer(final_answer)
@@ -422,7 +422,11 @@ class ReActPattern(ModelContextProtocolImpl):
                     {
                         "type": "text",
                         "text": populate_template(
-                            self.prompt_templates["planning"]["initial_facts"], variables={"task": task}
+                            self.prompt_templates["planning"]["initial_facts"], 
+                            variables={
+                                "task": task, 
+                                "role": self.description
+                            }
                         ),
                     }
                 ],
@@ -439,6 +443,7 @@ class ReActPattern(ModelContextProtocolImpl):
                         self.prompt_templates["planning"]["initial_plan"],
                         variables={
                             "task": task,
+                            "role": self.description,
                             "mcp_servers": self.mcp_servers,
                             "answer_facts": facts_message.content,
                         },
