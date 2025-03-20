@@ -148,9 +148,7 @@ class ActionStep(MemoryStep):
 
 @dataclass
 class PlanningStep(MemoryStep):
-    model_output_message_facts: ChatMessage
     facts: str
-    model_output_message_facts: ChatMessage
     plan: str
 
     def to_messages(self, summary_mode: bool, **kwargs) -> List[Dict[str, str]]:

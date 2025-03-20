@@ -519,11 +519,8 @@ class ReActPattern(ModelContextProtocolImpl):
         
         self.memory.append_step(
             PlanningStep(
-                model_input_messages=input_messages,
                 facts=facts,
                 plan=plan,
-                model_output_message_plan=plan_message,
-                model_output_message_facts=facts_message,
             )
         )
 
