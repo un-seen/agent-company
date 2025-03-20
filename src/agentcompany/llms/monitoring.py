@@ -101,14 +101,12 @@ class AgentLogger:
         if level <= self.level:
             # self.console.print(*args, **kwargs)
             if hasattr(self, "redis_client"):
-                data_dict = kwargs.copy()
+                data_dict = {}
                 data_dict["role"] = self.name
                 data_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
                 if not "content" in data_dict or not isinstance(data_dict["content"], dict):
                     data_dict["content"] = {}
-                    data_dict["content"].update(kwargs)
-                elif isinstance(data_dict["content"], dict):
-                    data_dict["content"] = kwargs
+                data_dict["content"].update(kwargs)
                 self.redis_client.rpush(f"{self.interface_id}/{self.name}/log", json.dumps(data_dict))
             # Print to console
             print_formatted_content(kwargs)
