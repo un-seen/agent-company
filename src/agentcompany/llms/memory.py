@@ -157,13 +157,13 @@ class PlanningStep(MemoryStep):
             messages.append(Message(role=MessageRole.ASSISTANT, content=[
                     {
                         "type": "text", 
-                        "text": f"[FACTS]:\n{self.facts.strip()}"
+                        "text": self.facts.strip()
                     }
                 ])) 
         messages.append(Message(role=MessageRole.ASSISTANT, content=[
             {
                 "type": "text", 
-                "text": f"[PLAN]:\n{self.plan.strip()}"
+                "text": self.plan.strip()
             }
         ]))
     
