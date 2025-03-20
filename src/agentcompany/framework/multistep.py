@@ -575,12 +575,8 @@ class ReActPattern(ModelContextProtocolImpl):
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/fact", facts)
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/plan", plan)
         # Update Memory
-        self.memory.append_step(
-            PlanningStep(
-                facts=facts,
-                plan=plan,
-            )
-        )
+        self.planning_step = PlanningStep(facts=facts, plan=plan)
+        self.memory.append_step(self.planning_step)
 
     def step(self, action_step: ActionStep) -> Union[None, Any]:
         """
@@ -588,8 +584,7 @@ class ReActPattern(ModelContextProtocolImpl):
         Returns None if the step is not final.
         """
         memory_messages = self.write_memory_to_messages()
-
-        self.input_messages = memory_messages.copy()
+        self.input_messages = self.memory.system_prompt.to_messages(summary_mode=False) + self.planning_step.to_messages(summary_mode=False) 
         # Log Input Messages to LLM 
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/input_messages", json.dumps(self.input_messages))
         input_messages_str = "\n".join([msg["content"][0]["text"] for msg in self.input_messages])
