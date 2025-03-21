@@ -666,7 +666,6 @@ class ReActPattern(ModelContextProtocolImpl):
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
                 previous_attempts.append({"code": code_action, "error": error_msg})
                 continue
-            self.logger.log(text=code_action, title="Code Action:")
             # Execute code in environment
             try:
                 # Environment Code Compiles!
