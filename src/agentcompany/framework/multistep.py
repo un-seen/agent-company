@@ -483,7 +483,7 @@ class ReActPattern(ModelContextProtocolImpl):
                         )
                     continue
             except Exception as e:
-                error_msg = str(e.with_traceback())
+                error_msg = str(e)
                 self.logger.log(text=f"{error_msg} \n\n {self.plan_message.content}", title="Plan Message Error:", level=LogLevel.ERROR)
                 continue
         

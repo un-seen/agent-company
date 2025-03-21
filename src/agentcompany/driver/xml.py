@@ -1,6 +1,13 @@
 import xml.etree.ElementTree as ET
 
 def plan_xml_to_dict(xml_str):
+    import xml.etree.ElementTree as ET
+    import re
+
+    # Remove enclosing triple backticks, language identifier, and optional whitespace/newlines
+    xml_str = re.sub(r'^```.*?\n', '', xml_str.strip(), flags=re.DOTALL)
+    xml_str = re.sub(r'```$', '', xml_str.strip()).strip()
+
     def process_element(element):
         tag = element.tag
         children = list(element)
