@@ -114,7 +114,7 @@ planning:
     ### 2. Facts still unknown
     
     Now begin!
-  supervisor_input: |-
+  judge_input: |-
     You are the supervisor of an AI agent who writes code and the agent is trying to solve a task. 
     
     Task: 
