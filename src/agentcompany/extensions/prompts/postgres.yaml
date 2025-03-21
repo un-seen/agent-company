@@ -48,40 +48,6 @@ planning:
     ```
 
     There are no other tables and columns in the sql database except the ones listed above.
-  initial_plan : |-
-    {{role}}
-
-    Here is the task:
-    ```
-    {{task}}
-    ```
-
-    The information about the tables and columns in the sql database:
-    ```
-    {{sql_schema}}
-    ```
-    
-    Now for the given task, develop a step-by-step coding plan.
-    
-    You can leverage these functions for executing the steps:
-    {%- for server in mcp_servers.values() %}
-    - {{ server.name }}: {{ server.description }}
-        Takes inputs: {{server.inputs}}
-        Returns an output of type: {{server.output_type}}
-    {%- endfor %}
-
-    You do not have any other functions than the ones listed above. You must only use them to solve the task.
-    
-    Here are the rules you should always follow to write your plan:
-    1. Steps must be written in the same order as execution.
-    2. You must prefix every step with "\n<start_step>" and suffix with "<end_step>".
-    3. Each step must be concise and to the point so that it can be verified with a single test.
-    4. Each step is in a single line and every step is separated by a newline.
-    5. Do not skip steps, do not add any steps not explicitly required in the task.
-    
-    After writing the final step of the plan, write the '<end_plan>' tag and stop there.
-
-    Now begin!
   update_facts_pre_messages: |-
     {{role}}
     

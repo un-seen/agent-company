@@ -1,24 +1,3 @@
-critic:
-  input: |-
-    You are the supervisor of an AI agent who writes code and the agent is trying to solve a task. 
-    
-    Task: {{task}}
-    Code: {{code}}
-    Observations: {{observations}}
-
-    You must evaluate the agent's code and provide feedback on the following aspects:
-    1. Correctness: Is the code correct and does it solve the task?
-    2. Efficiency: Is the code efficient and does it follow best practices?
-
-    You must make a decision by choosing one of the following options:
-    1. Approve: If the code is correct, efficient and completes the task. Please specify why the code output does not miss any edge cases and it doesn't have issues in the output.
-    2. Fail: If the code is incorrect, inefficient, does not solve the task, or has issues in the output. Please specify why the code cannot be improved to solve the task.
-    3. Reattempt: If the code is partially correct, partially efficient, or partially solves the task. Please specify the code substring that is incorrect and provide guidance to write the correct code.
-
-    Prefix your feedback with the decision you make. 
-    For example, if you choose to approve, you can write "<Approve>The code is correct and efficient. There are no edge cases</Approve>".
-    If you choose to fail, you can write "<Fail>The code is incorrect and inefficient...</Fail>".
-    If you choose to reattempt, you can write "<Reattempt>The substring of the code that is incorrect...</Reattempt>".
 planning:
   initial_facts: |-
   initial_plan : |-
@@ -29,30 +8,89 @@ planning:
     {{task}}
     ```
 
-    List of facts you can use:  
     ```
     {{facts}}
     ```
-    
-    Now for the given task, develop a step-by-step plan taking into account the list of facts.
-    
-    You can leverage these functions for executing the steps in the plan:
+
+    You can leverage these functions for completing the task:
     {%- for server in mcp_servers.values() %}
     - {{ server.name }}: {{ server.description }}
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
     {%- endfor %}
 
+    
+    Now for the given task, writing a step-by-step plan taking into account the list of facts and functions.
     You do not have any other functions than the ones listed above. You must only use them to solve the task.
     
+    Your plan is an XML document with the following structure:
+    ```
+    <plan>
+        <step>
+            <task>Step description</task>
+            <fact_list>
+                <fact>Fact name</fact>
+            </fact_list>
+            <function_call_list>
+                <function_call>
+                  <function_name>Function name</function_name>
+                  <fuction_argument_list>
+                      <argument>
+                          <name>Argument name</name>
+                          <value>Argument value</value>
+                      </argument>
+                      <argument>
+                          <name>Argument name</name>
+                          <value>Argument value</value>
+                      </argument>
+                  </fuction_argument_list>
+                </function_call>
+            </function_call_list>
+        </step>
+        <step>
+            <task>Step description</task>
+            <fact_list>
+                <fact>Fact name</fact>
+                <fact>Fact name</fact>
+            </fact_list>
+            <function_call_list>
+                <function_call>
+                  <function_name>Function name</function_name>
+                  <fuction_argument_list>
+                      <argument>
+                          <name>Argument name</name>
+                          <value>Argument value</value>
+                      </argument>
+                      <argument>
+                          <name>Argument name</name>
+                          <value>Argument value</value>
+                      </argument>
+                  </fuction_argument_list>
+                </function_call>
+                <function_call>
+                  <function_name>Function name</function_name>
+                  <fuction_argument_list>
+                      <argument>
+                          <name>Argument name</name>
+                          <value>Argument value</value>
+                      </argument>
+                      <argument>
+                          <name>Argument name</name>
+                          <value>Argument value</value>
+                      </argument>
+                  </fuction_argument_list>
+                </function_call>
+            </function_call_list>
+        </step>
+    </plan>
+    ```
+
     Here are the rules you should always follow to write your plan:
     1. Steps must be written in the same order as execution.
-    2. You must prefix every step with "\n<start_step>" and suffix with "<end_step>".
-    3. Each step must be concise and to the point so that it can be verified with a single test.
-    4. Each step is in a single line and every step is separated by a newline.
-    5. Do not skip steps, do not add any steps not explicitly required in the task.
-    
-    After writing the final step of the plan, write the '<end_plan>' tag and stop there.
+    2. Each step must be specific so that it can be solved with one code statement and a single test.
+    3. The task must be broken down into small steps that can be executed
+    4. Do not skip steps, do not add any steps not explicitly required in the task.
+    5. The total number of steps must not be more than {{ max_steps }}.
 
     Now begin!
   update_facts_pre_messages: |-
@@ -76,43 +114,77 @@ planning:
     ### 2. Facts still unknown
     
     Now begin!
-  update_plan_pre_messages: |-
-    {{role}}
+  supervisor_input: |-
+    You are the supervisor of an AI agent who writes code and the agent is trying to solve a task. 
     
-    Here is the task:
-    ```
+    Task: 
     {{task}}
-    ```
+    
+    Code: 
+    {{code}}
+    
+    Observations: 
+    {{observations}}
 
+    You must evaluate the agent's code and provide feedback on the following aspects:
+    1. Correctness: Is the code correct and does it solve the task?
+    2. Efficiency: Is the code efficient and does it follow best practices?
+
+    You must make a decision by choosing one of the following options:
+    1. Approve: If the code is correct, efficient and completes the task. Please specify why the code output does not miss any edge cases and it doesn't have issues in the output.
+    2. Fail: If the code is incorrect, inefficient, does not solve the task, or has issues in the output. Please specify why the code cannot be improved to solve the task.
+    3. Reattempt: If the code is partially correct, partially efficient, or partially solves the task. Please specify the code substring that is incorrect and provide guidance to write the correct code.
+    4. Rethink: If the task can be rephrased for better outcome. Please provide guidance on how to rephrase the task.
+
+    Prefix your feedback with the decision you make. 
+    For example, if you choose to approve, you can write "<Approve>The code is correct and efficient. There are no edge cases</Approve>".
+    If you choose to fail, you can write "<Fail>The code is incorrect and inefficient...</Fail>".
+    If you choose to reattempt, you can write "<Reattempt>The substring of the code that is incorrect...</Reattempt>".
+  update_plan: |-
+    {{role}}
+
+    The task is:
+    ```
+    {{ task }}
+    ```
+    
     List of facts you can use:  
     ```
     {{facts}}
     ```
-    
-    Your current plan is as follows:
-    ```
-    {{ plan }}
-    ```
-    
-    Find the conversation history below:
-  update_plan_post_messages: |-
 
-    You can leverage these functions for executing steps in the plan:
+    The current status of the execution plan is:
+    
+    {{ plan_xml }}
+    
+    
+    You can leverage these functions in any of the steps in the plan:
     {%- for server in mcp_servers.values() %}
     - {{ server.name }}: {{ server.description }}
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
     {%- endfor %}
 
-    Read the conversation history above and update the current plan as follows:
+    You have to rewrite this step of the plan in XML which was attempted by the agent:
+    ```
+    {{ next_step_xml }}
+    ```
 
-    Here are the rules you should always follow to write your plan:
-    1. You must replace the <start_step> and <end_step> tags with <start_completed_step> and <end_completed_step> respectively if the step has been executed successfully.
-    2. You must update only the step if the step execution has failed but keep <start_step> and <end_step> tags.
-    3. You must update an existing step if the facts have changed but keep <start_step> and <end_step> tags.
+    The last code attempt was:
+    ```
+    {{ code }}
+    ```
+
+    The last code execution returned errors:
+    ```
+    {{ observations }}
+    ```
     
-    After writing the final step of the plan, write the '<end_plan>' tag and stop there.
-
+    The supervisor's feedback on the last attempt was:
+    ```
+    {{ feedback }}
+    ```
+    
     Now begin! 
 final_answer:
   pre_messages: |-

@@ -62,7 +62,6 @@ class ActionStep(MemoryStep):
     error: AgentError | None = None
     duration: float | None = None
     model_output: str | None = None
-    observations: str | None = None
     observations_images: List[str] | None = None
     action_output: Any = None
 
@@ -78,7 +77,6 @@ class ActionStep(MemoryStep):
             "duration": self.duration,
             "model_output_message": self.model_output_message,
             "model_output": self.model_output,
-            "observations": self.observations,
             "action_output": make_json_serializable(self.action_output),
         }
 
@@ -117,14 +115,14 @@ class ActionStep(MemoryStep):
 
             messages.append(tool_response_message)
         else:
-            if self.observations is not None and self.function_calls is not None:
+            if self.function_calls is not None:
                 messages.append(
                     Message(
                         role=MessageRole.FUNCTION_RESPONSE,
                         content=[
                             {
                                 "type": "text",
-                                "text": f"Call id: {self.function_calls[0].id}\nObservation:\n{self.observations}",
+                                "text": f"Call id: {self.function_calls[0].id}",
                             }
                         ],
                     )
@@ -170,7 +168,7 @@ class PlanningStep(MemoryStep):
         return messages
 
 @dataclass
-class CriticStep(MemoryStep):
+class JudgeStep(MemoryStep):
     model_input_messages: List[Dict[str, str]] | None = None
     model_output_message: ChatMessage = None    
     decision: Literal["Approve", "Reject", "Reattempt"] | None = None
@@ -182,21 +180,23 @@ class CriticStep(MemoryStep):
             "decision": self.decision
         }
 
-    def to_decision(self) -> Literal["Approve", "Reject", "Reattempt"] | None:
+    def to_decision(self) -> Literal["approve", "fail", "reattempt", "rethink", "step"]:
         if self.model_output_message is None:
             return None
         content = self.model_output_message["content"]
         if len(content) == 0:
-            return None
+            return "step"
         text = content[0]["text"]
-        if "<Approve>" in text:
-            return "Approve"
-        elif "<Reject>" in text:
-            return "Reject"
-        elif "<Reattempt>" in text:
-            return "Reattempt"
+        if "<approve>" in text:
+            return "approve"
+        elif "<fail>" in text:
+            return "fail"
+        elif "<reattempt>" in text:
+            return "reattempt"
+        elif "<rethink>" in text:
+            return "rethink"
         else:
-            return None
+            return "step"
         
     def to_messages(self, summary_mode: bool = False) -> List[Dict[str, Any]]:
         messages = []
