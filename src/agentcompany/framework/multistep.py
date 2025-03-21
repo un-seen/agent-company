@@ -490,7 +490,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=self.plan_table, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
         return self.facts_message, self.plan_message
     
-    def _generate_updated_plan(self, step: int, code_attempt: str, observations: str, feedback: str) -> Tuple[ChatMessage, ChatMessage]:
+    def _generate_updated_plan(self, step: int, code_attempt: str, observations: str, feedback: str):
 
         # Do not take the system prompt message from the memory
         # summary_mode=False: Do not take previous plan steps to avoid influencing the new plan
@@ -567,7 +567,6 @@ class ReActPattern(ModelContextProtocolImpl):
         self.plan_dict["plan"]["step"][step]["status"] = "step"
         self.plan_message.content = plan_dict_to_xml(self.plan_dict)
         self.logger.log(text=self.plan_message.content, title="Updated Plan Message:")
-        return self.facts_message, self.plan_message
 
     def _record_planning_step(
         self, facts_message: ChatMessage, plan_message: ChatMessage, is_first_step: bool
@@ -683,6 +682,9 @@ class ReActPattern(ModelContextProtocolImpl):
                 ]    
                 action_step.action_output = observations
                 self.logger.log(text=observations, title="Output from code execution:" if not is_plan_complete else "Final Output from code execution:")
+                if len(observations) == 0:
+                    previous_attempts.append({"code": code_action, "error": "Empty response from code execution."})
+                    continue
                 # Judge
                 self.input_messages = [
                     {

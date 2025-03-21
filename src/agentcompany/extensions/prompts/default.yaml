@@ -12,17 +12,8 @@ planning:
     {{facts}}
     ```
 
-    You can leverage these functions for completing the task:
-    {%- for server in mcp_servers.values() %}
-    - {{ server.name }}: {{ server.description }}
-        Takes inputs: {{server.inputs}}
-        Returns an output of type: {{server.output_type}}
-    {%- endfor %}
+    Now for the given task, writing a step-by-step plan taking into account the list of facts and functions available.
 
-    
-    Now for the given task, writing a step-by-step plan taking into account the list of facts and functions.
-    You do not have any other functions than the ones listed above. You must only use them to solve the task.
-    
     Your plan is an XML document with the following structure:
     ```
     <plan>
@@ -85,10 +76,19 @@ planning:
     </plan>
     ```
 
+    You can leverage these functions for completing the task:
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+    {%- endfor %}
+
+    You do not have any other functions than the ones listed above. You must only use them to solve the task.
+    
     Here are the rules you should always follow to write your plan:
     1. Steps must be written in the same order as execution.
     2. Each step must be specific so that it can be solved with one code statement and a single test.
-    3. The task must be broken down into small steps that can be executed
+    3. The task must be broken down into small steps that can need only one function call in each step.
     4. Do not skip steps, do not add any steps not explicitly required in the task.
     5. The total number of steps must not be more than {{ max_steps }}.
 
