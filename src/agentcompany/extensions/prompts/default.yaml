@@ -12,86 +12,36 @@ planning:
     {{facts}}
     ```
 
-    Now for the given task, writing a step-by-step plan taking into account the list of facts and functions available.
+    Now for the given task, writing a step-by-step plan in the following XML format. Each step should clearly describe the task, provide supporting facts, and define the function call to be made if any.
 
-    Your plan is an XML document with the following structure:
-    ```
     <plan>
         <step>
-            <task>Step description</task>
-            <fact_list>
-                <fact>Fact name</fact>
-            </fact_list>
-            <function_call_list>
-                <function_call>
-                  <function_name>Function name</function_name>
-                  <fuction_argument_list>
-                      <argument>
-                          <name>Argument name</name>
-                          <value>Argument value</value>
-                      </argument>
-                      <argument>
-                          <name>Argument name</name>
-                          <value>Argument value</value>
-                      </argument>
-                  </fuction_argument_list>
-                </function_call>
-            </function_call_list>
+            <task>Task Description</task>
+            <function>Function name</function>
+            <!-- Add more <function> elements as needed -->
         </step>
         <step>
-            <task>Step description</task>
-            <fact_list>
-                <fact>Fact name</fact>
-                <fact>Fact name</fact>
-            </fact_list>
-            <function_call_list>
-                <function_call>
-                  <function_name>Function name</function_name>
-                  <fuction_argument_list>
-                      <argument>
-                          <name>Argument name</name>
-                          <value>Argument value</value>
-                      </argument>
-                      <argument>
-                          <name>Argument name</name>
-                          <value>Argument value</value>
-                      </argument>
-                  </fuction_argument_list>
-                </function_call>
-                <function_call>
-                  <function_name>Function name</function_name>
-                  <fuction_argument_list>
-                      <argument>
-                          <name>Argument name</name>
-                          <value>Argument value</value>
-                      </argument>
-                      <argument>
-                          <name>Argument name</name>
-                          <value>Argument value</value>
-                      </argument>
-                  </fuction_argument_list>
-                </function_call>
-            </function_call_list>
+            <task>Task Description</task>
         </step>
+        <!-- Add more <step> blocks as needed -->
     </plan>
-    ```
+    
+    Here are the rules you should always follow to write your plan:
+    1. Steps must be written in the same order as execution.
+    2. Each step must be specific so that it can be solved with one code statement and a single test.
+    3. Each step can only have at maximum, one function call.
+    4. Do not skip steps, do not add any steps not explicitly required in the task.
+    5. The total number of steps must be less than {{ max_steps }}.
 
-    You can leverage these functions for completing the task:
+    Stick to the above structure and rules strictly. Use clear, specific task descriptions and concise facts. Do not skip steps, do not add any steps not explicitly required in the task. The total number of steps must not be more than {{ max_steps }}.
+
+    You can only use these functions for in any of the steps:
     {%- for server in mcp_servers.values() %}
     - {{ server.name }}: {{ server.description }}
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
     {%- endfor %}
-
-    You do not have any other functions than the ones listed above. You must only use them to solve the task.
     
-    Here are the rules you should always follow to write your plan:
-    1. Steps must be written in the same order as execution.
-    2. Each step must be specific so that it can be solved with one code statement and a single test.
-    3. The task must be broken down into small steps that can need only one function call in each step.
-    4. Do not skip steps, do not add any steps not explicitly required in the task.
-    5. The total number of steps must not be more than {{ max_steps }}.
-
     Now begin!
   update_facts_pre_messages: |-
     {{role}}
