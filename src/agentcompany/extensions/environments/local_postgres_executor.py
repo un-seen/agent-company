@@ -252,10 +252,12 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             markdown_table = dict_rows_to_markdown_table(tupled_rows)
             logs = self.state["print_outputs"]
             return markdown_table, logs, is_final_answer
-        else:
+        elif isinstance(tupled_rows, list) and isinstance(tupled_rows[0], str):
             logs = self.state["print_outputs"]
             return "\n".join(tupled_rows), logs, is_final_answer
-        
+        else:
+            logs = self.state["print_outputs"]
+            return str(tupled_rows), logs, is_final_answer
         
     def attach_variables(self, variables: dict):
         self.state.update(variables)
