@@ -12,7 +12,7 @@ import textwrap
 from redis import Redis
 import os
 from agentcompany.extensions.environments.base import ExecutionEnvironment
-from agentcompany.llms.memory import ActionStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, FunctionCall
+from agentcompany.llms.memory import ActionStep, CriticStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, FunctionCall
 from agentcompany.driver.errors import (
     AgentError,
     AgentExecutionError,
@@ -580,10 +580,10 @@ class ReActPattern(ModelContextProtocolImpl):
         # Execute Code     
         is_final_answer = False
         execution_logs = ""
-        environment_response = ""
+        observations = ""
         error_msg = ""
         code_action = ""
-        is_response_empty = True
+        is_next_step_complete = True
         # Get next step from plan
         plan_steps = extract_steps(self.plan_message.content)
         if len(plan_steps) > 0:
@@ -594,7 +594,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=next_step, title="Next Plan Step", level=LogLevel.INFO)
         previous_attempts = []
         # Execute code in environment
-        while is_response_empty:
+        while True:
             # Set system prompt as the first message
             self.input_messages = []
             self.input_messages.extend(self.memory.system_prompt.to_messages(summary_mode=False))
@@ -649,27 +649,60 @@ class ReActPattern(ModelContextProtocolImpl):
             self.logger.log(text=code_action, title="Code Action:")
             # Execute code in environment
             try:
-                environment_response, execution_logs, is_final_answer = self.executor_environment(code_action=code_action, additional_variables={})
-                truncated_response = truncate_content(str(environment_response))
-                observation = "Output from code execution:\n" + truncated_response
-                self.logger.log(text=observation, title="Output from code execution:" if not is_final_answer else "Final Output from code execution:")
+                # Environment Code Compiles!
+                observations, execution_logs, is_final_answer = self.executor_environment(code_action=code_action, additional_variables={})
+                truncated_response = truncate_content(str(observations))
+                observations = "Output from code execution:\n" + truncated_response
+                action_step.observations = observations
+                self.logger.log(text=observations, title="Output from code execution:" if not is_final_answer else "Final Output from code execution:")
+                # Critic!
+                self.input_messages = [
+                    {
+                        "role": MessageRole.USER, 
+                        "content": [
+                            {
+                                "type": "text", 
+                                "text": populate_template(
+                                    self.prompt_templates["critic"]["input"],
+                                    variables={
+                                        "task": next_step,
+                                        "code": code_action,
+                                        "observations": observations,
+                                    }
+                                )
+                            }
+                        ]
+                    }
+                ]
+                self.logger.log(text=self.input_messages[0]["content"][0]["text"], title="Critic Input:")
+                try:
+                    chat_message: ChatMessage = self.model(
+                        self.input_messages
+                    )
+                    critic_step = CriticStep(self.input_messages.copy(), chat_message)
+                except Exception as e:
+                    raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
+                decision = critic_step.to_decision()
+                self.logger.log(text=decision, title="Critic Decision:")
+                self.logger.log(text=chat_message.content, title="Critic Output:")
+                if decision == "Approve":
+                    # TODO update action_step with critic
+                    break
+                else:
+                    previous_attempts.append({"code": code_action, "error": chat_message.content})
+                    continue
             except Exception as e:
+                # Environment Code Compilation Error or Runtime Error!
                 if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
                     execution_logs = str(self.executor_environment.state["_print_outputs"])
                     action_step.observations = execution_logs
                 error_msg = str(e)
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
                 previous_attempts.append({"code": code_action, "error": error_msg})
-                continue
-            # TODO add proper critique, verify if response is empty or error
-            is_response_empty = len(environment_response) == 0
-            if is_response_empty:
-                error_msg = "Empty response. In the next attempt change the code to get a response."
-                previous_attempts.append({"code": code_action, "error": error_msg})
-                continue
+            
         # Truncate environment response and make observation
         self.logger.log(text=execution_logs, title="Execution Logs:")
-        self.logger.log(text=environment_response, title="Environment Response:")
+        self.logger.log(text=observations, title="Environment Response:")
         
         action_step.function_calls = [
             FunctionCall(
@@ -678,14 +711,14 @@ class ReActPattern(ModelContextProtocolImpl):
                 id=f"call_{len(self.memory.steps)}",
             )
         ]    
-        action_step.observations = observation
-        action_step.action_output = environment_response
+        action_step.observations = observations
+        action_step.action_output = observations
         # Push final input message
         self.redis_client.rpush(f"{self.interface_id}/{self.name}/input_messages", json.dumps(self.input_messages))
         # Check if final answer
         if is_final_answer:
             self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "content": [{"text": truncated_response, "title": "Final Answer"}]}))
-            return environment_response
+            return observations
         return None
     
     def forward(self, task: str):

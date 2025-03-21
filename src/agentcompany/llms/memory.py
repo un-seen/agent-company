@@ -7,7 +7,7 @@ from .utils import MessageRole
 from ..driver.errors import AgentError
 from agentcompany.driver.json import make_json_serializable
 import os
-from typing import TypeVar, Generic, Optional, Iterator
+from typing import TypeVar, Generic, Optional, Iterator, Literal, LiteralString
 from redis import Redis
 
 
@@ -54,13 +54,13 @@ class MemoryStep:
 @dataclass
 class ActionStep(MemoryStep):
     model_input_messages: List[Dict[str, str]] | None = None
+    model_output_message: ChatMessage = None
     function_calls: List[FunctionCall] | None = None
     start_time: float | None = None
     end_time: float | None = None
     step_number: int | None = None
     error: AgentError | None = None
     duration: float | None = None
-    model_output_message: ChatMessage = None
     model_output: str | None = None
     observations: str | None = None
     observations_images: List[str] | None = None
@@ -169,6 +169,39 @@ class PlanningStep(MemoryStep):
     
         return messages
 
+@dataclass
+class CriticStep(MemoryStep):
+    model_input_messages: List[Dict[str, str]] | None = None
+    model_output_message: ChatMessage = None    
+    decision: Literal["Approve", "Reject", "Reattempt"] | None = None
+    def dict(self):
+        # We overwrite the method to parse the tool_calls and action_output manually
+        return {
+            "model_input_messages": self.model_input_messages,
+            "model_output_message": self.model_output_message,
+            "decision": self.decision
+        }
+
+    def to_decision(self) -> Literal["Approve", "Reject", "Reattempt"] | None:
+        if self.model_output_message is None:
+            return None
+        content = self.model_output_message["content"]
+        if len(content) == 0:
+            return None
+        text = content[0]["text"]
+        if "<Approve>" in text:
+            return "Approve"
+        elif "<Reject>" in text:
+            return "Reject"
+        elif "<Reattempt>" in text:
+            return "Reattempt"
+        else:
+            return None
+        
+    def to_messages(self, summary_mode: bool = False) -> List[Dict[str, Any]]:
+        messages = []
+        messages.extend(self.model_output_message)
+        return messages
 
 @dataclass
 class TaskStep(MemoryStep):
