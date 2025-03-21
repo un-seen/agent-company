@@ -462,10 +462,10 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=message_prompt_plan["content"][0]["text"], title=f"Initial Plan Message ({self.interface_id}/{self.name}):", level=2)
         plan_attempt = 0
         while True:
-            self.plan_message: ChatMessage = self.model([message_prompt_plan], stop_sequences=["<end_plan>"])
+            self.plan_message: ChatMessage = self.model([message_prompt_plan])
             try:
                 plan_dict = plan_xml_to_dict(self.plan_message.content)
-                plan_table = plan_dict_to_markdown_without_status(self.plan_dict)
+                plan_table = plan_dict_to_markdown_without_status(plan_dict)
                 if plan_table is not None:
                     # Set Plan Dict and Plan Table
                     self.plan_table = plan_table
@@ -483,7 +483,8 @@ class ReActPattern(ModelContextProtocolImpl):
                         )
                     continue
             except Exception as e:
-                self.logger.log(text=f"{str(e)} \n\n {self.plan_message.content}", title="Plan Message Error:", level=LogLevel.ERROR)
+                error_msg = str(e.with_traceback())
+                self.logger.log(text=f"{error_msg} \n\n {self.plan_message.content}", title="Plan Message Error:", level=LogLevel.ERROR)
                 continue
         
         self.logger.log(text=self.plan_table, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
