@@ -248,10 +248,15 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             authorized_imports=self.authorized_imports,
             max_print_outputs_length=self.max_print_outputs_length,
         )
-        markdown_table = dict_rows_to_markdown_table(tupled_rows)
-        logs = self.state["print_outputs"]
-        return markdown_table, logs, is_final_answer
-
+        if isinstance(tupled_rows, list) and isinstance(tupled_rows[0], dict):
+            markdown_table = dict_rows_to_markdown_table(tupled_rows)
+            logs = self.state["print_outputs"]
+            return markdown_table, logs, is_final_answer
+        else:
+            logs = self.state["print_outputs"]
+            return "\n".join(tupled_rows), logs, is_final_answer
+        
+        
     def attach_variables(self, variables: dict):
         self.state.update(variables)
 
