@@ -671,8 +671,6 @@ class ReActPattern(ModelContextProtocolImpl):
             try:
                 # Environment Code Compiles!
                 observations, execution_logs, is_plan_complete = self.executor_environment(code_action=code_action, additional_variables={})
-                truncated_response = truncate_content(str(observations))
-                observations = "Output from code execution:\n" + truncated_response
                 action_step.function_calls = [
                     FunctionCall(
                         name=self.executor_environment_config["interface"],
@@ -681,7 +679,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     )
                 ]    
                 action_step.action_output = observations
-                self.logger.log(text=observations, title="Output from code execution:" if not is_plan_complete else "Final Output from code execution:")
+                self.logger.log(text=observations, title=f"Output from code execution: {len(observations)}" if not is_plan_complete else "Final Output from code execution:")
                 if len(observations) == 0:
                     previous_attempts.append({"code": code_action, "error": "Empty response from code execution."})
                     continue
