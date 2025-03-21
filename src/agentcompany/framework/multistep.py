@@ -681,7 +681,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 action_step.action_output = observations
                 self.logger.log(text=observations, title=f"Output from code execution: {len(observations)}" if not is_plan_complete else "Final Output from code execution:")
                 if len(observations) == 0:
-                    previous_attempts.append({"code": code_action, "error": "Empty response from code execution."})
+                    previous_attempts.append({"code": code_action, "error": "There is no output for the code."})
                     continue
                 # Judge
                 self.input_messages = [
