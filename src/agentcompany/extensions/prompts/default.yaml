@@ -25,7 +25,7 @@ planning:
     {%- endfor %}
     {%- endif %}
 
-    {{ if common_prompting_errors|length > 0 }}
+    {%- if common_prompting_errors|length > 0 %}
     Common Prompting Errors:
     {%- for error in common_prompting_errors %}
       - {{ error }}
