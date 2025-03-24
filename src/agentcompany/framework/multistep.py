@@ -667,8 +667,10 @@ class ReActPattern(ModelContextProtocolImpl):
                     self._generate_updated_plan(next_step_id, self.judge_step.model_output_message.content)
                     previous_environment_errors = []
                     continue
-                else:
+                elif decision == "fail":
                     previous_environment_errors = [{"code": code_action, "error": self.judge_step.get_guidance_content(), "prompt": updated_next_step}]
+                    continue
+                else:
                     continue
             except Exception as e:
                 # Environment Code Compilation Error or Runtime Error!
