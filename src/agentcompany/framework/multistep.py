@@ -553,16 +553,16 @@ class ReActPattern(ModelContextProtocolImpl):
         previous_environment_errors = []
         while True:
             next_step_id, next_step = self.planning_step.get_next_step()
-            self.logger.log(text=next_step, title="Next Step:")
             # if next step is None, return observations 
             if next_step is None:
                 observations = self.planning_step.get_markdown_table()
                 is_plan_complete = True
                 break
             # if observations satisfy the task, return observations and continue to next step
-            if len(observations) > 0 and next_step != None and self._validate_observations(next_step, observations) in ["approve"]:
+            if len(observations) > 0 and next_step != None and self._validate_observations(next_step, observations) == "approve":
                 self.planning_step.set_status(next_step_id, "approve")
                 continue
+            self.logger.log(text=next_step, title="Next Step:")
             updated_next_step = next_step
             if len(previous_environment_errors) > 0:
                 variables = {
