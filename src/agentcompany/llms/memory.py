@@ -176,7 +176,7 @@ class PlanningStep(MemoryStep):
     def get_next_step(self) -> Tuple[int, Union[str, None]]:
         i = 0
         while i < len(self._plan_list):
-            if self._plan_status.get(i) == "step":
+            if self._plan_status.get(i) != "approve":
                 break
             i = i + 1
         return i, self._plan_list[i] if i < len(self._plan_list) else None
