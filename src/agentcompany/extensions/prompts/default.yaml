@@ -30,10 +30,8 @@ planning:
     Common Prompting Errors:
     
     {%- for error in common_prompting_errors %}
-      - Task: {{ error.task }} \n
-        
-        Error: {{ error.error }} \n
-        
+      - Task: {{ error.task }} 
+        Error: {{ error.error }}
         Resolution: {{ error.resolution }}
     
     {%- endfor %}
