@@ -550,6 +550,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 "role": self.description,
                 "errors": previous_code_execution, # [ {"code": code_action, "error": error_msg} ]
                 "next_step": next_step,  
+                "mcp_servers": self.mcp_servers,
             }
             prompt_engineer = {
                 "role": MessageRole.SYSTEM,
