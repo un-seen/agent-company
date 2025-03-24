@@ -57,4 +57,6 @@ planning:
     {{facts}}
     ```
     
+    Do not prescribe string constants in any steps of the plan. Describe string patterns instead for matching column values.
+
     Find the conversation history below:

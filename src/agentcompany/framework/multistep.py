@@ -460,9 +460,6 @@ class ReActPattern(ModelContextProtocolImpl):
     
     def _generate_updated_plan(self, step: int, feedback: str):
 
-        # Do not take the system prompt message from the memory
-        # summary_mode=False: Do not take previous plan steps to avoid influencing the new plan
-        memory_messages = self.write_memory_to_messages()[1:]
         # Facts
         variables = {
             "task": self.task,
@@ -499,6 +496,9 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
+        # Do not take the system prompt message from the memory
+        # summary_mode=False: Do not take previous plan steps to avoid influencing the new plan
+        memory_messages = self.write_memory_to_messages()[1:]
         input_messages = [facts_update_pre] + memory_messages + [facts_update_post]
         # Facts Message
         self.facts_message = self.model(input_messages)
