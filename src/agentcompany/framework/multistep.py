@@ -557,6 +557,8 @@ class ReActPattern(ModelContextProtocolImpl):
                     "next_step": next_step,  
                     "mcp_servers": self.mcp_servers,
                 }
+                print("Prompt Engineer Variables:")
+                print(variables)
                 prompt_engineer_input_message = {
                     "role": MessageRole.SYSTEM,
                     "content": [
@@ -676,7 +678,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
                 error_msg += str(e)
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg})
+                previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_next_step})
             
         # Check if final answer
         if is_plan_complete:
