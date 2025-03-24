@@ -40,8 +40,9 @@ planning:
 
     There are no other tables and columns in the sql database except the ones listed above.
   common_prompting_errors: |-
-    Error: No output for code when string constants are used in the where clause.
-    Resolution: Replace the string constant with a regex pattern that matches a substring of the string constant.
+    - Task: The task requires you to write a SQL code with a string constant in the where clause.
+      Error: No output after code execution.
+      Resolution: Replace the string constant a substring to match more rows.
 
   update_facts_pre_messages: |-
     {{role}}

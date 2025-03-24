@@ -593,22 +593,21 @@ class ReActPattern(ModelContextProtocolImpl):
             )
             # Execute LLM
             try:
-                judge_output_message: ChatMessage = self.model(
+                code_output_message: ChatMessage = self.model(
                     self.input_messages
                 )
                 action_step.model_input_messages = self.input_messages.copy()
-                action_step.model_output_message = judge_output_message
-                model_output = judge_output_message.content
-                action_step.model_output = model_output
+                action_step.model_output_message = code_output_message
+                action_step.model_output = code_output_message.content
                 self.logger.log(
-                    text=model_output,
+                    text=code_output_message.content,
                     title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
                 )
             except Exception as e:
                 raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
             # Parse code as per exection environment
             try:
-                code_action = self.executor_environment.parse_code_blobs(model_output)
+                code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
                 self.logger.log(title="Code:", text=code_action)
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."

@@ -25,7 +25,12 @@ planning:
     {%- endfor %}
     {%- endif %}
 
-    {{ common_prompting_errors }}
+    {{ if common_prompting_errors|length > 0 }}
+    Common Prompting Errors:
+    {%- for error in common_prompting_errors %}
+      - {{ error }}
+    {%- endfor %}
+    {{ endif }}
 
     The updated task should not be longer than {{max_task_length}} words.
 
