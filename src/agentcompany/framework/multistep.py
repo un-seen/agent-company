@@ -554,8 +554,9 @@ class ReActPattern(ModelContextProtocolImpl):
         while True:
             next_step_id, next_step = self.planning_step.get_next_step()
             # if next step is None, return observations 
-            if next_step is None:
-                observations = self.planning_step.get_markdown_table()
+            if next_step is None or len(next_step) == 0:
+                status_table = self.planning_step.get_markdown_table()
+                self.logger.log(text=status_table, title="Final Plan Status:")
                 is_plan_complete = True
                 break
             # if observations satisfy the task, return observations and continue to next step

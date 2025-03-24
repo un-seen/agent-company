@@ -173,13 +173,13 @@ class PlanningStep(MemoryStep):
             markdown += f"| {task} | {self._plan_status.get(i, 'step')} |\n"
         return markdown
     
-    def get_next_step(self) -> Tuple[int, str]:
+    def get_next_step(self) -> Tuple[int, Union[str, None]]:
         i = 0
         while i < len(self._plan_list):
             if self._plan_status.get(i) == "step":
                 break
             i = i + 1
-        return i, self._plan_list[i]
+        return i, self._plan_list[i] if i < len(self._plan_list) else None
     
     def to_messages(self, summary_mode: bool, **kwargs) -> List[Dict[str, str]]:
         messages = []
