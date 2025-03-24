@@ -176,7 +176,9 @@ class ReActPattern(ModelContextProtocolImpl):
             self.mcp_servers = {server.name: server for server in mcp_servers}
             
     def initialize_system_prompt(self) -> str:
-        variables={}
+        variables={
+            "mcp_servers": self.mcp_servers,
+        }
         if "system_prompt_variables" in self.executor_environment_config:
             variables.update({
                 variable: getattr(self.executor_environment, variable)
@@ -540,7 +542,7 @@ class ReActPattern(ModelContextProtocolImpl):
         is_plan_complete = False
         observations = ""
         code_action = ""
-        previous_code_execution = []
+        previous_environment_errors = []
         while True:
             next_step_id, next_step = self.planning_step.get_next_step()
             if next_step is None:
@@ -548,37 +550,39 @@ class ReActPattern(ModelContextProtocolImpl):
                 is_plan_complete = True
                 break
             # Engineer Design
-            variables = {
-                "role": self.description,
-                "errors": previous_code_execution, # [ {"code": code_action, "error": error_msg} ]
-                "next_step": next_step,  
-                "mcp_servers": self.mcp_servers,
-            }
-            prompt_engineer_input_message = {
-                "role": MessageRole.SYSTEM,
-                "content": [
-                    {
-                        "type": "text",
-                        "text": populate_template(
-                            self.prompt_templates["planning"]["prompt_engineer"], 
-                            variables=variables
-                        ),
-                    }
-                ],
-            }
-            # Add all action steps to input messages
-            # for step in self.memory.steps:
-            #    if isinstance(step, ActionStep):
-            #        self.input_messages.extend(step.to_messages())
-            self.logger.log(text=prompt_engineer_input_message["content"][0]["text"], title="Prompt Engineer Input Message:")
-            self.prompt_engineer_message: ChatMessage = self.model([prompt_engineer_input_message])
-            self.logger.log(text=self.prompt_engineer_message.content, title="Prompt Engineer Output Message:")
+            updated_next_step = next_step
+            if len(previous_environment_errors) > 0:
+                variables = {
+                    "errors": previous_environment_errors, # [ {"code": code_action, "error": error_msg} ]
+                    "next_step": next_step,  
+                    "mcp_servers": self.mcp_servers,
+                }
+                prompt_engineer_input_message = {
+                    "role": MessageRole.SYSTEM,
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": populate_template(
+                                self.prompt_templates["planning"]["prompt_engineer"], 
+                                variables=variables
+                            ),
+                        }
+                    ],
+                }
+                # Add all action steps to input messages
+                # for step in self.memory.steps:
+                #    if isinstance(step, ActionStep):
+                #        self.input_messages.extend(step.to_messages())
+                self.logger.log(text=prompt_engineer_input_message["content"][0]["text"], title="Prompt Engineer Input Message:")
+                prompt_engineer_message: ChatMessage = self.model([prompt_engineer_input_message])
+                updated_next_step = prompt_engineer_message.content
+                self.logger.log(text=self.prompt_engineer_message.content, title="Prompt Engineer Output Message:")
             # Set Input Messages
             self.input_messages = []
             # Add System Prompt
             self.input_messages.extend(self.memory.system_prompt.to_messages(summary_mode=False))
             # Add prompt engineer
-            self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": f"\n\n{self.prompt_engineer_message.content}"}]}])
+            self.input_messages.extend([{"role": MessageRole.USER, "content": [{"type": "text", "text": f"\n\n{updated_next_step}"}]}])
             # Log Input Messages to LLM 
             input_messages_str = "\n".join([msg["content"][0]["text"] for msg in self.input_messages])
             self.logger.log(
@@ -607,7 +611,7 @@ class ReActPattern(ModelContextProtocolImpl):
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_code_execution.append({"code": code_action, "error": error_msg})
+                previous_environment_errors.append({"code": code_action, "error": error_msg})
                 continue
             # Execute code in environment
             try:
@@ -623,7 +627,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 action_step.action_output = observations
                 self.logger.log(text=observations, title=f"Output from code execution: {len(observations)}" if not is_plan_complete else "Final Output from code execution:")
                 if len(observations) == 0:
-                    previous_code_execution.append({"code": code_action, "error": "There is no output for the code."})
+                    previous_environment_errors.append({"code": code_action, "error": "There is no output for the code."})
                     continue
                 # Judge
                 judge_input_message = [
@@ -660,10 +664,10 @@ class ReActPattern(ModelContextProtocolImpl):
                     break
                 elif decision == "rethink":
                     self._generate_updated_plan(next_step_id, chat_message.content)
-                    previous_code_execution = []
+                    previous_environment_errors = []
                     continue
                 else:
-                    previous_code_execution.append({"code": code_action, "error": chat_message.content})
+                    previous_environment_errors.append({"code": code_action, "error": chat_message.content})
                     continue
             except Exception as e:
                 # Environment Code Compilation Error or Runtime Error!
@@ -672,7 +676,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
                 error_msg += str(e)
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_code_execution.append({"code": code_action, "error": error_msg})
+                previous_environment_errors.append({"code": code_action, "error": error_msg})
             
         # Check if final answer
         if is_plan_complete:

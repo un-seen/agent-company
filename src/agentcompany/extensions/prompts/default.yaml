@@ -1,31 +1,28 @@
 planning:
   initial_facts: |-
   prompt_engineer: |-
-
-    {{role}}
-
-    Your task:
+    Coding Task:
     ```
     {{next_step}}
     ```
 
-    You have to write in plain english the requirements of a code to solve the task.
+    {%- if errors %}
+    The previous attempts failed with the following errors:
+    {%- for error in errors %}
+    - Guideline: ```{{ error.prompt }}```
+    - Programmer's Code: ```{{ error.code }}```
+    - Execution Environment Error: ```{{ error.error }}```
+    {%- endfor %}
+    {%- endif %}
+
+    You have to update the task in plain english with a different approach to overcome the errors.
     
     {%- if mcp_servers and mcp_servers.values()|length > 0 %}
-    You can mention these functions to complete sub-tasks for an efficient solution.
+    You can use these functions to complete sub-tasks for an efficient solution.
     {%- for server in mcp_servers.values() %}
     - {{ server.name }}: {{ server.description }}
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
-    {%- endfor %}
-    {%- endif %}
-
-    {%- if errors %}
-    The previous attempts failed with the following errors:
-    {%- for error in errors %}
-    - Your Prompt: ```{{ error.prompt }}```
-    - Programmer's Code: ```{{ error.code }}```
-    - Execution Environment Error: ```{{ error.error }}```
     {%- endfor %}
     {%- endif %}
 

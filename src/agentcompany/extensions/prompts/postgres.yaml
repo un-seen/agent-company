@@ -4,6 +4,16 @@ system_prompt: |-
   Enclose the sql code in triple backticks with `sql` as the prefix. Always double-quote column names and table names in your queries when needed.
   Use OFFSET and LIMIT to only fetch maximum 100 rows at a time. Do not write any comments in your queries.
   You are only allowed to write one SQL statement at a time.
+  
+  {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+    You can use these functions in your code for an efficient solution.
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+  {%- endfor %}
+  You cannot use any other functions or libraries in your code.
+  {%- endif %}
 
   Now Begin! 
 executor_environment: 

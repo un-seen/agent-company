@@ -3,6 +3,16 @@ system_prompt: |-
     
   Enclose the python code in triple backticks with `python` as the prefix.
 
+  {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+    You can use these functions in your code for an efficient solution.
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+  {%- endfor %}
+  You cannot use any other functions or libraries in your code.
+  {%- endif %}
+
   Now Begin! 
 executor_environment: 
   interface: LocalPythonInterpreter
