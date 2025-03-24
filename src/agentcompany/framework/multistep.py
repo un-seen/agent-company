@@ -503,11 +503,14 @@ class ReActPattern(ModelContextProtocolImpl):
         self.facts_message = self.model(input_messages)
         self.logger.log(text=self.facts_message.content, title="Updated Facts Message:")
         # Plan
+        plan_status_table = self.planning_step.get_markdown_table()
+        next_step = self.planning_step.get_step(step)
         variables = {
             "role": self.description,
             "task": self.task,
             "facts": self.facts_message.content,
-            "plan": self.plan_message.content,
+            "next_step": next_step,
+            "plan_status_table": plan_status_table,
             "feedback": feedback,
         }
         update_plan = {
@@ -552,7 +555,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 "next_step": next_step,  
                 "mcp_servers": self.mcp_servers,
             }
-            prompt_engineer = {
+            prompt_engineer_input_message = {
                 "role": MessageRole.SYSTEM,
                 "content": [
                     {
@@ -568,8 +571,9 @@ class ReActPattern(ModelContextProtocolImpl):
             # for step in self.memory.steps:
             #    if isinstance(step, ActionStep):
             #        self.input_messages.extend(step.to_messages())
-            self.prompt_engineer_message: ChatMessage = self.model([prompt_engineer])
-            self.logger.log(text=self.prompt_engineer_message.content, title="Prompt Engineer Message:")
+            self.logger.log(text=prompt_engineer_input_message["content"][0]["text"], title="Prompt Engineer Input Message:")
+            self.prompt_engineer_message: ChatMessage = self.model([prompt_engineer_input_message])
+            self.logger.log(text=self.prompt_engineer_message.content, title="Prompt Engineer Output Message:")
             # Set Input Messages
             self.input_messages = []
             # Add System Prompt

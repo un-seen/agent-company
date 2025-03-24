@@ -163,7 +163,13 @@ class PlanningStep(MemoryStep):
     
     def set_status(self, i: int, status: PlanningStepStatus) -> None:
         self._plan_status[i] = status
-        
+    
+    def get_step(self, i: int) -> str:
+        return self._plan_list[i]
+    
+    def get_status(self, i: int) -> PlanningStepStatus:
+        return self._plan_status.get(i, "step")
+    
     def get_markdown_table(self) -> str:
         markdown = "| Task | Status |\n"
         markdown += "| --- | --- |\n"

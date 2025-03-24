@@ -9,19 +9,16 @@ planning:
     {{next_step}}
     ```
 
-    You have to write a detailed prompt including the necessary context to write the code to solve the task:
-    1. The objective of the code.
-    2. The constants and variables involved.
-    3. The constraints of the task.
-    4. The expected output.
+    You have to write in plain text english requirements for a coder agent to solve the task.
     
-    You can leverage these functions in the code to complete sub-tasks.
+    You can mention these functions to complete sub-tasks for an efficient solution.
     {%- for server in mcp_servers.values() %}
     - {{ server.name }}: {{ server.description }}
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
     {%- endfor %}
 
+    
     {%- if errors %}
     The previous prompts failed with the following errors:
     {%- for error in errors %}
@@ -30,8 +27,6 @@ planning:
     - Error: ```{{ error.error }}```
     {%- endfor %}
     {%- endif %}
-
-    Please do not repeat the same mistakes and ensure the prompt results in a successful code execution.
 
     Now Begin!
 
@@ -50,8 +45,7 @@ planning:
     Now for the given task, write a step-by-step plan strictly following the rules below:
     1. Steps must be written in the same order as execution.
     2. The steps must be separated by a newline.
-    3. Each step must have only one outcome variable and the computation should be verifiable with a single unit test.
-    4. Each step can only have at maximum, one function call.
+    3. Each step must have only one result and the result should be verifieable with a single unit test.
     4. Do not skip steps, do not add any steps not explicitly required in the task.
     5. The total number of steps must be less than {{ max_steps }}.
 
@@ -118,19 +112,12 @@ planning:
 
     The current status of the execution plan is:
     
-    {{ plan_xml }}
+    {{ plan_status_table }}
     
     
-    You can leverage these functions in any of the steps in the plan:
-    {%- for server in mcp_servers.values() %}
-    - {{ server.name }}: {{ server.description }}
-        Takes inputs: {{server.inputs}}
-        Returns an output of type: {{server.output_type}}
-    {%- endfor %}
-
-    You have to rewrite this step of the plan in XML which was attempted by the agent:
+    You have to rewrite this step of the plan which was attempted by a programmer:
     ```
-    {{ next_step_xml }}
+    {{ next_step }}
     ```
 
     The last code attempt was:
@@ -138,12 +125,12 @@ planning:
     {{ code }}
     ```
 
-    The last code execution returned errors:
+    The last code execution returned this error:
     ```
     {{ observations }}
     ```
     
-    The supervisor's feedback on the last attempt was:
+    The feedback on the last attempt was:
     ```
     {{ feedback }}
     ```
