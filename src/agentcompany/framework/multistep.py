@@ -553,7 +553,7 @@ class ReActPattern(ModelContextProtocolImpl):
             updated_next_step = next_step
             if len(previous_environment_errors) > 0:
                 variables = {
-                    "errors": previous_environment_errors, # [ {"code": code_action, "error": error_msg} ]
+                    "previous_environment_errors": previous_environment_errors, # [ {"code": code_action, "error": error_msg} ]
                     "next_step": next_step,  
                     "mcp_servers": self.mcp_servers,
                 }
