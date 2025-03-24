@@ -27,7 +27,7 @@ planning:
 
     {%- if common_prompting_errors|length > 0 %}
 
-    Common Prompting Errors:
+    Please resolve the following common errors:
     
     {%- for error in common_prompting_errors %}
       - Task: {{ error.task }} 

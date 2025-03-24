@@ -295,7 +295,6 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(title=f"Planning Step: {self.step_number}")
         if self.step_number == 0:
             self._generate_initial_plan(task)
-        self.logger.log(title=f"Execution Step {self.step_number}:")
         final_answer = self.step(action_step)
         if final_answer is not None and self.final_answer_checks:
             self._validate_final_answer(final_answer)
@@ -542,6 +541,7 @@ class ReActPattern(ModelContextProtocolImpl):
         previous_environment_errors = []
         while True:
             next_step_id, next_step = self.planning_step.get_next_step()
+            self.logger.log(text=next_step, title="Next Step:")
             if next_step is None:
                 observations = self.planning_step.get_markdown_table()
                 is_plan_complete = True
