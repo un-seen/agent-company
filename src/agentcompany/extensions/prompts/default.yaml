@@ -9,22 +9,23 @@ planning:
     {%- if previous_environment_errors|length > 0 %}
     The previous attempts failed with the following errors:
     {%- for error in previous_environment_errors %}
-    - Updated Task: ```{{ error.prompt }}```
       - Code: ```{{ error.code }}```
       - Execution Error: ```{{ error.error }}```
     {%- endfor %}
     {%- endif %}
 
-    You have to update the task in plain english with a different approach to overcome the errors.
+    You have to update the task in plain english with a different approach to overcome the coding errors.
     
     {%- if mcp_servers and mcp_servers.values()|length > 0 %}
-    You can use these functions to complete sub-tasks for an efficient solution.
+    You can use these functions to complete sub-tasks for efficiently.
     {%- for server in mcp_servers.values() %}
     - {{ server.name }}: {{ server.description }}
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
     {%- endfor %}
     {%- endif %}
+
+    The updated task should not be longer than {{max_task_length}} words.
 
     Now Begin!
 
