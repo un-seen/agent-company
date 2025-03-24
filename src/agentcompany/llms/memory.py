@@ -158,7 +158,6 @@ class PlanningStep(MemoryStep):
         self.plan = plan
         self._plan_list = plan.split("\n")
         self._plan_status = {k: "step" for k in range(len(self._plan_list))}
-        
         super().__init__()
     
     def set_status(self, i: int, status: PlanningStepStatus) -> None:
@@ -166,9 +165,6 @@ class PlanningStep(MemoryStep):
     
     def get_step(self, i: int) -> str:
         return self._plan_list[i]
-    
-    def get_status(self, i: int) -> PlanningStepStatus:
-        return self._plan_status.get(i, "step")
     
     def get_markdown_table(self) -> str:
         markdown = "| Task | Status |\n"
@@ -180,9 +176,9 @@ class PlanningStep(MemoryStep):
     def get_next_step(self) -> Tuple[int, str]:
         i = 0
         while i < len(self._plan_list):
-            status = self._plan_status.get(i)
-            if status == "step":
+            if self._plan_status.get(i) == "step":
                 break
+            i = i + 1
         return i, self._plan_list[i]
     
     def to_messages(self, summary_mode: bool, **kwargs) -> List[Dict[str, str]]:

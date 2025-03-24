@@ -546,7 +546,6 @@ class ReActPattern(ModelContextProtocolImpl):
                 observations = self.planning_step.get_markdown_table()
                 is_plan_complete = True
                 break
-            # Engineer Design
             updated_next_step = next_step
             if len(previous_environment_errors) > 0:
                 variables = {
