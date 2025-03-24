@@ -45,13 +45,13 @@ planning:
       resolution: Replace the string constant a substring to match more rows.
     - task: Find ER Positive Patients
       error: No output after code execution.
-      resolution: Filter rows in note_structured table where abstraction column value has 'estrogen_receptor' and interpretation column value is positive.
+      resolution: Filter rows in note_structured table where 'abstraction' column value is 'estrogen_receptor' and interpretation column value is 'positive'.
     - task: Find PR Positive Patients
       error: No output after code execution.
-      resolution: Filter rows in note_structured table where abstraction column value has 'progesterone_receptor' and interpretation column value is positive.
+      resolution: Filter rows in note_structured table where 'abstraction' column value is 'progesterone_receptor' and interpretation column value is 'positive'.
     - task: Find HER2 negative Patients
       error: No output after code execution.
-      resolution: Filter rows in note_structured table where abstraction column value has 'her2' and interpretation column value is negative.
+      resolution: Filter rows in note_structured table where 'abstraction' column value is 'her2' and interpretation column value is 'negative'.
 
   update_facts_pre_messages: |-
     {{role}}
