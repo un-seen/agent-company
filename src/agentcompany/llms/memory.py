@@ -219,17 +219,16 @@ class JudgeStep(MemoryStep):
     def to_decision(self) -> Literal["approve", "fail", "reattempt", "rethink", "step"]:
         if self.model_output_message is None:
             return None
-        content = self.model_output_message["content"]
+        content = self.model_output_message.content
         if len(content) == 0:
             return "step"
-        text = content[0]["text"]
-        if "<approve>" in text:
+        if "<approve>" in content:
             return "approve"
-        elif "<fail>" in text:
+        elif "<fail>" in content:
             return "fail"
-        elif "<reattempt>" in text:
+        elif "<reattempt>" in content:
             return "reattempt"
-        elif "<rethink>" in text:
+        elif "<rethink>" in content:
             return "rethink"
         else:
             return "step"

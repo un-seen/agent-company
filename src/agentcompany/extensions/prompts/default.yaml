@@ -109,9 +109,11 @@ planning:
     4. Rethink: If the task can be rephrased for better outcome. Please provide guidance on how to rephrase the task.
 
     Prefix your feedback with the decision you make. 
+
     For example, if you choose to approve, you can write "<Approve>The code is correct and efficient. There are no edge cases</Approve>".
     If you choose to fail, you can write "<Fail>The code is incorrect and inefficient...</Fail>".
     If you choose to reattempt, you can write "<Reattempt>The substring of the code that is incorrect...</Reattempt>".
+
   update_plan: |-
     {{role}}
 

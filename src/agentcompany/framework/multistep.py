@@ -651,6 +651,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
                 
                 self.logger.log(text=judge_input_message["content"][0]["text"], title="Judge Input:")
+                
                 try:
                     judge_output_message: ChatMessage = self.model(
                         [judge_input_message]
