@@ -222,13 +222,13 @@ class JudgeStep(MemoryStep):
         content = self.model_output_message.content
         if len(content) == 0:
             return "step"
-        if "<approve>" in content:
+        if "#approve" in content:
             return "approve"
-        elif "<fail>" in content:
+        elif "#fail" in content:
             return "fail"
-        elif "<reattempt>" in content:
+        elif "#reattempt" in content:
             return "reattempt"
-        elif "<rethink>" in content:
+        elif "#rethink" in content:
             return "rethink"
         else:
             return "step"
