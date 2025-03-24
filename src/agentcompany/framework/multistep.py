@@ -12,7 +12,7 @@ import textwrap
 from redis import Redis
 import os
 from agentcompany.extensions.environments.base import ExecutionEnvironment
-from agentcompany.llms.memory import ActionStep, JudgeStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, FunctionCall
+from agentcompany.llms.memory import ActionStep, JudgeStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, FunctionCall, PlanningStepStatus
 from agentcompany.driver.errors import (
     AgentError,
     AgentExecutionError,
@@ -283,22 +283,34 @@ class ReActPattern(ModelContextProtocolImpl):
             )
             raise AgentExecutionError(error_msg, self.logger)
     
-    def _validate_final_answer(self, final_answer: Any):
-        # TODO validate base on task and memory
-        for check_function in self.final_answer_checks:
-            try:
-                assert check_function(final_answer, self.memory)
-            except Exception as e:
-                raise AgentError(f"Check {check_function.__name__} failed with error: {e}", self.logger)
-
+    def _validate_observations(self, step: str, observations: str, feedback: str) -> PlanningStepStatus:
+        # Validate if next step is complete
+        variables = {
+            "task": step,
+            "feedback": feedback,
+            "observations": observations,
+        }
+        message_prompt_plan = {
+            "role": MessageRole.USER,
+            "content": [
+                {
+                    "type": "text",
+                    "text": populate_template(
+                        self.prompt_templates["planning"]["validate_observations"],
+                        variables=variables,
+                    ),
+                }
+            ],
+        }
+        validate_answer_message: ChatMessage = self.model([message_prompt_plan])
+        self.validate_step = JudgeStep([message_prompt_plan], validate_answer_message)
+        return self.validate_step.to_decision()
+        
     def _execute_step(self, task: str, action_step: ActionStep) -> Union[None, Any]:
         self.logger.log(title=f"Planning Step: {self.step_number}")
         if self.step_number == 0:
             self._generate_initial_plan(task)
-        final_answer = self.step(action_step)
-        if final_answer is not None and self.final_answer_checks:
-            self._validate_final_answer(final_answer)
-        return final_answer
+        return self.step(action_step)
     
     def _finalize_step(self, action_step: ActionStep, step_start_time: float):
         action_step.end_time = time.time()
@@ -542,10 +554,15 @@ class ReActPattern(ModelContextProtocolImpl):
         while True:
             next_step_id, next_step = self.planning_step.get_next_step()
             self.logger.log(text=next_step, title="Next Step:")
+            # if next step is None, return observations 
             if next_step is None:
                 observations = self.planning_step.get_markdown_table()
                 is_plan_complete = True
                 break
+            # if observations satisfy the task, return observations and continue to next step
+            if len(observations) > 0 and next_step != None and self._validate_observations(next_step, observations) in ["approve"]:
+                self.planning_step.set_status(next_step_id, "approve")
+                continue
             updated_next_step = next_step
             if len(previous_environment_errors) > 0:
                 variables = {

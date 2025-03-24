@@ -1,4 +1,24 @@
 planning:
+  validate_observations: |-
+    {{role}}
+
+    Here is the task:
+    ```
+    {{task}}
+    ```
+
+    Here is the latest answer:
+    {{ observations }}
+
+    Here is the judgement of the answer taking into the task in consideration:
+
+    {{ judgement }}
+
+
+    You must make a decision by responding with a hashtag:
+    1. #approve: If the latest answer is answers the task.
+    2. #fail: If the latest answer is not related to the task.
+    3. #reattempt: If the latest answer is partially correct, or partially solves the task.
   initial_facts: |-
   prompt_engineer: |-
     Coding Task:
