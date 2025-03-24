@@ -39,6 +39,10 @@ planning:
     ```
 
     There are no other tables and columns in the sql database except the ones listed above.
+  common_prompting_errors: |-
+    Error: No output for code when string constants are used in the where clause.
+    Resolution: Replace the string constant with a regex pattern that matches a substring of the string constant.
+
   update_facts_pre_messages: |-
     {{role}}
     
@@ -56,7 +60,5 @@ planning:
     ```
     {{facts}}
     ```
-    
-    Do not prescribe string constants in any steps of the plan. Describe string patterns instead for matching column values.
 
     Find the conversation history below:

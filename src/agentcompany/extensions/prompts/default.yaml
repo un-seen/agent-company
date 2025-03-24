@@ -25,10 +25,13 @@ planning:
     {%- endfor %}
     {%- endif %}
 
+    {{ common_prompting_errors }}
+
     The updated task should not be longer than {{max_task_length}} words.
 
     Now Begin!
 
+  common_prompting_errors: |-
   initial_plan : |-
     {{role}}
 
