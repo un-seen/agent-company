@@ -9,9 +9,9 @@ planning:
     {%- if errors %}
     The previous attempts failed with the following errors:
     {%- for error in errors %}
-    - Guideline: ```{{ error.prompt }}```
-    - Programmer's Code: ```{{ error.code }}```
-    - Execution Environment Error: ```{{ error.error }}```
+    - Guideline: ```{{ error['prompt'] }}```
+    - Programmer's Code: ```{{ error['code'] }}```
+    - Execution Environment Error: ```{{ error['error'] }}```
     {%- endfor %}
     {%- endif %}
 
