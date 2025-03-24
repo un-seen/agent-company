@@ -560,7 +560,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     "common_prompting_errors": self.prompt_templates["planning"]["common_prompting_errors"],
                 }
                 prompt_engineer_input_message = {
-                    "role": MessageRole.SYSTEM,
+                    "role": MessageRole.USER,
                     "content": [
                         {
                             "type": "text",
@@ -664,13 +664,14 @@ class ReActPattern(ModelContextProtocolImpl):
                 self.logger.log(text=decision, title="Judge Decision:")
                 self.planning_step.set_status(next_step_id, decision)
                 if decision == "approve" or decision == "reject":
+                    self.judge_step = None
                     break
                 elif decision == "rethink":
                     self._generate_updated_plan(next_step_id, self.judge_step.model_output_message.content)
                     previous_environment_errors = []
                     continue
                 else:
-                    previous_environment_errors = {"code": code_action, "error": self.judge_step.model_output_message.content, "prompt": updated_next_step}
+                    previous_environment_errors = [{"code": code_action, "error": self.judge_step.get_guidance_content(), "prompt": updated_next_step}]
                     continue
             except Exception as e:
                 # Environment Code Compilation Error or Runtime Error!
