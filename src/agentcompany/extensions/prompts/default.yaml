@@ -1,5 +1,40 @@
 planning:
   initial_facts: |-
+  prompt_engineer: |-
+
+    {{role}}
+
+    Your task:
+    ```
+    {{next_step}}
+    ```
+
+    You have to write a detailed prompt including the necessary context to write the code to solve the task:
+    1. The objective of the code.
+    2. The constants and variables involved.
+    3. The constraints of the task.
+    4. The expected output.
+    
+    You can leverage these functions in the code to complete sub-tasks.
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+    {%- endfor %}
+
+    {%- if errors %}
+    The previous prompts failed with the following errors:
+    {%- for error in errors %}
+    - Prompt: ```{{ error.prompt }}```
+    - Code: ```{{ error.code }}```
+    - Error: ```{{ error.error }}```
+    {%- endfor %}
+    {%- endif %}
+
+    Please do not repeat the same mistakes and ensure the prompt results in a successful code execution.
+
+    Now Begin!
+
   initial_plan : |-
     {{role}}
 
@@ -12,36 +47,14 @@ planning:
     {{facts}}
     ```
 
-    Now for the given task, writing a step-by-step plan in the following XML format. Each step should clearly describe the task, provide supporting facts, and define the function call to be made if any.
-
-    <plan>
-        <step>
-            <task>Task Description</task>
-            <function>Function name</function>
-            <!-- Add more <function> elements as needed -->
-        </step>
-        <step>
-            <task>Task Description</task>
-        </step>
-        <!-- Add more <step> blocks as needed -->
-    </plan>
-    
-    Here are the rules you should always follow to write your plan:
+    Now for the given task, write a step-by-step plan strictly following the rules below:
     1. Steps must be written in the same order as execution.
-    2. Each step must be specific so that it can be solved with one code statement and a single test.
-    3. Each step can only have at maximum, one function call.
+    2. The steps must be separated by a newline.
+    3. Each step must have only one outcome variable and the computation should be verifiable with a single unit test.
+    4. Each step can only have at maximum, one function call.
     4. Do not skip steps, do not add any steps not explicitly required in the task.
     5. The total number of steps must be less than {{ max_steps }}.
 
-    Stick to the above structure and rules strictly. Use clear, specific task descriptions and concise facts. Do not skip steps, do not add any steps not explicitly required in the task. The total number of steps must not be more than {{ max_steps }}.
-
-    You can only use these functions for in any of the steps:
-    {%- for server in mcp_servers.values() %}
-    - {{ server.name }}: {{ server.description }}
-        Takes inputs: {{server.inputs}}
-        Returns an output of type: {{server.output_type}}
-    {%- endfor %}
-    
     Now begin!
   update_facts_pre_messages: |-
     {{role}}
@@ -64,7 +77,7 @@ planning:
     ### 2. Facts still unknown
     
     Now begin!
-  judge_input: |-
+  judge: |-
     You are the supervisor of an AI agent who writes code and the agent is trying to solve a task. 
     
     Task: 

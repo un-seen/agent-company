@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, List, TypedDict, Union
+from typing import Tuple, Any, Dict, List, TypedDict, Union
 import os
 from .base import ChatMessage
 from .utils import MessageRole
@@ -144,11 +144,41 @@ class ActionStep(MemoryStep):
         return messages
 
 
+PlanningStepStatus = Literal["approve", "fail", "reattempt", "rethink", "step"]
+
 @dataclass
 class PlanningStep(MemoryStep):
     facts: str
     plan: str
-
+    _plan_status: Dict[int, PlanningStepStatus] = {}
+    _plan_list: List[str] = []
+    
+    def __init__(self, facts: str, plan: str):
+        self.facts = facts
+        self.plan = plan
+        self._plan_list = plan.split("\n")
+        self._plan_status = {k: PlanningStepStatus["step"] for k in range(len(self._plan_list))}
+        
+        super().__init__()
+    
+    def set_status(self, i: int, status: PlanningStepStatus) -> None:
+        self._plan_status[i] = status
+        
+    def get_markdown_table(self) -> str:
+        markdown = "| Task | Status |\n"
+        markdown += "| --- | --- |\n"
+        for i, task in enumerate(self._plan_list):
+            markdown += f"| {task} | {self._plan_status.get(i, 'step')} |\n"
+        return markdown
+    
+    def get_next_step(self) -> Tuple[int, str]:
+        i = 0
+        while i < len(self._plan_list):
+            status = self._plan_status.get(i)
+            if status == "step":
+                break
+        return i, self._plan_list[i]
+    
     def to_messages(self, summary_mode: bool, **kwargs) -> List[Dict[str, str]]:
         messages = []
         if not summary_mode:
