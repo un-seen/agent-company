@@ -157,7 +157,7 @@ class PlanningStep(MemoryStep):
         self.facts = facts
         self.plan = plan
         self._plan_list = plan.split("\n")
-        self._plan_status = {k: PlanningStepStatus["step"] for k in range(len(self._plan_list))}
+        self._plan_status = {k: "step" for k in range(len(self._plan_list))}
         
         super().__init__()
     
