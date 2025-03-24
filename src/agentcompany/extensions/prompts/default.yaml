@@ -9,7 +9,7 @@ planning:
     {{next_step}}
     ```
 
-    You have to write in plain text english requirements for a coder agent to solve the task.
+    You have to write in plain english the requirements of a code to solve the task.
     
     You can mention these functions to complete sub-tasks for an efficient solution.
     {%- for server in mcp_servers.values() %}
@@ -18,13 +18,12 @@ planning:
         Returns an output of type: {{server.output_type}}
     {%- endfor %}
 
-    
     {%- if errors %}
-    The previous prompts failed with the following errors:
+    The previous attempts failed with the following errors:
     {%- for error in errors %}
-    - Prompt: ```{{ error.prompt }}```
-    - Code: ```{{ error.code }}```
-    - Error: ```{{ error.error }}```
+    - Your Prompt: ```{{ error.prompt }}```
+    - Programmer's Code: ```{{ error.code }}```
+    - Execution Environment Error: ```{{ error.error }}```
     {%- endfor %}
     {%- endif %}
 
@@ -44,10 +43,11 @@ planning:
 
     Now for the given task, write a step-by-step plan strictly following the rules below:
     1. Steps must be written in the same order as execution.
-    2. The steps must be separated by a newline.
-    3. Each step must have only one result and the result should be verifieable with a single unit test.
+    2. The steps must be in plain english with no code included
+    3. Every step must be separated by a newline.
+    3. Each step must have only one result and the result should be verifiable with a single unit test.
     4. Do not skip steps, do not add any steps not explicitly required in the task.
-    5. The total number of steps must be less than {{ max_steps }}.
+    5. The total number of steps must be less than {{ max_steps + 1 }}.
 
     Now begin!
   update_facts_pre_messages: |-
@@ -134,6 +134,8 @@ planning:
     ```
     {{ feedback }}
     ```
+
+    Do not include any code in your plan. Only write the step in plain english.
     
     Now begin! 
 final_answer:
