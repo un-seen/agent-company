@@ -591,12 +591,12 @@ class ReActPattern(ModelContextProtocolImpl):
             )
             # Execute LLM
             try:
-                chat_message: ChatMessage = self.model(
+                judge_message: ChatMessage = self.model(
                     self.input_messages
                 )
                 action_step.model_input_messages = self.input_messages.copy()
-                action_step.model_output_message = chat_message
-                model_output = chat_message.content
+                action_step.model_output_message = judge_message
+                model_output = judge_message.content
                 action_step.model_output = model_output
                 self.logger.log(
                     text=model_output,
@@ -650,24 +650,24 @@ class ReActPattern(ModelContextProtocolImpl):
                 ]
                 self.logger.log(text=judge_input_message["content"][0]["text"], title="Judge Input:")
                 try:
-                    chat_message: ChatMessage = self.model(
+                    judge_message: ChatMessage = self.model(
                         self.input_messages
                     )
-                    judge_step = JudgeStep(self.input_messages.copy(), chat_message)
+                    judge_step = JudgeStep(self.input_messages.copy(), judge_message)
                 except Exception as e:
                     raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
                 decision = judge_step.to_decision()
                 self.logger.log(text=decision, title="Judge Decision:")
-                self.logger.log(text=chat_message.content, title="Judge Output:")
+                self.logger.log(text=judge_message.content, title="Judge Output:")
                 self.planning_step.set_status(next_step_id, decision)
                 if decision == "approve" or decision == "reject":
                     break
                 elif decision == "rethink":
-                    self._generate_updated_plan(next_step_id, chat_message.content)
+                    self._generate_updated_plan(next_step_id, judge_message.content)
                     previous_environment_errors = []
                     continue
                 else:
-                    previous_environment_errors.append({"code": code_action, "error": chat_message.content})
+                    previous_environment_errors.append({"code": code_action, "error": judge_message.content, "prompt": updated_next_step})
                     continue
             except Exception as e:
                 # Environment Code Compilation Error or Runtime Error!
