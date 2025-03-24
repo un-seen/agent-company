@@ -293,7 +293,8 @@ class ReActPattern(ModelContextProtocolImpl):
 
     def _execute_step(self, task: str, action_step: ActionStep) -> Union[None, Any]:
         self.logger.log(title=f"Planning Step: {self.step_number}")
-        self._planning_step(task, is_first_step=(self.step_number == 0), step=self.step_number)
+        if self.step_number == 0:
+            self._generate_initial_plan(task)
         self.logger.log(title=f"Execution Step {self.step_number}:")
         final_answer = self.step(action_step)
         if final_answer is not None and self.final_answer_checks:
@@ -407,14 +408,6 @@ class ReActPattern(ModelContextProtocolImpl):
 
         yield final_answer
 
-    def _planning_step(self, task, is_first_step: bool, step: int) -> None:
-        if is_first_step:
-            self._generate_initial_plan(task)
-        else:
-            self._generate_updated_plan(step)
-        self.planning_step = PlanningStep(facts=self.facts_message.content, plan=self.plan_message.content)
-        self.memory.append_step(self.planning_step)
-        
     def _generate_initial_plan(self, task: str) -> None:
         # Empty Facts Initially
         if len(self.prompt_templates["planning"]["initial_facts"]) > 0:
@@ -456,7 +449,9 @@ class ReActPattern(ModelContextProtocolImpl):
         }
         self.plan_message: ChatMessage = self.model([message_prompt_plan])
         self.logger.log(text=self.plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
-        
+        # Add to Memory
+        self.planning_step = PlanningStep(facts=self.facts_message.content, plan=self.plan_message.content)
+        self.memory.append_step(self.planning_step)
     
     def _generate_updated_plan(self, step: int, feedback: str):
 
@@ -528,7 +523,9 @@ class ReActPattern(ModelContextProtocolImpl):
         }
         self.plan_message: ChatMessage = self.model([update_plan])
         self.logger.log(text=self.plan_message.content, title="Updated Plan Message:")
-
+        # Add to Memory
+        self.planning_step = PlanningStep(facts=self.facts_message.content, plan=self.plan_message.content)
+        self.memory.append_step(self.planning_step)
     
     def step(self, action_step: ActionStep) -> Union[None, Any]:
         """
