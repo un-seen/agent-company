@@ -100,7 +100,6 @@ class ReActPattern(ModelContextProtocolImpl):
         # MCP Servers
         self.setup_mcp_servers(mcp_servers)
         self.final_answer_checks = final_answer_checks
-        self.mcp_servers["final_answer"] = final_answer_call or FinalAnswerFunction
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
         self.setup_environment()
@@ -177,12 +176,12 @@ class ReActPattern(ModelContextProtocolImpl):
             self.mcp_servers = {server.name: server for server in mcp_servers}
             
     def initialize_system_prompt(self) -> str:
-        variables={
-            "mcp_servers": {
-                server_name: server
-                for server_name, server in self.mcp_servers.items()
-            },
-        }
+        variables={}
+        if "system_prompt_variables" in self.executor_environment_config:
+            variables.update({
+                variable: getattr(self.executor_environment, variable)
+                for variable in self.executor_environment_config["system_prompt_variables"] if hasattr(self.executor_environment, variable)
+            })
         system_prompt = populate_template(
             self.prompt_templates["system_prompt"],
             variables=variables,
@@ -283,6 +282,7 @@ class ReActPattern(ModelContextProtocolImpl):
             raise AgentExecutionError(error_msg, self.logger)
     
     def _validate_final_answer(self, final_answer: Any):
+        # TODO validate base on task and memory
         for check_function in self.final_answer_checks:
             try:
                 assert check_function(final_answer, self.memory)
@@ -432,7 +432,6 @@ class ReActPattern(ModelContextProtocolImpl):
         variables = {
             "role": self.description,
             "task": task,
-            "mcp_servers": self.mcp_servers,
             "facts": self.facts_message.content,
             "max_steps": self.max_steps,
         }

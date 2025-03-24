@@ -11,12 +11,14 @@ planning:
 
     You have to write in plain english the requirements of a code to solve the task.
     
+    {%- if mcp_servers and mcp_servers.values()|length > 0 %}
     You can mention these functions to complete sub-tasks for an efficient solution.
     {%- for server in mcp_servers.values() %}
     - {{ server.name }}: {{ server.description }}
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
     {%- endfor %}
+    {%- endif %}
 
     {%- if errors %}
     The previous attempts failed with the following errors:
