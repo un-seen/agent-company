@@ -588,6 +588,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 text=input_messages_str,
                 title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):"
             )
+            
             # Execute LLM
             try:
                 code_output_message: ChatMessage = self.model(
@@ -602,6 +603,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 )
             except Exception as e:
                 raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
+            
             # Parse code as per exection environment
             try:
                 code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
@@ -625,51 +627,6 @@ class ReActPattern(ModelContextProtocolImpl):
                 ]    
                 action_step.action_output = observations
                 self.logger.log(text=observations, title=f"Output from code execution: {len(observations)}" if not is_plan_complete else "Final Output from code execution:")
-                if len(observations) == 0:
-                    previous_environment_errors.append({"code": code_action, "error": "There is no output for the code.", "prompt": updated_next_step})
-                    continue
-                
-                # Judge
-                judge_input_message = {
-                    "role": MessageRole.USER, 
-                    "content": [
-                        {
-                            "type": "text", 
-                            "text": populate_template(
-                                self.prompt_templates["planning"]["judge"],
-                                variables={
-                                    "task": next_step,
-                                    "code": code_action,
-                                    "observations": observations,
-                                }
-                            )
-                        }
-                    ]
-                }
-                
-                self.logger.log(text=judge_input_message["content"][0]["text"], title="Judge Input:")
-                
-                try:
-                    judge_output_message: ChatMessage = self.model(
-                        [judge_input_message]
-                    )
-                    self.judge_step = JudgeStep([judge_input_message], judge_output_message)
-                except Exception as e:
-                    raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
-                decision = self.judge_step.to_decision()
-                self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
-                self.logger.log(text=decision, title="Judge Decision:")
-                self.planning_step.set_status(next_step_id, decision)
-                if decision == "approve" or decision == "reject":
-                    self.judge_step = None
-                    break
-                elif decision == "rethink":
-                    self._generate_updated_plan(next_step_id, self.judge_step.model_output_message.content)
-                    previous_environment_errors = []
-                elif decision == "fail":
-                    previous_environment_errors = [{"code": code_action, "error": self.judge_step.get_guidance_content(), "prompt": updated_next_step}]
-                else:
-                    pass
             except Exception as e:
                 # Environment Code Compilation Error or Runtime Error!
                 error_msg = "Error in Code Execution: \n"
@@ -678,6 +635,46 @@ class ReActPattern(ModelContextProtocolImpl):
                 error_msg += str(e)
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
                 previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_next_step})
+                continue
+            
+            if len(observations) == 0:
+                previous_environment_errors.append({"code": code_action, "error": "There is no output for the code.", "prompt": updated_next_step})
+                continue
+            
+            # Judge
+            judge_input_message = {
+                "role": MessageRole.USER, 
+                "content": [
+                    {
+                        "type": "text", 
+                        "text": populate_template(
+                            self.prompt_templates["planning"]["judge"],
+                            variables={
+                                "task": next_step,
+                                "code": code_action,
+                                "observations": observations,
+                            }
+                        )
+                    }
+                ]
+            }
+            self.logger.log(text=judge_input_message["content"][0]["text"], title="Judge Input:")
+            judge_output_message: ChatMessage = self.model(
+                [judge_input_message]
+            )
+            self.judge_step = JudgeStep([judge_input_message], judge_output_message)
+            decision = self.judge_step.to_decision()
+            self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
+            self.logger.log(text=decision, title="Judge Decision:")
+            self.planning_step.set_status(next_step_id, decision)
+            if decision == "approve" or decision == "reject":
+                self.judge_step = None
+                break
+            elif decision == "rethink":
+                self._generate_updated_plan(next_step_id, self.judge_step.model_output_message.content)
+                previous_environment_errors = []
+            elif decision == "fail":
+                previous_environment_errors = [{"code": code_action, "error": self.judge_step.get_guidance_content(), "prompt": updated_next_step}]
             
         # Check if final answer
         if is_plan_complete:
