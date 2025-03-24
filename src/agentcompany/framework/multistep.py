@@ -578,7 +578,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 self.logger.log(text=prompt_engineer_input_message["content"][0]["text"], title="Prompt Engineer Input Message:")
                 prompt_engineer_message: ChatMessage = self.model([prompt_engineer_input_message])
                 updated_next_step = prompt_engineer_message.content
-                self.logger.log(text=self.prompt_engineer_message.content, title="Prompt Engineer Output Message:")
+                self.logger.log(text=prompt_engineer_message.content, title="Prompt Engineer Output Message:")
             # Set Input Messages
             self.input_messages = []
             # Add System Prompt
