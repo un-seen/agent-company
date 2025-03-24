@@ -150,8 +150,8 @@ PlanningStepStatus = Literal["approve", "fail", "reattempt", "rethink", "step"]
 class PlanningStep(MemoryStep):
     facts: str
     plan: str
-    _plan_status: Dict[int, PlanningStepStatus] = {}
-    _plan_list: List[str] = []
+    _plan_list: List[str]
+    _plan_status: Dict[int, PlanningStepStatus] 
     
     def __init__(self, facts: str, plan: str):
         self.facts = facts
