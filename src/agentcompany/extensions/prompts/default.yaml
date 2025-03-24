@@ -6,7 +6,7 @@ planning:
     {{next_step}}
     ```
 
-    {%- if errors %}
+    {%- if previous_environment_errors|length > 0 %}
     The previous attempts failed with the following errors:
     {%- for error in previous_environment_errors %}
     - Updated Task: ```{{ error.prompt }}```
