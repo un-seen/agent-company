@@ -26,9 +26,14 @@ planning:
     {%- endif %}
 
     {%- if common_prompting_errors|length > 0 %}
+
     Common Prompting Errors:
+    
     {%- for error in common_prompting_errors %}
-      - {{ error }}
+      - Task: {{ error.task }}
+        Error: {{ error.error }}
+        Resolution: {{ error.resolution }}
+    
     {%- endfor %}
     {%- endif %}
 
