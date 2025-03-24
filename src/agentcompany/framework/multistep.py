@@ -615,6 +615,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
                 previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_next_step})
                 continue
+            
             # Execute code in environment
             try:
                 # Environment Code Compiles!
@@ -631,6 +632,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 if len(observations) == 0:
                     previous_environment_errors.append({"code": code_action, "error": "There is no output for the code.", "prompt": updated_next_step})
                     continue
+                
                 # Judge
                 judge_input_message = [
                     {
@@ -673,7 +675,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     continue
             except Exception as e:
                 # Environment Code Compilation Error or Runtime Error!
-                error_msg = ""
+                error_msg = "Error in Code Execution"
                 if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
                     error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
                 error_msg += str(e)

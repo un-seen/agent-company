@@ -258,7 +258,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
                 return "\n".join([str(r) for r in tupled_rows]), logs, is_final_answer
         else:
             logs = self.state["print_outputs"]
-            return str(tupled_rows), logs, is_final_answer
+            return tupled_rows, logs, is_final_answer
         
     def attach_variables(self, variables: dict):
         self.state.update(variables)
