@@ -611,7 +611,7 @@ class ReActPattern(ModelContextProtocolImpl):
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg})
+                previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_next_step})
                 continue
             # Execute code in environment
             try:
@@ -627,7 +627,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 action_step.action_output = observations
                 self.logger.log(text=observations, title=f"Output from code execution: {len(observations)}" if not is_plan_complete else "Final Output from code execution:")
                 if len(observations) == 0:
-                    previous_environment_errors.append({"code": code_action, "error": "There is no output for the code."})
+                    previous_environment_errors.append({"code": code_action, "error": "There is no output for the code.", "prompt": updated_next_step})
                     continue
                 # Judge
                 judge_input_message = [
