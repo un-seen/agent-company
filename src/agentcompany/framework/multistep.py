@@ -557,7 +557,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     "next_step": next_step,  
                     "mcp_servers": self.mcp_servers,
                     "max_task_length": 150,
-                    "commong_prompting_errors": self.prompt_templates["planning"]["common_prompting_errors"],
+                    "common_prompting_errors": self.prompt_templates["planning"]["common_prompting_errors"],
                 }
                 prompt_engineer_input_message = {
                     "role": MessageRole.SYSTEM,
