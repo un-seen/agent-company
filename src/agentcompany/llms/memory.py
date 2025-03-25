@@ -151,17 +151,18 @@ class PlanningStep(MemoryStep):
     facts: str
     plan: str
     _plan_list: List[str]
-    _plan_status: Dict[int, PlanningStepStatus] 
+    _plan_status: Dict[str, PlanningStepStatus] 
     
     def __init__(self, facts: str, plan: str):
         self.facts = facts
         self.plan = plan
         self._plan_list = plan.split("\n")
-        self._plan_status = {k: "step" for k in range(len(self._plan_list))}
+        self._plan_status = {step: "step" for step in self._plan_list}
         super().__init__()
     
     def set_status(self, i: int, status: PlanningStepStatus) -> None:
-        self._plan_status[i] = status
+        step = self._plan_list[i]
+        self._plan_status[step] = status
     
     def get_step(self, i: int) -> str:
         return self._plan_list[i]
@@ -169,17 +170,16 @@ class PlanningStep(MemoryStep):
     def get_markdown_table(self) -> str:
         markdown = "| Task | Status |\n"
         markdown += "| --- | --- |\n"
-        for i, task in enumerate(self._plan_list):
-            markdown += f"| {task} | {self._plan_status.get(i, 'step')} |\n"
+        for task in self._plan_list:
+            markdown += f"| {task} | {self._plan_status.get(task, 'step')} |\n"
         return markdown
     
     def get_next_step(self) -> Tuple[int, Union[str, None]]:
         i = 0
-        while i < len(self._plan_list):
-            if self._plan_status.get(i) != "approve":
-                break
-            i = i + 1
-        return i, self._plan_list[i] if i < len(self._plan_list) else None
+        for i, task in enumerate(self._plan_list):
+            if self._plan_status.get(task) != "approve":
+                return i, task
+        return i, None
     
     def to_messages(self, summary_mode: bool, **kwargs) -> List[Dict[str, str]]:
         messages = []
