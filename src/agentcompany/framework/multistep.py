@@ -286,6 +286,7 @@ class ReActPattern(ModelContextProtocolImpl):
     def _validate_observations(self, step: str, observations: str, feedback: str) -> PlanningStepStatus:
         # Validate if next step is complete
         variables = {
+            "role": self.description,
             "task": step,
             "feedback": feedback,
             "observations": observations,
