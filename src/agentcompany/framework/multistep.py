@@ -308,7 +308,6 @@ class ReActPattern(ModelContextProtocolImpl):
         return self.validate_step.to_decision()
         
     def _execute_step(self, task: str, action_step: ActionStep) -> Union[None, Any]:
-        self.logger.log(title=f"Planning Step: {self.step_number}")
         if self.step_number == 0:
             self._generate_initial_plan(task)
         return self.step(action_step)
@@ -421,6 +420,7 @@ class ReActPattern(ModelContextProtocolImpl):
         yield final_answer
 
     def _generate_initial_plan(self, task: str) -> None:
+        self.logger.log(title=f"Planning Step: {self.step_number}")
         # Empty Facts Initially
         if len(self.prompt_templates["planning"]["initial_facts"]) > 0:
             variables = {}
@@ -466,7 +466,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.memory.append_step(self.planning_step)
     
     def _generate_updated_plan(self, step: int, feedback: str):
-
+        self.logger.log(title=f"Planning Step: {step}", text=feedback)
         # Facts
         variables = {
             "task": self.task,
@@ -554,6 +554,7 @@ class ReActPattern(ModelContextProtocolImpl):
         previous_environment_errors = []
         while True:
             next_step_id, next_step = self.planning_step.get_next_step()
+            self.logger.log(text=f"{next_step_id}: {next_step}", title="Next Step")
             # if next step is None, return observations 
             if next_step is None or len(next_step) == 0:
                 status_table = self.planning_step.get_markdown_table()
