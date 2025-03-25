@@ -2,7 +2,7 @@
 import re
 import sqlglot
 from importlib import import_module
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import traceback
 import numpy as np
 import pandas as pd
@@ -14,7 +14,7 @@ from agentcompany.driver.dict import dict_rows_to_markdown_table
 from psycopg2.extras import RealDictCursor
 from agentcompany.mcp.utils import truncate_content
 from agentcompany.extensions.environments.exceptions import InterpreterError, ERRORS
-from agentcompany.extensions.environments.base import ExecutionEnvironment
+from agentcompany.extensions.environments.base import ExecutionEnvironment, Observations
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +236,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             return ' '.join(error_lines).strip()
         return execution_logs
         
-    def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
+    def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[str, str, bool]:
         self.state.update(additional_variables)
         self.reset_connection()
         tupled_rows, is_final_answer = evaluate_sql_code(

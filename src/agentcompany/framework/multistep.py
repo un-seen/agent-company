@@ -11,8 +11,8 @@ from agentcompany.llms.monitoring import (
 import textwrap
 from redis import Redis
 import os
-from agentcompany.extensions.environments.base import ExecutionEnvironment
-from agentcompany.llms.memory import ActionStep, JudgeStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, FunctionCall, PlanningStepStatus
+from agentcompany.extensions.environments.base import ExecutionEnvironment, Observations
+from agentcompany.llms.memory import ActionStep, JudgeStep, ValidateStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, FunctionCall, PlanningStepStatus
 from agentcompany.driver.errors import (
     AgentError,
     AgentExecutionError,
@@ -189,66 +189,153 @@ class ReActPattern(ModelContextProtocolImpl):
             variables=variables,
         )
         return system_prompt
-        
-    def extract_action(self, model_output: str, split_token: str) -> Tuple[str, str]:
-        """
-        Parse action from the LLM output
+    
 
-        Args:
-            model_output (`str`): Output of the LLM
-            split_token (`str`): Separator for the action. Should match the example in the system prompt.
+    def provide_final_answer(self, task: str, previous_observations: List[Observations]) -> str:
         """
-        try:
-            split = model_output.split(split_token)
-            rationale, action = (
-                split[-2],
-                split[-1],
-            )  # NOTE: using indexes starting from the end solves for when you have more than one split_token in the output
-        except Exception:
-            raise AgentParsingError(
-                f"No '{split_token}' token provided in your output.\nYour output:\n{model_output}\n. Be sure to include an action, prefaced with '{split_token}'!",
-                self.logger,
-            )
-        return rationale.strip(), action.strip()
-
-    def provide_final_answer(self, task: str, images: Optional[list[str]]) -> str:
-        """
-        Provide the final answer to the task, based on the logs of the agent's interactions.
+        Provide the final answer to the task, based on the previous observations
 
         Args:
             task (`str`): Task to perform.
-            images (`list[str]`, *optional*): Paths to image(s).
+            previous_observations (`list[Observations]`, *optional*): Previous Observations.
 
         Returns:
             `str`: Final answer to the task.
         """
-        messages = [{"role": MessageRole.SYSTEM, "content": []}]
-        messages[0]["content"] = [
-            {
-                "type": "text",
-                "text": "An agent tried to answer a user query but it got stuck and failed to do so. You are tasked with providing an answer instead. Here is the agent's memory:",
+        # Execute code in multiple attempts     
+        previous_environment_errors = []
+        updated_task = task
+        while True:
+            # Check previous CoT
+            if len(previous_environment_errors) > 0:
+                variables = {
+                    "previous_environment_errors": previous_environment_errors, # [ {"code": code_action, "error": error_msg} ]
+                    "next_step": task,  
+                    "max_task_length": 250
+                }
+                prompt_engineer_input_message = {
+                    "role": MessageRole.USER,
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": populate_template(
+                                self.prompt_templates["planning"]["prompt_engineer"], 
+                                variables=variables
+                            ),
+                        }
+                    ],
+                }
+                self.logger.log(text=prompt_engineer_input_message["content"][0]["text"], title="Prompt Engineer Input Message:")
+                prompt_engineer_message: ChatMessage = self.model([prompt_engineer_input_message])
+                updated_task = prompt_engineer_message.content
+                self.logger.log(text=prompt_engineer_message.content, title="Prompt Engineer Output Message:")
+            # Set Input Messages
+            input_messages = []
+            # Add System Prompt
+            input_messages.extend(self.memory.system_prompt.to_messages(summary_mode=False))
+            variables = {
+                "task": self.task,
+                "role": self.description,
+                "observations": previous_observations,
             }
-        ]
-        # Add Images If Necessary
-        if images:
-            messages[0]["content"].append({"type": "image"})
-        messages += self.write_memory_to_messages()[1:]
-        messages += [
-            {
+            final_code_message = {
                 "role": MessageRole.USER,
                 "content": [
                     {
                         "type": "text",
-                        "text": f"Based on the above, please provide an answer to the following user request:\n{task}",
+                        "text": populate_template(
+                            self.prompt_templates["planning"]["final_answer"], 
+                            variables=variables
+                        ),
                     }
                 ],
             }
-        ]
-        try:
-            chat_message: ChatMessage = self.model(messages)
-            return chat_message.content
-        except Exception as e:
-            return f"Error in generating final LLM output:\n{e}"
+            input_messages.extend([final_code_message])
+            # Log Input Messages to LLM 
+            input_messages_str = "\n".join([msg["content"][0]["text"] for msg in input_messages])
+            self.logger.log(
+                text=input_messages_str,
+                title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):"
+            )
+            # Execute LLM
+            try:
+                code_output_message: ChatMessage = self.model(
+                    self.input_messages
+                )
+                self.logger.log(
+                    text=code_output_message.content,
+                    title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
+                )
+            except Exception as e:
+                raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
+            
+            # Parse code as per exection environment
+            try:
+                code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
+                self.logger.log(title="Code:", text=code_action)
+            except Exception as e:
+                error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                error_msg = self.executor_environment.parse_error_logs(error_msg)
+                previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_task})
+                continue
+            
+            # Execute code in environment
+            try:
+                # Environment Code Compiles!
+                observations, execution_logs, _ = self.executor_environment(code_action=code_action, additional_variables={})
+                self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
+            except Exception as e:
+                # Environment Code Compilation Error or Runtime Error!
+                error_msg = "Error in Code Execution: \n"
+                if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
+                    error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
+                error_msg += str(e)
+                error_msg = self.executor_environment.parse_error_logs(error_msg)
+                previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_task})
+                continue
+            
+            if len(observations) == 0:
+                previous_environment_errors.append({"code": code_action, "error": "There is no output for the code.", "prompt": updated_task})
+                continue
+            
+            # Judge
+            judge_input_message = {
+                "role": MessageRole.USER, 
+                "content": [
+                    {
+                        "type": "text", 
+                        "text": populate_template(
+                            self.prompt_templates["planning"]["judge"],
+                            variables={
+                                "task": updated_task,
+                                "code": code_action,
+                                "observations": observations,
+                            }
+                        )
+                    }
+                ]
+            }
+            self.logger.log(text=judge_input_message["content"][0]["text"], title="Judge Input:")
+            judge_output_message: ChatMessage = self.model(
+                [judge_input_message]
+            )
+            # Record Judge Step
+            self.judge_step = JudgeStep([judge_input_message], judge_output_message)
+            self.memory.append_step(self.judge_step)
+            # Judge Decision and Guidance
+            decision = self.judge_step.to_decision()
+            guidance = self.judge_step.get_guidance_content()
+            self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
+            self.logger.log(text=decision, title="Judge Decision:")
+            # Set Judge Step Gate
+            if decision == "approve":
+                break
+            elif decision == "reattempt" or decision == "step":
+                previous_environment_errors = [{"code": code_action, "error": guidance, "prompt": updated_task}]
+            else:
+                raise AgentError(f"Unknown decision: {decision}", self.logger)
+        
+        return observations
 
     def execute_mcp_request(self, server_name: str, arguments: Union[Dict[str, str], str]) -> Any:
         """
@@ -283,13 +370,12 @@ class ReActPattern(ModelContextProtocolImpl):
             )
             raise AgentExecutionError(error_msg, self.logger)
     
-    def _validate_observations(self, step: str, observations: str, feedback: str) -> PlanningStepStatus:
+    def _validate_observations(self, step: str, previous_observations: List[Observations]) -> PlanningStepStatus:
         # Validate if next step is complete
         variables = {
             "role": self.description,
             "task": step,
-            "feedback": feedback,
-            "observations": observations,
+            "observations": previous_observations,
         }
         message_prompt_plan = {
             "role": MessageRole.USER,
@@ -303,60 +389,24 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
+        self.logger.log(text=message_prompt_plan["content"][0]["text"], title="Validate Observations Input:")
         validate_answer_message: ChatMessage = self.model([message_prompt_plan])
-        self.validate_step = JudgeStep([message_prompt_plan], validate_answer_message)
+        self.validate_step = ValidateStep([message_prompt_plan], validate_answer_message)
+        self.logger.log(text=validate_answer_message.content, title="Validate Observations Output:")
         return self.validate_step.to_decision()
         
-    def _execute_step(self, task: str, action_step: ActionStep) -> Union[None, Any]:
-        if self.step_number == 0:
-            self._generate_initial_plan(task)
-        return self.step(action_step)
-    
-    def _finalize_step(self, action_step: ActionStep, step_start_time: float):
-        action_step.end_time = time.time()
-        action_step.duration = action_step.end_time - step_start_time
-        self.memory.append_step(action_step)
-        for callback in self.step_callbacks:
-            # For compatibility with old callbacks that don't take the agent as an argument
-            callback(action_step) if len(inspect.signature(callback).parameters) == 1 else callback(
-                action_step, agent=self
-            )
-        self.step_number += 1
-    
-    def _handle_max_steps_reached(self, task: str, images: List[str], step_start_time: float) -> ActionStep:
-        error_message = "Reached max steps."
-        final_answer = self.provide_final_answer(task, images)
-        final_action_step = ActionStep(
-            step_number=self.step_number, error=AgentMaxStepsError(error_message, self.logger)
-        )
-        final_action_step = ActionStep(error=AgentMaxStepsError(error_message, self.logger))
-        final_action_step.action_output = final_answer
-        final_action_step.end_time = time.time()
-        final_action_step.duration = final_action_step.end_time - step_start_time
-        self.memory.append_step(final_action_step)
-        for callback in self.step_callbacks:
-            # For compatibility with old callbacks that don't take the agent as an argument
-            if len(inspect.signature(callback).parameters) == 1:
-                callback(final_action_step)
-            else:
-                callback(final_action_step, agent=self)
-        return final_action_step
-    
     def run(
         self,
         task: str,
-        stream: bool = False,
         reset: bool = True,
         images: Optional[List[str]] = None,
         environment_variables: Optional[Dict] = None,
-        max_steps: Optional[int] = None,
     ):
         """
         Run the agent for the given task.
 
         Args:
             task (`str`): Task to perform.
-            stream (`bool`): Whether to run in a streaming way.
             reset (`bool`): Whether to reset the conversation or keep it going from previous run.
             images (`list[str]`, *optional*): Paths to image(s).
             environment_variables (`dict`): Any environment variables that you want to pass to the agent run, for instance images or dataframes. Give them clear names!
@@ -369,7 +419,6 @@ class ReActPattern(ModelContextProtocolImpl):
         agent.run("What is the result of 2 power 3.7384?")
         ```
         """
-
         self.task = task
         if environment_variables is not None:
             self.state.update(environment_variables)
@@ -379,45 +428,23 @@ class ReActPattern(ModelContextProtocolImpl):
         if reset:
             self.memory.reset()
         self.memory.append_step(TaskStep(task=self.task, task_images=images))
-        if stream:
-            # The steps are returned as they are executed through a generator to iterate on.
-            return self._run(task=self.task, images=images, max_steps=max_steps)
-        # Outputs are returned only at the end as a string. We only look at the last step
-        return deque(self._run(task=self.task, images=images, max_steps=max_steps), maxlen=1,)[0]
-    
-    def _run(self, task: str, images: List[str] | None = None, max_steps: int = None) -> Generator[ActionStep, None, None]:
-        """
-        Run the agent in streaming mode and returns a generator of all the steps.
-
-        Args:
-            task (`str`): Task to perform.
-            images (`list[str]`): Paths to image(s).
-        """
-        final_answer = None
-        self.step_number = 0
-        max_steps = max_steps if max_steps is not None else self.max_steps
-        while final_answer is None and self.step_number < max_steps:
-            step_start_time = time.time()
-            action_step = ActionStep(
-                step_number=self.step_number,
-                start_time=step_start_time,
-                observations_images=images,
-            )
-            try:
-                # Run one step!
-                final_answer = self._execute_step(task, action_step)
-            except AgentError as e:
-                action_step.error = e
-            finally:
-                self._finalize_step(action_step, step_start_time)
-                yield action_step
-                
-        if final_answer is None and self.step_number == self.max_steps:
-            final_action_step = self._handle_max_steps_reached(task, images, step_start_time)
-            final_answer = final_action_step.action_output
-            yield final_action_step
-
-        yield final_answer
+        # Execute Task
+        try:
+            # Make initial plan
+            self._generate_initial_plan(task)
+            # Execute plan
+            previous_observations = self._execute_plan()
+            # No more next steps after execute plan
+            status_table = self.planning_step.get_markdown_table()
+            self.logger.log(text=status_table, title="Final Plan Status:")
+            # Return final answer
+            final_answer = self.provide_final_answer(self.task, previous_observations)        
+        except AgentError as e:
+            self.logger.log(text=e.message, title="Error in Agent:")
+            final_answer = e.message
+        finally:
+            return final_answer        
+        
 
     def _generate_initial_plan(self, task: str) -> None:
         self.logger.log(title=f"Planning Step: {self.step_number}")
@@ -539,33 +566,40 @@ class ReActPattern(ModelContextProtocolImpl):
         self.planning_step = PlanningStep(facts=self.facts_message.content, plan=self.plan_message.content)
         self.memory.append_step(self.planning_step)
     
-    def step(self, action_step: ActionStep) -> Union[None, Any]:
+    def _execute_plan(self) -> Union[None, List[Observations]]:
         """
-        Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
-        Returns None if the step is not final.
+        Execute the plan as per the ReAct framework: the agent thinks, acts, and observes the result.
         """
         # Check if plan is available
         if self.planning_step is None:
             raise AgentError("No planning is available to execute.", self.logger)
         # Execute code in multiple attempts     
-        is_plan_complete = False
-        observations = ""
-        code_action = ""
+        previous_observations = []
         previous_environment_errors = []
         while True:
+            # Next Step Node
             next_step_id, next_step = self.planning_step.get_next_step()
             self.logger.log(text=f"{next_step_id}: {next_step}", title="Next Step")
-            # if next step is None, return observations 
+            # Entry Gate Node
+            previous_observations = self.executor_environment.get_previous_observations(next_step_id)
             if next_step is None or len(next_step) == 0:
-                status_table = self.planning_step.get_markdown_table()
-                self.logger.log(text=status_table, title="Final Plan Status:")
-                is_plan_complete = True
                 break
-            # if observations satisfy the task, return observations and continue to next step
-            if len(observations) > 0 and next_step != None and self.judge_step != None and self._validate_observations(next_step, observations, self.judge_step.model_output_message.content) == "approve":
-                self.planning_step.set_status(next_step_id, "approve")
-                continue
+            # Create an updated next step node
             updated_next_step = next_step
+            # if observations satisfy the task, return observations and continue to next step
+            if len(previous_observations) > 0:
+                validate_previous_approved_observations = self._validate_observations(next_step, previous_observations)
+                if validate_previous_approved_observations == "approve":
+                    self.planning_step.set_status(next_step_id, "approve")
+                    continue
+                elif validate_previous_approved_observations == "fail" or \
+                        validate_previous_approved_observations == "rethink" or\
+                            validate_previous_approved_observations == "step":
+                    # TODO implement function to update the next step taking into consideration pending work 
+                    self._generate_updated_next_step_plan(next_step_id, self.judge_step.model_output_message.content)
+                else:
+                    raise AgentError(f"Unknown validate decision: {validate_previous_approved_observations}", self.logger)
+            # Check previous CoT
             if len(previous_environment_errors) > 0:
                 variables = {
                     "previous_environment_errors": previous_environment_errors, # [ {"code": code_action, "error": error_msg} ]
@@ -612,9 +646,6 @@ class ReActPattern(ModelContextProtocolImpl):
                 code_output_message: ChatMessage = self.model(
                     self.input_messages
                 )
-                action_step.model_input_messages = self.input_messages.copy()
-                action_step.model_output_message = code_output_message
-                action_step.model_output = code_output_message.content
                 self.logger.log(
                     text=code_output_message.content,
                     title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
@@ -635,16 +666,8 @@ class ReActPattern(ModelContextProtocolImpl):
             # Execute code in environment
             try:
                 # Environment Code Compiles!
-                observations, execution_logs, is_plan_complete = self.executor_environment(code_action=code_action, additional_variables={})
-                action_step.function_calls = [
-                    FunctionCall(
-                        name=self.executor_environment_config["interface"],
-                        arguments=code_action,
-                        id=f"call_{len(self.memory.steps)}",
-                    )
-                ]    
-                action_step.action_output = observations
-                self.logger.log(text=observations, title=f"Output from code execution: {len(observations)}" if not is_plan_complete else "Final Output from code execution:")
+                observations, execution_logs, _ = self.executor_environment(code_action=code_action, additional_variables={})
+                self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
             except Exception as e:
                 # Environment Code Compilation Error or Runtime Error!
                 error_msg = "Error in Code Execution: \n"
@@ -680,25 +703,29 @@ class ReActPattern(ModelContextProtocolImpl):
             judge_output_message: ChatMessage = self.model(
                 [judge_input_message]
             )
+            # Record Judge Step
             self.judge_step = JudgeStep([judge_input_message], judge_output_message)
+            self.memory.append_step(self.judge_step)
+            # Judge Decision and Guidance
             decision = self.judge_step.to_decision()
+            guidance = self.judge_step.get_guidance_content()
             self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
             self.logger.log(text=decision, title="Judge Decision:")
+            # Set Status
             self.planning_step.set_status(next_step_id, decision)
-            if decision == "approve" or decision == "reject":
-                self.judge_step = None
-                break
-            elif decision == "rethink":
-                self._generate_updated_plan(next_step_id, self.judge_step.model_output_message.content)
+            # Set Judge Step Gate
+            if decision == "rethink":
                 previous_environment_errors = []
-            elif decision == "fail":
-                previous_environment_errors = [{"code": code_action, "error": self.judge_step.get_guidance_content(), "prompt": updated_next_step}]
-            
-        # Check if final answer
-        if is_plan_complete:
-            self.logger.log(text=observations, title=f"Final Answer {self.interface_id}/{self.name}:")
-            return observations
-        return None
+                self._generate_updated_plan(next_step_id, self.judge_step.model_output_message.content)
+            elif decision == "fail" or decision == "step":
+                previous_environment_errors = [{"code": code_action, "error": guidance, "prompt": updated_next_step}]
+            elif decision == "approve":
+                previous_environment_errors = []
+                self.executor_environment.save_observations(next_step_id, next_step, code_action, observations, guidance)
+            else:
+                raise AgentError(f"Unknown decision: {decision}", self.logger)
+        
+        return previous_observations
     
     def forward(self, task: str):
         """

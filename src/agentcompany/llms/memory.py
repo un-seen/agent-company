@@ -144,7 +144,7 @@ class ActionStep(MemoryStep):
         return messages
 
 
-PlanningStepStatus = Literal["approve", "fail", "reattempt", "rethink", "step"]
+PlanningStepStatus = Literal["approve", "fail", "rethink", "step"]
 
 @dataclass
 class PlanningStep(MemoryStep):
@@ -204,7 +204,7 @@ class PlanningStep(MemoryStep):
 class JudgeStep(MemoryStep):
     model_input_messages: List[Dict[str, str]] | None = None
     model_output_message: ChatMessage = None    
-    decision: Literal["Approve", "Reject", "Reattempt"] | None = None
+    decision: Literal["approve", "fail", "rethink", "step"] | None = None
     def dict(self):
         # We overwrite the method to parse the tool_calls and action_output manually
         return {
@@ -217,10 +217,10 @@ class JudgeStep(MemoryStep):
         if self.model_output_message is None:
             return ""
         content = self.model_output_message.content
-        content = content.replace("#approve", "").replace("#fail", "").replace("#reattempt", "").replace("#rethink", "")
+        content = content.replace("#approve", "").replace("#fail", "").replace("#rethink", "")
         return content
     
-    def to_decision(self) -> Literal["approve", "fail", "reattempt", "rethink", "step"]:
+    def to_decision(self) -> Literal["approve", "fail", "rethink", "step"]:
         if self.model_output_message is None:
             return None
         content = self.model_output_message.content
@@ -230,12 +230,46 @@ class JudgeStep(MemoryStep):
             return "approve"
         elif "#fail" in content:
             return "fail"
-        elif "#reattempt" in content:
-            return "reattempt"
         elif "#rethink" in content:
             return "rethink"
         else:
             return "step"
+        
+    def to_messages(self, summary_mode: bool = False) -> List[Dict[str, Any]]:
+        messages = []
+        messages.extend(self.model_output_message)
+        return messages
+
+@dataclass
+class ValidateStep(MemoryStep):
+    model_input_messages: List[Dict[str, str]] | None = None
+    model_output_message: ChatMessage = None    
+    decision: Literal["approve", "fail"] | None = None
+    def dict(self):
+        # We overwrite the method to parse the tool_calls and action_output manually
+        return {
+            "model_input_messages": self.model_input_messages,
+            "model_output_message": self.model_output_message,
+            "decision": self.decision
+        }
+
+    def get_guidance_content(self) -> str:
+        if self.model_output_message is None:
+            return ""
+        content = self.model_output_message.content
+        content = content.replace("#approve", "").replace("#fail", "")
+        return content
+    
+    def to_decision(self) -> Literal["approve", "fail"]:
+        if self.model_output_message is None:
+            return None
+        content = self.model_output_message.content
+        if "#approve" in content:
+            return "approve"
+        elif "#fail" in content:
+            return "fail"
+        else:
+            raise ValueError(f"Invalid decision: {content}")
         
     def to_messages(self, summary_mode: bool = False) -> List[Dict[str, Any]]:
         messages = []
