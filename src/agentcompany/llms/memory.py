@@ -156,7 +156,8 @@ class PlanningStep(MemoryStep):
     def __init__(self, facts: str, plan: str):
         self.facts = facts
         self.plan = plan
-        self._plan_list = plan.split("\n")
+        # TODO validate the step in each plan
+        self._plan_list = [p for p in plan.split("\n") if len(p.strip()) > 0]
         self._plan_status = {step: "step" for step in self._plan_list}
         super().__init__()
     

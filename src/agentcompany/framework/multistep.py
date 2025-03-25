@@ -565,7 +565,6 @@ class ReActPattern(ModelContextProtocolImpl):
             if len(observations) > 0 and next_step != None and self.judge_step != None and self._validate_observations(next_step, observations, self.judge_step.model_output_message.content) == "approve":
                 self.planning_step.set_status(next_step_id, "approve")
                 continue
-            self.logger.log(text=next_step, title="Next Step:")
             updated_next_step = next_step
             if len(previous_environment_errors) > 0:
                 variables = {
