@@ -560,7 +560,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 is_plan_complete = True
                 break
             # if observations satisfy the task, return observations and continue to next step
-            if len(observations) > 0 and next_step != None and self._validate_observations(next_step, observations) == "approve":
+            if len(observations) > 0 and next_step != None and self.judge_step != None and self._validate_observations(next_step, observations, self.judge_step.model_output_message.content) == "approve":
                 self.planning_step.set_status(next_step_id, "approve")
                 continue
             self.logger.log(text=next_step, title="Next Step:")
