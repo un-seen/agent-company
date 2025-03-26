@@ -62,8 +62,9 @@ planning:
 
       - Code: 
         {{ error.code }}
-      - Error: 
-        {{ error.error }}
+        - Error:
+          {{ error.error }}
+
     {%- endfor %}
     {%- endif %}
 
