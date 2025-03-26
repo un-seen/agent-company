@@ -128,7 +128,7 @@ planning:
     {%- endfor %}
     {%- endif %}
 
-    Please update the facts taking into account the previous errors to guide future attempts.
+    Please update the set of facts taking into account the previous errors to guide future attempts.
     
     Now begin!
   judge: |-

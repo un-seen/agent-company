@@ -501,12 +501,13 @@ class ReActPattern(ModelContextProtocolImpl):
         self.planning_step.update_step(step_id, plan_message.content)
         
         
-    def _update_plan_facts(self, previous_environment_errors: List[EnvironmentError]):
+    def _update_plan_facts(self, task: str, previous_environment_errors: List[EnvironmentError]):
         self.logger.log(title=f"Facts Update:")
         # Facts
         variables = {
             "role": self.description,
             "facts": self.facts_message.content,
+            "next_step": task,
             "previous_environment_errors": previous_environment_errors,            
         }
         if "update_facts_variables" in self.executor_environment_config:
@@ -589,7 +590,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     raise AgentError(f"Unknown validate decision: {validate_previous_approved_observations}", self.logger)
             # Check previous CoT
             if len(previous_environment_errors) > 0:
-                self._update_plan_facts(previous_environment_errors)
+                self._update_plan_facts(updated_next_step, previous_environment_errors)
                 variables = {
                     "role": self.description,
                     "facts": self.facts_message.content, 
