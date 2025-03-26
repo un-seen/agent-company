@@ -502,6 +502,9 @@ class ReActPattern(ModelContextProtocolImpl):
         
         
     def _update_plan_facts(self, observations: List[Observations]):
+        if observations is None:
+            self.logger.log(title="No observations to update facts.")
+            return
         self.logger.log(title=f"Facts Update:")
         # Facts
         variables = {
@@ -711,7 +714,7 @@ class ReActPattern(ModelContextProtocolImpl):
             elif decision == "approve":
                 previous_environment_errors: List[EnvironmentError] = []
                 self.executor_environment.save_observations(next_step_id, next_step, code_action, observations, feedback)
-                self._update_plan_facts(observations)
+                self._update_plan_facts(self.executor_environment.get_previous_observations())
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
         
