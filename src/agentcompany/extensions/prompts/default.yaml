@@ -101,23 +101,32 @@ planning:
     5. The total number of steps must be less than {{ max_steps + 1 }}.
 
     Now begin!
-  update_facts_pre_messages: |-
+  update_facts: |-
     {{role}}
     
     Here is the task:
     ```
-    {{task}}
+    {{next_step}}
     ```
 
     List of facts you can use:  
     ```
     {{facts}}
     ```
+
+    The previous execution of the task:
     
-    Find the conversation history below:
-  update_facts_post_messages: |-
-    Read the conversation history above and find any new facts or invalidate the false ones.
-    Please update your list of facts based on the previous history, and provide these headings:
+    Code: 
+    ```
+    {{ code }}
+    ```
+
+    Feedback:
+    ```
+    {{ feedback }}
+    ```
+
+    Please update your list of facts based on the previous attempt, and provide these headings:
     ### 1. Facts that are established.
     ### 2. Facts still unknown
     
@@ -144,7 +153,7 @@ planning:
     3. #rethink: If the task can be rephrased for better outcome. Please provide guidance on how to rethink the task.
 
     Now begin!
-  update_plan: |-
+  update_plan_last_step: |-
     {{role}}
 
     The task is:
@@ -157,10 +166,9 @@ planning:
     {{facts}}
     ```
 
-    The current status of the execution plan is:
-    
+    The current execution plan is:
+
     {{ plan_status_table }}
-    
     
     You have to rewrite this step of the plan which was attempted by a programmer:
     ```
@@ -174,15 +182,30 @@ planning:
 
     The last code execution returned this error:
     ```
-    {{ observations }}
-    ```
-    
-    The feedback on the last attempt was:
-    ```
     {{ feedback }}
     ```
-
+    
     Do not include any code in your plan. Only write the step in plain english.
+    
+    Now begin! 
+  update_plan_next_step: |-
+    {{role}}
+
+    The task is:
+    ```
+    {{ next_step }}
+    ```
+    
+    You have to rewrite the above task based on information available from these previously completed steps:
+
+    {%- for observation in observations %}
+      - Step: {{ observation.step }}
+        Validated Code: {{ observation.code_action }}
+        Observations: {{ observation.observations }}
+        Feedback: {{ observation.feedback }}
+    {%- endfor %}
+    
+    You should make sure the updated task does not repeat any work that has already been completed.
     
     Now begin! 
 final_answer:

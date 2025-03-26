@@ -492,90 +492,70 @@ class ReActPattern(ModelContextProtocolImpl):
         self.planning_step = PlanningStep(facts=self.facts_message.content, plan=self.plan_message.content)
         self.memory.append_step(self.planning_step)
     
-    def _generate_updated_plan(self, step: int, feedback: str):
-        # TODO add step specific context
-        self.logger.log(title=f"Planning Step: {step}", text=feedback)
-        next_step = self.planning_step.get_step(step)
+    def _update_plan_last_step(self, step_id: int, code_action: str, feedback: str):
+        self.logger.log(title=f"Planning Step: {step_id}", text=feedback)
+        next_step = self.planning_step.get_step(step_id)
         # Facts
         variables = {
-            "task": self.task,
-            "role": self.description,
             "next_step": next_step,
-            "feedback": feedback,
+            "role": self.description,
             "facts": self.facts_message.content,
+            "code": code_action,
+            "feedback": feedback,            
         }
-        if "update_facts_pre_variables" in self.executor_environment_config:
+        if "update_facts_variables" in self.executor_environment_config:
             variables.update({
                 variable: getattr(self.executor_environment, variable)
-                for variable in self.executor_environment_config["update_facts_pre_variables"] if hasattr(self.executor_environment, variable)
+                for variable in self.executor_environment_config["update_facts_variables"] if hasattr(self.executor_environment, variable)
             })
-        facts_update_pre = {
-            "role": MessageRole.SYSTEM,
-            "content": [
-                {
-                    "type": "text", 
-                    "text": populate_template(
-                        self.prompt_templates["planning"]["update_facts_pre_messages"],
-                        variables=variables,
-                    ),
-                }
-            ],
-        }
-        variables = {}
-        facts_update_post = {
+        facts_update = {
             "role": MessageRole.USER,
             "content": [
                 {
                     "type": "text", 
                     "text": populate_template(
-                        self.prompt_templates["planning"]["update_facts_post_messages"],
+                        self.prompt_templates["planning"]["update_facts"],
                         variables=variables,
                     ),
                 }
             ],
         }
-        # Do not take the system prompt message from the memory
-        # summary_mode=False: Do not take previous plan steps to avoid influencing the new plan
-        memory_messages = self.write_memory_to_messages()[1:]
-        input_messages = [facts_update_pre] + memory_messages + [facts_update_post]
         # Facts Message
-        self.facts_message = self.model(input_messages)
-        self.logger.log(text=self.facts_message.content, title="Updated Facts Message:")
+        self.logger.log(text=facts_update["content"][0]["text"], title="Update Facts Input:")
+        self.facts_message = self.model([facts_update])
+        self.logger.log(text=self.facts_message.content, title="Update Facts Output:")
         # Plan
         plan_status_table = self.planning_step.get_markdown_table()
-        
         variables = {
             "role": self.description,
             "task": self.task,
             "facts": self.facts_message.content,
-            "next_step": next_step,
             "plan_status_table": plan_status_table,
+            "next_step": next_step,
+            "code": code_action,
             "feedback": feedback,
         }
         update_plan = {
-            "role": MessageRole.SYSTEM,
+            "role": MessageRole.USER,
             "content": [
                 {
                     "type": "text",
                     "text": populate_template(
-                        self.prompt_templates["planning"]["update_plan"], 
+                        self.prompt_templates["planning"]["update_plan_last_step"], 
                         variables=variables
                     ),
                 }
             ],
         }
-        self.plan_message: ChatMessage = self.model([update_plan])
-        self.logger.log(text=self.plan_message.content, title="Updated Plan Message:")
-        # Add to Memory
-        self.planning_step = PlanningStep(facts=self.facts_message.content, plan=self.plan_message.content)
-        self.memory.append_step(self.planning_step)
+        plan_message: ChatMessage = self.model([update_plan])
+        self.logger.log(text=plan_message.content, title="Updated Plan Message:")
+        # Update Planning Step
+        self.planning_step.update_step(step_id, plan_message.content)
         
-    def _generate_updated_next_step_plan(self, step_id: int, previous_observations: List[Observations]) -> str:
-        # TODO update the template in default.yaml
+    def _update_plan_next_step(self, step_id: int, previous_observations: List[Observations]) -> str:
         next_step = self.planning_step.get_step(step_id)
         variables = {
             "role": self.description,
-            "task": next_step,
             "next_step": next_step,
             "observations": previous_observations,
         }
@@ -624,7 +604,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 elif validate_previous_approved_observations == "fail" or \
                         validate_previous_approved_observations == "rethink" or\
                             validate_previous_approved_observations == "step":
-                    self._generate_updated_next_step_plan(next_step_id, previous_observations)
+                    self._update_plan_next_step(next_step_id, previous_observations)
                 else:
                     raise AgentError(f"Unknown validate decision: {validate_previous_approved_observations}", self.logger)
             # Check previous CoT
@@ -744,7 +724,7 @@ class ReActPattern(ModelContextProtocolImpl):
             # Set Judge Step Gate
             if decision == "rethink":
                 previous_environment_errors = []
-                self._generate_updated_plan(next_step_id, self.judge_step.model_output_message.content)
+                self._update_plan_last_step(next_step_id, self.judge_step.model_output_message.content)
             elif decision == "fail" or decision == "step":
                 previous_environment_errors = [{"code": code_action, "error": guidance, "prompt": updated_next_step}]
             elif decision == "approve":
