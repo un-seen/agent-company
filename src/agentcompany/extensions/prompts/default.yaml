@@ -122,6 +122,8 @@ planning:
         {{ error.code }}
       - Error: 
         {{ error.error }}
+    {%- endfor %}
+    {%- endif %}
 
     Please update your list of facts based on the previous attempt, and provide these headings:
     ### 1. Facts that are established.
