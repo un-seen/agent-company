@@ -322,9 +322,9 @@ class ReActPattern(ModelContextProtocolImpl):
             # Record Judge Step
             self.judge_step = JudgeStep([judge_input_message], judge_output_message)
             self.memory.append_step(self.judge_step)
-            # Judge Decision and Guidance
+            # Judge Decision
             decision = self.judge_step.to_decision()
-            guidance = self.judge_step.get_guidance_content()
+            guidance = self.judge_step.get_feedback_content()
             self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
             self.logger.log(text=decision, title="Judge Decision:")
             # Set Judge Step Gate
@@ -716,7 +716,7 @@ class ReActPattern(ModelContextProtocolImpl):
             self.memory.append_step(self.judge_step)
             # Judge Decision and Guidance
             decision = self.judge_step.to_decision()
-            guidance = self.judge_step.get_guidance_content()
+            feedback = self.judge_step.get_feedback_content()
             self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
             self.logger.log(text=decision, title="Judge Decision:")
             # Set Status
@@ -726,10 +726,10 @@ class ReActPattern(ModelContextProtocolImpl):
                 previous_environment_errors = []
                 self._update_plan_last_step(next_step_id, self.judge_step.model_output_message.content)
             elif decision == "fail" or decision == "step":
-                previous_environment_errors = [{"code": code_action, "error": guidance, "prompt": updated_next_step}]
+                previous_environment_errors = [{"code": code_action, "error": feedback, "prompt": updated_next_step}]
             elif decision == "approve":
                 previous_environment_errors = []
-                self.executor_environment.save_observations(next_step_id, next_step, code_action, observations, guidance)
+                self.executor_environment.save_observations(next_step_id, next_step, code_action, observations, feedback)
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
         

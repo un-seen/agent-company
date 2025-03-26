@@ -217,12 +217,12 @@ class JudgeStep(MemoryStep):
             "decision": self.decision
         }
 
-    def get_guidance_content(self) -> str:
+    def get_feedback_content(self) -> str:
         if self.model_output_message is None:
             return ""
         content = self.model_output_message.content
         content = content.replace("#approve", "").replace("#fail", "").replace("#rethink", "")
-        return content
+        return content    
     
     def to_decision(self) -> Literal["approve", "fail", "rethink", "step"]:
         if self.model_output_message is None:
@@ -257,7 +257,7 @@ class ValidateStep(MemoryStep):
             "decision": self.decision
         }
 
-    def get_guidance_content(self) -> str:
+    def get_feedback_content(self) -> str:
         if self.model_output_message is None:
             return ""
         content = self.model_output_message.content
