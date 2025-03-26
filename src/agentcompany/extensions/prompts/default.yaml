@@ -15,6 +15,15 @@ planning:
         Feedback: {{ observation.feedback }}
     {%- endfor %}
 
+    {%- if previous_environment_errors|length > 0 %}
+    The previous attempts failed with the following errors:
+    {%- for error in previous_environment_errors %}
+
+      - Code: 
+        {{ error.code }}
+      - Error: 
+        {{ error.error }}
+
     You must write code that combines the validated code from previous steps to generate a final answer.
     
     Now Begin!
@@ -39,22 +48,15 @@ planning:
 
   initial_facts: |-
   prompt_engineer: |-
-    Coding Task:
+
+    {{ role }}
+
+    Here is the task:
     ```
     {{next_step}}
     ```
 
-    {%- if previous_environment_errors|length > 0 %}
-    The previous attempts failed with the following errors:
-    {%- for error in previous_environment_errors %}
-
-      - Code: 
-        {{ error.code }}
-      - Error: 
-        {{ error.error }}
-
-    {%- endfor %}
-    {%- endif %}
+    {{ facts }}
 
     You have to update the task in plain english with a different approach to overcome the coding errors.
     
@@ -108,27 +110,18 @@ planning:
   update_facts: |-
     {{role}}
     
-    Here is the task:
-    ```
-    {{next_step}}
-    ```
-
-    List of facts you can use:  
     ```
     {{facts}}
     ```
 
-    The previous execution of the task:
-    
-    Code: 
-    ```
-    {{ code }}
-    ```
+    {%- if previous_environment_errors|length > 0 %}
+    The previous attempts failed with the following errors:
+    {%- for error in previous_environment_errors %}
 
-    Feedback:
-    ```
-    {{ feedback }}
-    ```
+      - Code: 
+        {{ error.code }}
+      - Error: 
+        {{ error.error }}
 
     Please update your list of facts based on the previous attempt, and provide these headings:
     ### 1. Facts that are established.

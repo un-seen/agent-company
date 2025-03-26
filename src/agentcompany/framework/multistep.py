@@ -203,32 +203,8 @@ class ReActPattern(ModelContextProtocolImpl):
             `str`: Final answer to the task.
         """
         # Execute code in multiple attempts     
-        previous_environment_errors = []
-        updated_task = task
-        while True:
-            # Check previous CoT
-            if len(previous_environment_errors) > 0:
-                variables = {
-                    "previous_environment_errors": previous_environment_errors, # [ {"code": code_action, "error": error_msg} ]
-                    "next_step": task,  
-                    "max_task_length": 250
-                }
-                prompt_engineer_input_message = {
-                    "role": MessageRole.USER,
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": populate_template(
-                                self.prompt_templates["planning"]["prompt_engineer"], 
-                                variables=variables
-                            ),
-                        }
-                    ],
-                }
-                self.logger.log(text=prompt_engineer_input_message["content"][0]["text"], title="Prompt Engineer Input Message:")
-                prompt_engineer_message: ChatMessage = self.model([prompt_engineer_input_message])
-                updated_task = prompt_engineer_message.content
-                self.logger.log(text=prompt_engineer_message.content, title="Prompt Engineer Output Message:")
+        previous_environment_errors: List[EnvironmentError] = []
+        while True:            
             # Set Input Messages
             input_messages = []
             # Add System Prompt
@@ -237,6 +213,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 "task": self.task,
                 "role": self.description,
                 "observations": previous_observations,
+                "previous_environment_errors": previous_environment_errors,
             }
             final_code_message = {
                 "role": MessageRole.USER,
@@ -276,7 +253,7 @@ class ReActPattern(ModelContextProtocolImpl):
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_task})
+                previous_environment_errors.append({"code": code_action, "error": error_msg, "task": self.task})
                 continue
             
             # Execute code in environment
@@ -291,7 +268,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
                 error_msg += str(e)
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_task})
+                previous_environment_errors.append({"code": code_action, "error": error_msg, "task": updated_task})
                 continue
             
             if len(observations) == 0:
@@ -331,7 +308,7 @@ class ReActPattern(ModelContextProtocolImpl):
             if decision == "approve":
                 break
             elif decision == "reattempt" or decision == "step":
-                previous_environment_errors = [{"code": code_action, "error": feedback, "prompt": updated_task}]
+                previous_environment_errors: List[EnvironmentError] = [{"code": code_action, "error": feedback, "prompt": updated_task}]
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
         
@@ -495,35 +472,6 @@ class ReActPattern(ModelContextProtocolImpl):
     def _update_plan_last_step(self, step_id: int, code_action: str, feedback: str):
         self.logger.log(title=f"Planning Step: {step_id}", text=feedback)
         next_step = self.planning_step.get_step(step_id)
-        # Facts
-        variables = {
-            "next_step": next_step,
-            "role": self.description,
-            "facts": self.facts_message.content,
-            "code": code_action,
-            "feedback": feedback,            
-        }
-        if "update_facts_variables" in self.executor_environment_config:
-            variables.update({
-                variable: getattr(self.executor_environment, variable)
-                for variable in self.executor_environment_config["update_facts_variables"] if hasattr(self.executor_environment, variable)
-            })
-        facts_update = {
-            "role": MessageRole.USER,
-            "content": [
-                {
-                    "type": "text", 
-                    "text": populate_template(
-                        self.prompt_templates["planning"]["update_facts"],
-                        variables=variables,
-                    ),
-                }
-            ],
-        }
-        # Facts Message
-        self.logger.log(text=facts_update["content"][0]["text"], title="Update Facts Input:")
-        self.facts_message = self.model([facts_update])
-        self.logger.log(text=self.facts_message.content, title="Update Facts Output:")
         # Plan
         plan_status_table = self.planning_step.get_markdown_table()
         variables = {
@@ -551,6 +499,38 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=plan_message.content, title="Updated Plan Message:")
         # Update Planning Step
         self.planning_step.update_step(step_id, plan_message.content)
+        
+        
+    def _update_plan_facts(self, previous_environment_errors: List[EnvironmentError]):
+        self.logger.log(title=f"Facts Update:")
+        # Facts
+        variables = {
+            "role": self.description,
+            "facts": self.facts_message.content,
+            "previous_environment_errors": previous_environment_errors,            
+        }
+        if "update_facts_variables" in self.executor_environment_config:
+            variables.update({
+                variable: getattr(self.executor_environment, variable)
+                for variable in self.executor_environment_config["update_facts_variables"] if hasattr(self.executor_environment, variable)
+            })
+        facts_update = {
+            "role": MessageRole.USER,
+            "content": [
+                {
+                    "type": "text", 
+                    "text": populate_template(
+                        self.prompt_templates["planning"]["update_facts"],
+                        variables=variables,
+                    ),
+                }
+            ],
+        }
+        # Facts Message
+        self.logger.log(text=facts_update["content"][0]["text"], title="Update Facts Input:")
+        self.facts_message = self.model([facts_update])
+        self.logger.log(text=self.facts_message.content, title="Update Facts Output:")
+        
         
     def _update_plan_next_step(self, step_id: int, previous_observations: List[Observations]) -> str:
         next_step = self.planning_step.get_step(step_id)
@@ -584,7 +564,7 @@ class ReActPattern(ModelContextProtocolImpl):
             raise AgentError("No planning is available to execute.", self.logger)
         # Execute code in multiple attempts     
         previous_observations = []
-        previous_environment_errors = []
+        previous_environment_errors: List[EnvironmentError] = []
         while True:
             # Next Step Node
             next_step_id, next_step = self.planning_step.get_next_step()
@@ -609,8 +589,9 @@ class ReActPattern(ModelContextProtocolImpl):
                     raise AgentError(f"Unknown validate decision: {validate_previous_approved_observations}", self.logger)
             # Check previous CoT
             if len(previous_environment_errors) > 0:
+                self._update_plan_facts(previous_environment_errors)
                 variables = {
-                    "previous_environment_errors": previous_environment_errors, # [ {"code": code_action, "error": error_msg} ]
+                    "facts": self.facts_message.content, 
                     "next_step": next_step,  
                     "mcp_servers": self.mcp_servers,
                     "max_task_length": 150,
@@ -668,7 +649,7 @@ class ReActPattern(ModelContextProtocolImpl):
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_next_step})
+                previous_environment_errors.append({"code": code_action, "error": error_msg, "task": updated_next_step})
                 continue
             
             # Execute code in environment
@@ -683,7 +664,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
                 error_msg += str(e)
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg, "prompt": updated_next_step})
+                previous_environment_errors.append({"code": code_action, "error": error_msg, "task": updated_next_step})
                 continue
             
             if len(observations) == 0:
@@ -723,12 +704,12 @@ class ReActPattern(ModelContextProtocolImpl):
             self.planning_step.set_status(next_step_id, decision)
             # Set Judge Step Gate
             if decision == "rethink":
-                previous_environment_errors = []
+                previous_environment_errors: List[EnvironmentError] = []
                 self._update_plan_last_step(next_step_id, self.judge_step.model_output_message.content)
             elif decision == "fail" or decision == "step":
-                previous_environment_errors = [{"code": code_action, "error": feedback, "prompt": updated_next_step}]
+                previous_environment_errors: List[EnvironmentError] = [{"code": code_action, "error": feedback, "prompt": updated_next_step}]
             elif decision == "approve":
-                previous_environment_errors = []
+                previous_environment_errors: List[EnvironmentError] = []
                 self.executor_environment.save_observations(next_step_id, next_step, code_action, observations, feedback)
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)

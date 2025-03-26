@@ -13,6 +13,11 @@ class Observations(TypedDict):
     observations: str
     feedback: str
     
+class EnvironmentError(TypedDict):
+    code: str
+    error: str
+    task: str
+    
 class ExecutionEnvironment(abc.ABC):
 
     state: Dict[str, Any]
