@@ -59,7 +59,7 @@ class ExecutionEnvironment(abc.ABC):
             return None
         previous_observations = []
         for i in range(next_step_id):
-            if next_step_id not in self.state["observations"]:
+            if i not in self.state["observations"]:
                 break
-            previous_observations.append(self.state["observations"][next_step_id])
+            previous_observations.append(self.state["observations"][i])
         return previous_observations
