@@ -110,12 +110,15 @@ planning:
   update_facts: |-
     {{role}}
     
+    Here is the task:
     ```
-    {{facts}}
+    {{next_step}}
     ```
 
+    {{ facts }}
+
     {%- if previous_environment_errors|length > 0 %}
-    The previous attempts failed with the following errors:
+    The previous attempts to solve the task failed with the following errors:
     {%- for error in previous_environment_errors %}
 
       - Code: 
@@ -125,9 +128,7 @@ planning:
     {%- endfor %}
     {%- endif %}
 
-    Please update your list of facts based on the previous attempt, and provide these headings:
-    ### 1. Facts that are established.
-    ### 2. Facts still unknown
+    Please update the facts taking into account the previous errors to guide future attempts.
     
     Now begin!
   judge: |-

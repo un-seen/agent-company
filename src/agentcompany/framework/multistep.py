@@ -591,6 +591,7 @@ class ReActPattern(ModelContextProtocolImpl):
             if len(previous_environment_errors) > 0:
                 self._update_plan_facts(previous_environment_errors)
                 variables = {
+                    "role": self.description,
                     "facts": self.facts_message.content, 
                     "next_step": next_step,  
                     "mcp_servers": self.mcp_servers,
