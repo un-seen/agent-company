@@ -401,7 +401,7 @@ class ReActPattern(ModelContextProtocolImpl):
         reset: bool = True,
         images: Optional[List[str]] = None,
         environment_variables: Optional[Dict] = None,
-    ):
+    ) -> Union[str, None]:
         """
         Run the agent for the given task.
 
@@ -429,6 +429,7 @@ class ReActPattern(ModelContextProtocolImpl):
             self.memory.reset()
         self.memory.append_step(TaskStep(task=self.task, task_images=images))
         # Execute Task
+        final_answer = None
         try:
             # Make initial plan
             self._generate_initial_plan(task)
@@ -442,12 +443,11 @@ class ReActPattern(ModelContextProtocolImpl):
         except AgentError as e:
             self.logger.log(text=e.message, title="Error in Agent:")
             final_answer = e.message
-        finally:
-            return final_answer        
+        
+        return final_answer        
         
 
     def _generate_initial_plan(self, task: str) -> None:
-        self.logger.log(title=f"Planning Step: {self.step_number}")
         # Empty Facts Initially
         if len(self.prompt_templates["planning"]["initial_facts"]) > 0:
             variables = {}
