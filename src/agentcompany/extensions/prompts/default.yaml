@@ -68,9 +68,9 @@ planning:
     Please resolve the following common errors:
     
     {%- for error in common_prompting_errors %}
-      - Task: {{ error.task }} 
-        Error: {{ error.error }}
-        Resolution: {{ error.resolution }}
+      - Task: {{ error.Task }} 
+        Error: {{ error.Error }}
+        Resolution: {{ error.Resolution }}
     
     {%- endfor %}
     {%- endif %}
