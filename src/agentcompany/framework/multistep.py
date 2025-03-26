@@ -596,7 +596,7 @@ class ReActPattern(ModelContextProtocolImpl):
             # Create an updated next step node
             updated_next_step = next_step
             # if observations satisfy the task, return observations and continue to next step
-            if len(previous_observations) > 0:
+            if isinstance(previous_observations, list) and len(previous_observations) > 0:
                 validate_previous_approved_observations = self._validate_observations(next_step, previous_observations)
                 if validate_previous_approved_observations == "approve":
                     self.planning_step.set_status(next_step_id, "approve")
