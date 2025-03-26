@@ -324,14 +324,14 @@ class ReActPattern(ModelContextProtocolImpl):
             self.memory.append_step(self.judge_step)
             # Judge Decision
             decision = self.judge_step.to_decision()
-            guidance = self.judge_step.get_feedback_content()
+            feedback = self.judge_step.get_feedback_content()
             self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
             self.logger.log(text=decision, title="Judge Decision:")
             # Set Judge Step Gate
             if decision == "approve":
                 break
             elif decision == "reattempt" or decision == "step":
-                previous_environment_errors = [{"code": code_action, "error": guidance, "prompt": updated_task}]
+                previous_environment_errors = [{"code": code_action, "error": feedback, "prompt": updated_task}]
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
         
@@ -714,7 +714,7 @@ class ReActPattern(ModelContextProtocolImpl):
             # Record Judge Step
             self.judge_step = JudgeStep([judge_input_message], judge_output_message)
             self.memory.append_step(self.judge_step)
-            # Judge Decision and Guidance
+            # Judge Decision and Feedback
             decision = self.judge_step.to_decision()
             feedback = self.judge_step.get_feedback_content()
             self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
