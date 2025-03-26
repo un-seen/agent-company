@@ -87,8 +87,6 @@ planning:
     {%- endfor %}
     {%- endif %}
 
-    {%- if common_prompting_errors|length > 0 %}
-
     The updated task should not be longer than {{max_task_length}} words.
 
     Now Begin!
