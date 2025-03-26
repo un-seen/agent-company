@@ -493,11 +493,15 @@ class ReActPattern(ModelContextProtocolImpl):
         self.memory.append_step(self.planning_step)
     
     def _generate_updated_plan(self, step: int, feedback: str):
+        # TODO add step specific context
         self.logger.log(title=f"Planning Step: {step}", text=feedback)
+        next_step = self.planning_step.get_step(step)
         # Facts
         variables = {
             "task": self.task,
             "role": self.description,
+            "next_step": next_step,
+            "feedback": feedback,
             "facts": self.facts_message.content,
         }
         if "update_facts_pre_variables" in self.executor_environment_config:
@@ -539,7 +543,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=self.facts_message.content, title="Updated Facts Message:")
         # Plan
         plan_status_table = self.planning_step.get_markdown_table()
-        next_step = self.planning_step.get_step(step)
+        
         variables = {
             "role": self.description,
             "task": self.task,
@@ -565,6 +569,31 @@ class ReActPattern(ModelContextProtocolImpl):
         # Add to Memory
         self.planning_step = PlanningStep(facts=self.facts_message.content, plan=self.plan_message.content)
         self.memory.append_step(self.planning_step)
+        
+    def _generate_updated_next_step_plan(self, step_id: int, previous_observations: List[Observations]) -> str:
+        # TODO update the template in default.yaml
+        next_step = self.planning_step.get_step(step_id)
+        variables = {
+            "role": self.description,
+            "task": next_step,
+            "next_step": next_step,
+            "observations": previous_observations,
+        }
+        update_plan_next_step = {
+            "role": MessageRole.SYSTEM,
+            "content": [
+                {
+                    "type": "text",
+                    "text": populate_template(
+                        self.prompt_templates["planning"]["update_plan_next_step"], 
+                        variables=variables
+                    ),
+                }
+            ],
+        }
+        next_step_plan_message: ChatMessage = self.model([update_plan_next_step])
+        self.logger.log(text=next_step_plan_message, title="Updated Plan Message:")
+        self.planning_step.update_step(step_id, next_step_plan_message.content)
     
     def _execute_plan(self) -> Union[None, List[Observations]]:
         """
@@ -595,8 +624,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 elif validate_previous_approved_observations == "fail" or \
                         validate_previous_approved_observations == "rethink" or\
                             validate_previous_approved_observations == "step":
-                    # TODO implement function to update the next step taking into consideration pending work 
-                    self._generate_updated_next_step_plan(next_step_id, self.judge_step.model_output_message.content)
+                    self._generate_updated_next_step_plan(next_step_id, previous_observations)
                 else:
                     raise AgentError(f"Unknown validate decision: {validate_previous_approved_observations}", self.logger)
             # Check previous CoT

@@ -165,6 +165,10 @@ class PlanningStep(MemoryStep):
         step = self._plan_list[i]
         self._plan_status[step] = status
     
+    def update_step(self, i: int, step: str) -> None:
+        self.plan.replace(self._plan_list[i], step)
+        self._plan_list[i] = step
+        
     def get_step(self, i: int) -> str:
         return self._plan_list[i]
     
