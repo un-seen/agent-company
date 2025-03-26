@@ -572,7 +572,7 @@ class ReActPattern(ModelContextProtocolImpl):
             ],
         }
         next_step_plan_message: ChatMessage = self.model([update_plan_next_step])
-        self.logger.log(text=next_step_plan_message, title="Updated Plan Message:")
+        self.logger.log(text=next_step_plan_message.content, title="Updated Plan Message:")
         self.planning_step.update_step(step_id, next_step_plan_message.content)
     
     def _execute_plan(self) -> Union[None, List[Observations]]:
