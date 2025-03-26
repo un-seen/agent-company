@@ -41,6 +41,10 @@ planning:
     There are no other tables and columns in the sql database except the ones listed above.
   common_prompting_errors:
 
+    - Task: Find patient ids
+      Error: column "patient_id" does not exist
+      Resolution: Select 'patient' column
+
     - Task: Find ER Positive Patients
       Error: No output after code execution.
       Resolution: Filter rows in note_structured table where 'abstraction' column value is 'estrogen_receptor' and interpretation column value is 'positive'.
