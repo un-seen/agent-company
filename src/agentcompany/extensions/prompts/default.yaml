@@ -24,6 +24,9 @@ planning:
       - Error: 
         {{ error.error }}
 
+    {%- endfor %}
+    {%- endif %}
+
     You must write code that combines the validated code from previous steps to generate a final answer.
     
     Now Begin!
