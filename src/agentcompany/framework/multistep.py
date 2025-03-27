@@ -717,7 +717,7 @@ class ReActPattern(ModelContextProtocolImpl):
             # Set Judge Step Gate
             if decision == "rethink":
                 previous_environment_errors: List[EnvironmentError] = []
-                self._update_plan_last_step(next_step_id, self.judge_step.model_output_message.content)
+                self._update_plan_last_step(next_step_id, code_action, self.judge_step.model_output_message.content)
             elif decision == "fail" or decision == "step":
                 previous_environment_errors: List[EnvironmentError] = [{"code": code_action, "error": feedback, "prompt": updated_next_step}]
             elif decision == "approve":
