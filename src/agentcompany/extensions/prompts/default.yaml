@@ -124,6 +124,21 @@ planning:
     {{facts}}
     ```
 
+    {%- if common_prompting_errors|length > 0 %}
+
+    Some common errors when executing steps with their resolutions:
+
+    {%- for error in common_prompting_errors %}
+
+      - Task: {{ error.Task }} 
+
+        Error: {{ error.Error }}
+
+        Resolution: {{ error.Resolution }}
+
+    {%- endfor %}
+    {%- endif %}
+
     Now for the given task, write a step-by-step plan strictly following the rules below:
     1. Steps must be written in the same order as execution.
     2. The steps must be in plain english with no code included

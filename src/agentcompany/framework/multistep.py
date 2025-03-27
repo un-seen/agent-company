@@ -445,6 +445,7 @@ class ReActPattern(ModelContextProtocolImpl):
             "task": task,
             "facts": self.facts_message.content,
             "max_steps": self.max_steps,
+            "common_prompting_errors": self.prompt_templates["planning"]["common_prompting_errors"],
         }
         if "initial_plan_variables" in self.executor_environment_config:
             variables.update({
