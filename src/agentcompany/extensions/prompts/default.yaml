@@ -9,10 +9,19 @@ planning:
     ```
 
     Here is the list of code written for each step in the plan:
+
     {%- for observation in observations %}
-      - Step: {{ observation.step }}
-        Validated Code: {{ observation.code_action }}
-        Feedback: {{ observation.feedback }}
+
+      - Step: 
+        {{ observation.step }}
+
+        Validated Code
+        {{ observation.code_action }}
+
+        Feedback
+        {{ observation.feedback }}
+
+
     {%- endfor %}
 
     {%- if previous_environment_errors|length > 0 %}
@@ -21,6 +30,7 @@ planning:
 
       - Code: 
         {{ error.code }}
+
       - Error: 
         {{ error.error }}
 
