@@ -139,11 +139,11 @@ planning:
     {%- endfor %}
     {%- endif %}
 
-    Now to complete task, write a step-by-step plan strictly following the rules below:
-    1. Each step must be written in the same order as execution.
-    2. Steps must be in plain english with no code included
-    3. Every step must be separated by a newline.
-    4. Each step must filter or transform data to get closer to the final result.
+    Now for the given task, write a step-by-step plan strictly following the rules below:
+    1. Each step must filter or transform data to get closer to the final result.
+    2. Each filter and transform step must have a result that is used in the next step.
+    3. Steps must be in plain english with no code included
+    4. Every step must be separated by a newline.
     5. Do not add any steps after computing the final result of the task.
     6. The total number of steps must be less than {{ max_steps + 1 }}.
 
