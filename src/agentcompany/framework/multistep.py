@@ -627,10 +627,6 @@ class ReActPattern(ModelContextProtocolImpl):
                         }
                     ],
                 }
-                # Add all action steps to input messages
-                # for step in self.memory.steps:
-                #    if isinstance(step, ActionStep):
-                #        self.input_messages.extend(step.to_messages())
                 self.logger.log(text=prompt_engineer_input_message["content"][0]["text"], title="Prompt Engineer Input Message:")
                 prompt_engineer_message: ChatMessage = self.model([prompt_engineer_input_message])
                 updated_next_step = prompt_engineer_message.content
