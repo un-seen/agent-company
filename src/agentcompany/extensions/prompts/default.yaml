@@ -124,21 +124,6 @@ planning:
     {{facts}}
     ```
 
-    {%- if common_prompting_errors|length > 0 %}
-
-    Some common errors when executing steps with their resolutions:
-
-    {%- for error in common_prompting_errors %}
-
-      - Task: {{ error.Task }} 
-
-        Error: {{ error.Error }}
-
-        Resolution: {{ error.Resolution }}
-
-    {%- endfor %}
-    {%- endif %}
-
     Now for the given task, write a step-by-step plan strictly following the rules below:
     1. Each step must filter or transform data to get closer to the final result.
     2. Each filter and transform step must have a result that is used in the next step.
@@ -146,6 +131,18 @@ planning:
     4. Every step must be separated by a newline.
     5. Do not add any steps after computing the final result of the task.
     6. The total number of steps must be less than {{ max_steps + 1 }}.
+
+    {%- if common_prompting_errors|length > 0 %}
+
+    Some common tasks and their corresponding steps are:
+
+    {%- for error in common_prompting_errors %}
+
+      - Task: {{ error.Task }} 
+        Step: {{ error.Resolution }}
+
+    {%- endfor %}
+    {%- endif %}
 
     Now begin!
   update_facts: |-
