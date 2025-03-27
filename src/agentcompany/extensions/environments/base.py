@@ -21,6 +21,7 @@ class EnvironmentError(TypedDict):
 class ExecutionEnvironment(abc.ABC):
 
     state: Dict[str, Any]
+    storage: Dict[int, Dict[str, Any]] = {}
     mcp_servers: Dict[str, ModelContextProtocolImpl]
     
     @abc.abstractmethod
@@ -45,6 +46,15 @@ class ExecutionEnvironment(abc.ABC):
     @abc.abstractmethod
     def __call__(self, code_action: str, additional_variables: dict) -> Tuple[str, str, bool]:
         return super().__call__(code_action, additional_variables)
+    
+    def set_storage(self, next_step_id: int, code_action: str):
+        raise NotImplementedError("save_in_memory not implemented.")
+    
+    def get_storage_id(self, next_step_id: int) -> str:
+        raise NotImplementedError("get_previous_memory_prompt not implemented.")
+    
+    def get_storage(self, storage_id: str) -> Dict[str, Any]:
+        raise NotImplementedError("get_memory not implemented.")
     
     def save_observations(self, next_step_id: int, next_step: str, code_action: str, observations: str, feedback: str) -> Observations:
         if "observations" not in self.state:

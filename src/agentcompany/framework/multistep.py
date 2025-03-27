@@ -535,12 +535,20 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=self.facts_message.content, title="Update Facts Output:")
         
         
-    def _update_plan_next_step(self, step_id: int, previous_observations: List[Observations]) -> str:
+    def _update_plan_next_step(self, step_id: int) -> str:
         next_step = self.planning_step.get_step(step_id)
+        storage_data = []
+        for prev_step_id in range(step_id-1, 0, -1):
+            prev_step = self.planning_step.get_step(prev_step_id)
+            prev_step_storage = self.executor_environment.get_storage(prev_step_id)
+            storage_data.append({
+                "task": prev_step,
+                "storage": prev_step_storage,
+            })
         variables = {
             "role": self.description,
             "next_step": next_step,
-            "observations": previous_observations,
+            "storage_data": storage_data,
         }
         update_plan_next_step = {
             "role": MessageRole.SYSTEM,
@@ -587,7 +595,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 elif validate_previous_approved_observations == "fail" or \
                         validate_previous_approved_observations == "rethink" or\
                             validate_previous_approved_observations == "step":
-                    self._update_plan_next_step(next_step_id, previous_observations)
+                    self._update_plan_next_step(next_step_id)
                 else:
                     raise AgentError(f"Unknown validate decision: {validate_previous_approved_observations}", self.logger)
             # Check previous CoT
@@ -714,6 +722,7 @@ class ReActPattern(ModelContextProtocolImpl):
             elif decision == "approve":
                 previous_environment_errors: List[EnvironmentError] = []
                 self.executor_environment.save_observations(next_step_id, next_step, code_action, observations, feedback)
+                self.executor_environment.set_storage(next_step_id, code_action)
                 self._update_plan_facts(self.executor_environment.get_previous_observations(next_step_id))
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)

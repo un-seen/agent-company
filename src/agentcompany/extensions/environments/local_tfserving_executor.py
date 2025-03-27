@@ -7,8 +7,12 @@ import re
 import json
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.mcp.base import ModelContextProtocolImpl
-        
+import logging
+
 DEFAULT_MAX_LEN_OUTPUT = 5000
+
+
+logger = logging.getLogger(__name__)
 
 def fix_final_answer_code(code: str) -> str:
     """
@@ -176,6 +180,20 @@ class LocalTfServingInterpreter(ExecutionEnvironment):
 
         return output, self.print_outputs, is_final_answer
 
+    def set_storage(self, next_step_id: int, code_action: str):
+        # No memory available for TFServing
+        logger.info("set_storage called but no storage available in TfServing")
+        return None
+    
+    def get_storage_id(self, next_step_id: int) -> str:
+        # No memory available for TFServing
+        logger.info("get_storage_id called but no storage available in TfServing")
+        return ""
+    
+    def get_storage(self, storage_id):
+        logger.info("get_storage called but no memory available in TfServing")
+        return {}
+    
     def parse_code_blobs(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
         pattern = r"```(?:json)?\n(.*?)\n```"

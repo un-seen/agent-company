@@ -5,6 +5,7 @@ import difflib
 import inspect
 import math
 import re
+import logging
 from collections.abc import Mapping
 from importlib import import_module
 from types import ModuleType
@@ -16,6 +17,9 @@ from agentcompany.mcp.utils import truncate_content
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.extensions.environments.exceptions import InterpreterError, ReturnException, ERRORS, BreakException, ContinueException
+
+
+logger = logging.getLogger(__name__)
 
 BASE_BUILTIN_MODULES = [
     "collections",
@@ -1387,4 +1391,36 @@ class LocalPythonInterpreter(ExecutionEnvironment):
                     ```<end_code>""".strip())
         return fix_final_answer_code("\n\n".join(match.strip() for match in matches))
 
+    def get_storage_id(self, next_step_id: int) -> str:
+        return f"temp_storage_{next_step_id}"
+    
+    def set_storage(self, next_step_id: int, code_action: str):
+        variable_name = self.get_storage_id(next_step_id)
+        try:
+            # Execute the code_action and capture the result
+            result, _ = evaluate_python_code(
+                code_action.strip(),
+                static_tools=self.static_tools,
+                custom_tools=self.custom_tools,
+                state=self.state,
+                authorized_imports=self.authorized_imports,
+                max_print_outputs_length=self.max_print_outputs_length,
+            )
+            self.state[variable_name] = result
+        except InterpreterError as e:
+            self.state[variable_name] = None
+            logger.error(f"Error storing data in {variable_name}: {str(e)}")
+                
+    def reset_storage(self):
+        self.storage = {}
+        
+    def get_storage(self, next_step_id: int) -> str:
+        variable_name = self.get_storage_id(next_step_id)
+        variable_value = truncate_content(str(self.state.get(variable_name, None), max_length=self.max_print_outputs_length))
+        trimmed = False if len(variable_value) < len(str(self.state.get(variable_name, None))) else True
+        return f"""
+        Variable to access result of step {next_step_id}:
+            {variable_name} = {variable_value}{... if trimmed else ""}
+        """
+        
 __all__ = ["evaluate_python_code", "LocalPythonInterpreter"]

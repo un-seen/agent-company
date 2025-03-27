@@ -279,6 +279,20 @@ class LocalDuckdbInterpreter(ExecutionEnvironment):
     def attach_mcp_servers(self, mcp_servers: Dict[str, ModelContextProtocolImpl]):
         self.static_tools.update(mcp_servers)
 
+    def set_storage(self, next_step_id: int, code_action: str):
+        # No memory available for TFServing
+        logger.info("set_storage called but no storage available in DuckDB")
+        return None
+    
+    def get_storage_id(self, next_step_id: int) -> str:
+        # No memory available for TFServing
+        logger.info("get_storage_id called but no storage available in DuckDB")
+        return ""
+    
+    def get_storage(self, storage_id):
+        logger.info("get_storage called but no memory available in DuckDB")
+        return {}
+    
     def parse_code_blobs(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
         pattern = r"```(?:sql)?\n(.*?)\n```"
