@@ -191,7 +191,7 @@ class ReActPattern(ModelContextProtocolImpl):
         return system_prompt
     
 
-    def provide_final_answer(self, task: str, previous_observations: List[Observations]) -> str:
+    def provide_final_answer(self, previous_observations: List[Observations]) -> str:
         """
         Provide the final answer to the task, based on the previous observations
 
@@ -268,7 +268,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
                 error_msg += str(e)
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg, "task": updated_task})
+                previous_environment_errors.append({"code": code_action, "error": error_msg, "task": self.task})
                 continue
             
             if len(observations) == 0:
@@ -284,7 +284,7 @@ class ReActPattern(ModelContextProtocolImpl):
                         "text": populate_template(
                             self.prompt_templates["planning"]["judge"],
                             variables={
-                                "task": updated_task,
+                                "task": self.task,
                                 "code": code_action,
                                 "observations": observations,
                             }
@@ -308,7 +308,7 @@ class ReActPattern(ModelContextProtocolImpl):
             if decision == "approve":
                 break
             elif decision == "reattempt" or decision == "step":
-                previous_environment_errors: List[EnvironmentError] = [{"code": code_action, "error": feedback, "prompt": updated_task}]
+                previous_environment_errors: List[EnvironmentError] = [{"code": code_action, "error": feedback, "prompt": self.task}]
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
         
@@ -416,7 +416,7 @@ class ReActPattern(ModelContextProtocolImpl):
             status_table = self.planning_step.get_markdown_table()
             self.logger.log(text=status_table, title="Final Plan Status:")
             # Return final answer
-            final_answer = self.provide_final_answer(self.task, previous_observations)        
+            final_answer = self.provide_final_answer(previous_observations)        
         except AgentError as e:
             self.logger.log(text=e.message, title="Error in Agent:")
             final_answer = e.message
