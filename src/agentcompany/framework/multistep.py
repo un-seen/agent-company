@@ -471,7 +471,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.planning_step = PlanningStep(facts=self.facts_message.content, plan=self.plan_message.content)
         self.memory.append_step(self.planning_step)
     
-    def _update_plan_last_step(self, step_id: int, code_action: str, feedback: str):
+    def _update_plan_last_step(self, step_id: int, code_action: str, feedback: str) -> str:
         self.logger.log(title=f"Planning Step: {step_id}", text=feedback)
         next_step = self.planning_step.get_step(step_id)
         # Plan
@@ -498,10 +498,10 @@ class ReActPattern(ModelContextProtocolImpl):
             ],
         }
         plan_message: ChatMessage = self.model([update_plan])
-        self.logger.log(text=plan_message.content, title="Updated Plan Message:")
+        self.logger.log(text=plan_message.content, title="Updated Plan Last Step:")
         # Update Planning Step
         self.planning_step.update_step(step_id, plan_message.content)
-        
+        return plan_message.content
         
     def _update_plan_facts(self, observations: List[Observations]):
         if observations is None:
@@ -565,8 +565,9 @@ class ReActPattern(ModelContextProtocolImpl):
             ],
         }
         next_step_plan_message: ChatMessage = self.model([update_plan_next_step])
-        self.logger.log(text=next_step_plan_message.content, title="Updated Plan Message:")
+        self.logger.log(text=next_step_plan_message.content, title="Updated Plan Next Step:")
         self.planning_step.update_step(step_id, next_step_plan_message.content)
+        return next_step_plan_message.content
     
     def _execute_plan(self) -> int:
         """
@@ -603,6 +604,7 @@ class ReActPattern(ModelContextProtocolImpl):
             # Update next step taking into account the previous observations
             if next_step_id > 0:
                 self._update_plan_next_step(next_step_id)
+                updated_next_step = self.planning_step.get_step(next_step_id)
             # Check previous CoT    
             if len(previous_environment_errors) > 0:
                 variables = {
