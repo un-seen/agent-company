@@ -43,6 +43,7 @@ planning:
     Do not use multiple statements in a single step of the plan.
 
     If the results of two or more subsquent steps can be computed in a single statement, you can combine them in a single step.
+
   common_prompting_errors:
 
     - Task: Find patient ids
