@@ -411,7 +411,8 @@ class ReActPattern(ModelContextProtocolImpl):
             # Make initial plan
             self._generate_initial_plan(task)
             # Execute plan
-            previous_observations = self._execute_plan()
+            next_step_id = self._execute_plan()
+            previous_observations = self.executor_environment.get_previous_observations(next_step_id)
             # No more next steps after execute plan
             status_table = self.planning_step.get_markdown_table()
             self.logger.log(text=status_table, title="Final Plan Status:")
@@ -567,7 +568,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=next_step_plan_message.content, title="Updated Plan Message:")
         self.planning_step.update_step(step_id, next_step_plan_message.content)
     
-    def _execute_plan(self) -> Union[None, List[Observations]]:
+    def _execute_plan(self) -> int:
         """
         Execute the plan as per the ReAct framework: the agent thinks, acts, and observes the result.
         """
@@ -575,31 +576,34 @@ class ReActPattern(ModelContextProtocolImpl):
         if self.planning_step is None:
             raise AgentError("No planning is available to execute.", self.logger)
         # Execute code in multiple attempts     
-        previous_observations = []
+        next_step_id = -1
         previous_environment_errors: List[EnvironmentError] = []
         while True:
             # Next Step Node
             next_step_id, next_step = self.planning_step.get_next_step()
             self.logger.log(text=f"{next_step_id}: {next_step}", title="Next Step")
             # Entry Gate Node
-            previous_observations = self.executor_environment.get_previous_observations(next_step_id)
+            
             if next_step is None or len(next_step) == 0:
                 break
             # Create an updated next step node
             updated_next_step = next_step
             # if observations satisfy the task, return observations and continue to next step
-            if isinstance(previous_observations, list) and len(previous_observations) > 0:
-                validate_previous_approved_observations = self._validate_observations(next_step, previous_observations)
-                if validate_previous_approved_observations == "approve":
-                    self.planning_step.set_status(next_step_id, "approve")
-                    continue
-                elif validate_previous_approved_observations == "fail" or \
-                        validate_previous_approved_observations == "rethink" or\
-                            validate_previous_approved_observations == "step":
-                    self._update_plan_next_step(next_step_id)
-                else:
-                    raise AgentError(f"Unknown validate decision: {validate_previous_approved_observations}", self.logger)
-            # Check previous CoT
+            # if isinstance(previous_observations, list) and len(previous_observations) > 0:
+            #     validate_previous_approved_observations = self._validate_observations(next_step, previous_observations)
+            #     if validate_previous_approved_observations == "approve":
+            #         self.planning_step.set_status(next_step_id, "approve")
+            #         continue
+            #     elif validate_previous_approved_observations == "fail" or \
+            #             validate_previous_approved_observations == "rethink" or\
+            #                 validate_previous_approved_observations == "step":
+            #         self._update_plan_next_step(next_step_id)
+            #     else:
+            #         raise AgentError(f"Unknown validate decision: {validate_previous_approved_observations}", self.logger)
+            # Update next step taking into account the previous observations
+            if next_step_id > 0:
+                self._update_plan_next_step(next_step_id)
+            # Check previous CoT    
             if len(previous_environment_errors) > 0:
                 variables = {
                     "role": self.description,
@@ -728,7 +732,7 @@ class ReActPattern(ModelContextProtocolImpl):
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
         
-        return previous_observations
+        return next_step_id
     
     def forward(self, task: str):
         """
