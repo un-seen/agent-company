@@ -50,9 +50,13 @@ planning:
 
     Here are the current observations:
     {%- for observation in observations %}
-      - Code: {{ observation.code_action }}
+
+      - Step: {{ observation.step }}
+
+        Valid Code: {{ observation.code_action }}
+
         Result: {{ observation.observations }}
-        Feedback: {{ observation.feedback }}
+        
     {%- endfor %}
     
     You must make a decision by responding with a hashtag:
