@@ -542,7 +542,7 @@ class ReActPattern(ModelContextProtocolImpl):
             prev_step = self.planning_step.get_step(prev_step_id)
             prev_step_storage = self.executor_environment.get_storage(prev_step_id)
             storage_data.append({
-                "task": prev_step,
+                "step": prev_step,
                 "storage": prev_step_storage,
             })
         variables = {

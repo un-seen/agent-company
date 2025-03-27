@@ -204,11 +204,12 @@ planning:
     
     You have to rewrite the above task based on information available from these previously completed steps:
 
-    {%- for observation in observations %}
-      - Step: {{ observation.step }}
-        Validated Code: {{ observation.code_action }}
-        Observations: {{ observation.observations }}
-        Feedback: {{ observation.feedback }}
+    {%- for storage in storage_data %}
+
+      - Step: {{ storage.step }}
+
+        {{ storage.storage }}
+
     {%- endfor %}
     
     You should make sure the updated task does not repeat any work that has already been completed.
