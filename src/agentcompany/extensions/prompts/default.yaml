@@ -145,7 +145,7 @@ planning:
     3. Every step must be separated by a newline.
     4. Each step must have only one result and the result should be verifiable with a single unit test.
     5. Do not add any steps after computing the final result of the task.
-    6. Each step should either filter or transform the data to get closer to the final result.
+    6. Each step must filter or transform the data to get closer to the final result.
     7. The total number of steps must be less than {{ max_steps + 1 }}.
 
     Now begin!
