@@ -318,14 +318,22 @@ class ReActPattern(ModelContextProtocolImpl):
                 variables=variables,
             ))
         else:
-            self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content="")
+            self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content="\n\n")
             
         if len(self.mcp_servers) > 0:
             self.facts_message.content += "You can take into consideration knowledge of the following functions:"
             for server in self.mcp_servers:
                 if isinstance(self.mcp_servers[server], ReActPattern):
                     mcp_server: ReActPattern = self.mcp_servers[server]
-                    self.facts_message.content += f"\n\n {mcp_server.name} \n" + mcp_server.facts_message.content
+                    self.facts_message.content += f"""
+                        {mcp_server.name} 
+                        
+                        inputs: {mcp_server.inputs}
+                        returns: {mcp_server.output_type}
+                        
+                        {mcp_server.facts_message.content}
+                        
+                        {mcp_server.prompt_templates["planning"]["common_prompting_errors"]}""".strip()
                     
         # Initial Plan
         variables = {
