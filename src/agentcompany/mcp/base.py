@@ -73,7 +73,7 @@ class ModelContextProtocolImpl(abc.ABC):
         required_attributes = {
             "description": str,
             "name": str,
-            "inputs": dict,
+            "inputs": str,
             "output_type": str,
         }
 
