@@ -169,6 +169,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         
     def __init__(
         self,
+        session_id: str,
         mcp_servers: Dict,
         host: str,
         port: int,
@@ -209,7 +210,8 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         # Add base trusted tools to list
         self.static_tools = mcp_servers
-    
+        super().__init__(session_id=session_id, mcp_servers=mcp_servers)
+        
     def reset_connection(self):
         self.pg_conn.close()
         self.pg_conn = psycopg2.connect(**self.pg_config)
@@ -299,7 +301,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         return fix_final_answer_code("\n\n".join(match.strip() for match in matches))
 
     def get_storage_id(self, next_step_id: int) -> str:
-        return f"temp_storage_{next_step_id}"
+        return f"{self.session_id}_temp_storage_{next_step_id}"
     
     def set_storage(self, next_step_id: int, code_action: str):
         """
@@ -322,7 +324,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             cur.execute(f"DROP TABLE IF EXISTS {temp_table_name};")
             
             # Create the temp table with the result of the code_action query
-            cur.execute(f"CREATE TEMP TABLE {temp_table_name} AS ({code_action.strip(';')});")
+            cur.execute(f"CREATE VIEW {temp_table_name} AS ({code_action.strip(';')});")
             self.pg_conn.commit()
             
             # Retrieve column names and data types from the temp table

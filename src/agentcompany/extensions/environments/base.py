@@ -1,5 +1,5 @@
 import abc
-import re
+import uuid
 from typing import Dict
 from typing import Tuple, Callable, Any, TypedDict, Union, List
 from agentcompany.mcp.base import ModelContextProtocolImpl
@@ -22,11 +22,12 @@ class ExecutionEnvironment(abc.ABC):
 
     state: Dict[str, Any]
     storage: Dict[int, Dict[str, Any]] = {}
+    session_id: str
     mcp_servers: Dict[str, ModelContextProtocolImpl]
     
-    @abc.abstractmethod
-    def __init__(self, mcp_servers: Dict[str, ModelContextProtocolImpl], **kwargs):
-        raise NotImplementedError("ExecutionEnvironment not implemented.")
+    def __init__(self, session_id: str, mcp_servers: Dict[str, ModelContextProtocolImpl], **kwargs):
+        self.session_id = session_id
+        self.mcp_servers = mcp_servers
     
     @abc.abstractmethod
     def parse_code_blobs(self, code_blobs: str) -> str:

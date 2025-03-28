@@ -203,6 +203,7 @@ def evaluate_sql_code(
 class LocalDuckdbInterpreter(ExecutionEnvironment):
     def __init__(
         self,
+        session_id: str,
         mcp_servers: Dict,
         aws_endpoint_url: str,
         aws_secret_access_key: str,
@@ -238,7 +239,7 @@ class LocalDuckdbInterpreter(ExecutionEnvironment):
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         # Add base trusted tools to list
         self.static_tools = mcp_servers
-        
+        super().__init__(session_id, mcp_servers)    
     
     def _setup_sql_schema(self):
         # TODO fetch dataframe schemas from the duckdb dbname

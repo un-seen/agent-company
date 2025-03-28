@@ -69,6 +69,7 @@ class ReActPattern(ModelContextProtocolImpl):
     def __init__(
         self,
         name: str,
+        session_id: str,
         interface_id: str,
         description: str,
         model: BaseLLM,
@@ -83,6 +84,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.name = name
         self.description = description
         self.interface_id = interface_id
+        self.session_id = session_id
         # Logging
         verbosity_level: int = 1
         self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
@@ -152,7 +154,6 @@ class ReActPattern(ModelContextProtocolImpl):
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
         try:
             environment_cls = environment_classes[interface_name]
-            self.redis_client.publish(self.interface_id, json.dumps({"role": self.name, "content": { "text": f"Using execution environment '{interface_name}'"}}))
         except KeyError:
             available = list(environment_classes.keys())
             raise ValueError(
@@ -162,6 +163,7 @@ class ReActPattern(ModelContextProtocolImpl):
 
         # Instantiate the chosen class
         self.executor_environment = environment_cls(
+            self.session_id,
             self.mcp_servers,
             **self.executor_environment_config["config"]
         )
@@ -727,7 +729,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 previous_environment_errors: List[EnvironmentError] = []
                 self.executor_environment.save_observations(next_step_id, next_step, code_action, observations, feedback)
                 self.executor_environment.set_storage(next_step_id, code_action)
-                self.logger.log(text=self.executor_environment.storage[next_step_id], title=f"Step Storage {next_step_id}:")
+                self.logger.log(text=self.executor_environment.get_storage(next_step_id), title=f"Step Storage {next_step_id}:")
                 self._update_plan_facts(self.executor_environment.get_previous_observations(next_step_id))
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)

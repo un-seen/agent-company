@@ -1315,6 +1315,7 @@ def fix_final_answer_code(code: str) -> str:
 class LocalPythonInterpreter(ExecutionEnvironment):
     def __init__(
         self,
+        session_id: str,
         mcp_servers: Dict,
         additional_authorized_imports: List[str],
     ):
@@ -1329,7 +1330,8 @@ class LocalPythonInterpreter(ExecutionEnvironment):
             **BASE_PYTHON_TOOLS.copy(),
         }
         # TODO: assert self.authorized imports are all installed locally
-
+        super().__init__(session_id, mcp_servers)
+        
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
         self.state.update(additional_variables)
         output, is_final_answer = evaluate_python_code(

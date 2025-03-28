@@ -61,6 +61,7 @@ class LocalTfServingInterpreter(ExecutionEnvironment):
     
     def __init__(
         self,
+        session_id: str,
         mcp_servers: Dict[str, ModelContextProtocolImpl],
         endpoints: List[Dict[str, str]],
         allowed_endpoints: Optional[List[str]] = None,
@@ -80,7 +81,8 @@ class LocalTfServingInterpreter(ExecutionEnvironment):
         self.state: Dict[str, Any] = {}  # Additional state variables (if needed)
         self.max_print_outputs_length = DEFAULT_MAX_LEN_OUTPUT
         self.print_outputs = ""  # Log buffer for all command outputs
-
+        super().__init__(session_id, mcp_servers)
+        
     def attach_variables(self, variables: dict):
         self.state.update(variables)
 
