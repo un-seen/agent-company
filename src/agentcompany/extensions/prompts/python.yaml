@@ -16,6 +16,11 @@ system_prompt: |-
   {%- endif %}
 
   Now Begin! 
+planning:
+  initial_facts: |-
+    If the results of two or more subsquent steps can be computed in a single function call, you can combine them in a single step.
+
+  common_prompting_errors:
 executor_environment: 
   interface: LocalPythonInterpreter
   initial_facts_variables: []

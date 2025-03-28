@@ -16,21 +16,6 @@ system_prompt: |-
   {%- endif %}
 
   Now Begin! 
-executor_environment: 
-  interface: LocalPostgresInterpreter
-  initial_facts_variables:
-    - sql_schema
-  initial_plan_variables: 
-    - sql_schema
-  update_facts_pre_variables: 
-    - sql_schema
-  config:
-    host: 127.0.0.1
-    port: 5432
-    dbname: core
-    user: postgres
-    password: root
-    additional_authorized_imports: "*"
 planning:
   initial_facts: |-
     The information about the tables and columns in the sql database:
@@ -41,6 +26,8 @@ planning:
     There are no other tables and columns in the sql database except the ones listed above.
 
     Do not use multiple sql statements to get result for a single step of the plan.
+
+    Do not create a step in the plan for which is just a reference to the result of a previous step.
 
     If the results of two or more subsquent steps can be computed in a single sql statement, you can combine them in a single step.
 
@@ -66,22 +53,16 @@ planning:
       Error: No output after code execution.
       Resolution: Filter rows in note_structured table where 'type' column value is 'treatment'.
 
-  update_facts_pre_messages: |-
-    {{role}}
-    
-    Here is the task:
-    ```
-    {{task}}
-    ```
+executor_environment: 
+  interface: LocalPostgresInterpreter
+  initial_facts_variables:
+    - sql_schema
+  config:
+    host: 127.0.0.1
+    port: 5432
+    dbname: core
+    user: postgres
+    password: root
+    additional_authorized_imports: "*"
 
-    List of complete facts about the tables and columns in sql schema:
-    ```
-    {{sql_schema}}
-    ```
 
-    List of additional facts you can use:
-    ```
-    {{facts}}
-    ```
-
-    Find the conversation history below:
