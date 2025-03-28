@@ -328,7 +328,7 @@ class ReActPattern(ModelContextProtocolImpl):
                         
                         {mcp_server.facts_message.content}
                         
-                        {"\n".join(mcp_server.prompt_templates["planning"]["common_prompting_errors"] or [])}""".strip()
+                        {"\n\n".join([f"Task: {p["Task"]} \n Resolution: {p["Resolution"]}" for p in (mcp_server.prompt_templates["planning"]["common_prompting_errors"] or [])])}""".strip()
                     
         # Initial Plan
         variables = {
