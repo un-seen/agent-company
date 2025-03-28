@@ -564,8 +564,9 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
+        self.logger.log(text=update_plan_next_step["content"][0]["text"], title="Update Plan Next Step Input:")
         next_step_plan_message: ChatMessage = self.model([update_plan_next_step])
-        self.logger.log(text=next_step_plan_message.content, title="Updated Plan Next Step:")
+        self.logger.log(text=next_step_plan_message.content, title="Updated Plan Next Step Output:")
         self.planning_step.update_step(step_id, next_step_plan_message.content)
         return next_step_plan_message.content
     
@@ -726,6 +727,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 previous_environment_errors: List[EnvironmentError] = []
                 self.executor_environment.save_observations(next_step_id, next_step, code_action, observations, feedback)
                 self.executor_environment.set_storage(next_step_id, code_action)
+                self.logger.log(text=self.executor_environment.storage[next_step_id], title=f"Step Storage {next_step_id}:")
                 self._update_plan_facts(self.executor_environment.get_previous_observations(next_step_id))
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
@@ -736,4 +738,4 @@ class ReActPattern(ModelContextProtocolImpl):
         """
         MCPContextProtocolImpl forward method.
         """
-        return self.run(task)
+        return self.run(task)()

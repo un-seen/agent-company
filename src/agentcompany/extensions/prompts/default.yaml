@@ -231,7 +231,7 @@ planning:
     {{ next_step }}
     ```
     
-    You have to rewrite the above task based on information available from these previously completed steps:
+    You have to update the above task based on results from previously completed steps:
 
     {%- for storage in storage_data %}
 

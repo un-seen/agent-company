@@ -317,49 +317,46 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             list: A list of dictionaries, each containing 'name', 'type', and 'sample_values' for a column.
         """
         temp_table_name = self.get_storage_id(next_step_id)
-        try:
-            with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
-                # Ensure the temp table is dropped if it exists
-                cur.execute(f"DROP TABLE IF EXISTS {temp_table_name};")
-                
-                # Create the temp table with the result of the code_action query
-                cur.execute(f"CREATE TEMP TABLE {temp_table_name} AS ({code_action.strip(';')});")
-                self.pg_conn.commit()
-                
-                # Retrieve column names and data types from the temp table
-                cur.execute(f"""
-                    SELECT 
-                        a.attname AS column_name,
-                        pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type
-                    FROM 
-                        pg_catalog.pg_attribute a
-                    WHERE 
-                        a.attrelid = '{temp_table_name}'::regclass 
-                        AND a.attnum > 0 
-                        AND NOT a.attisdropped
-                    ORDER BY a.attnum;
-                """)
-                columns = cur.fetchall()
-                
-                # Fetch up to 3 sample rows from the temp table
-                cur.execute(f"SELECT * FROM {temp_table_name} LIMIT 3;")
-                sample_rows = cur.fetchall()
-                
-                # Prepare the list of column dictionaries
-                column_dicts = []
-                for col_info in columns:
-                    col_name = col_info['column_name']
-                    col_type = col_info['data_type']
-                    samples = [row[col_name] for row in sample_rows]
-                    column_dicts.append({
-                        'name': col_name,
-                        'type': col_type,
-                        'sample_values': samples
-                    })
-                self.storage[next_step_id] = column_dicts
-        except Exception as e:
-            self.pg_conn.rollback()
-            raise RuntimeError(f"Failed to save in memory: {str(e)}")
+        with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Ensure the temp table is dropped if it exists
+            cur.execute(f"DROP TABLE IF EXISTS {temp_table_name};")
+            
+            # Create the temp table with the result of the code_action query
+            cur.execute(f"CREATE TEMP TABLE {temp_table_name} AS ({code_action.strip(';')});")
+            self.pg_conn.commit()
+            
+            # Retrieve column names and data types from the temp table
+            cur.execute(f"""
+                SELECT 
+                    a.attname AS column_name,
+                    pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type
+                FROM 
+                    pg_catalog.pg_attribute a
+                WHERE 
+                    a.attrelid = '{temp_table_name}'::regclass 
+                    AND a.attnum > 0 
+                    AND NOT a.attisdropped
+                ORDER BY a.attnum;
+            """)
+            columns = cur.fetchall()
+            
+            # Fetch up to 3 sample rows from the temp table
+            cur.execute(f"SELECT * FROM {temp_table_name} LIMIT 3;")
+            sample_rows = cur.fetchall()
+            
+            # Prepare the list of column dictionaries
+            column_dicts = []
+            for col_info in columns:
+                col_name = col_info['column_name']
+                col_type = col_info['data_type']
+                samples = [row[col_name] for row in sample_rows]
+                column_dicts.append({
+                    'name': col_name,
+                    'type': col_type,
+                    'sample_values': samples
+                })
+            self.storage[next_step_id] = column_dicts
+        
                 
     def reset_storage(self):
         self.storage = {}
