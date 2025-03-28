@@ -10,6 +10,8 @@ system_prompt: |-
         Takes inputs: {{server.inputs}}
         Returns an output of type: {{server.output_type}}
   {%- endfor %}
+  Please strictly follow the input description for each of the functions.
+  You can call these functions only with plain text english with your arguments.
   You cannot use any other functions or libraries in your code.
   {%- endif %}
 
