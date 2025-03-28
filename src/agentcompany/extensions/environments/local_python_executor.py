@@ -1397,7 +1397,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
         variable_name = self.get_storage_id(next_step_id)
         try:
             # Execute the code_action and capture the result
-            result, _ = evaluate_python_code(
+            result = evaluate_python_code(
                 code_action.strip(),
                 static_tools=self.static_tools,
                 custom_tools=self.custom_tools,
