@@ -85,45 +85,9 @@ class ModelContextProtocolImpl(abc.ABC):
                 raise TypeError(
                     f"Attribute {attr} should have type {expected_type.__name__}, got {type(attr_value)} instead."
                 )
-        for input_name, input_content in self.inputs.items():
-            assert isinstance(input_content, dict), f"Input '{input_name}' should be a dictionary."
-            assert "type" in input_content and "description" in input_content, (
-                f"Input '{input_name}' should have keys 'type' and 'description', has only {list(input_content.keys())}."
-            )
-            if input_content["type"] not in AUTHORIZED_TYPES:
-                raise Exception(
-                    f"Input '{input_name}': type '{input_content['type']}' is not an authorized value, should be one of {AUTHORIZED_TYPES}."
-                )
-
+                
         assert getattr(self, "output_type", None) in AUTHORIZED_TYPES
-
-        # Validate forward function signature, except for Tools that use a "generic" signature (PipelineTool, SpaceToolWrapper, LangChainToolWrapper)
-        if not (
-            hasattr(self, "skip_forward_signature_validation")
-            and getattr(self, "skip_forward_signature_validation") is True
-        ):
-            signature = inspect.signature(self.forward)
-
-            if not set(signature.parameters.keys()) == set(self.inputs.keys()):
-                raise Exception(
-                    f"In tool '{self.name}', 'forward' method should take 'self' as its first argument, then its next arguments should match the keys of tool attribute 'inputs'."
-                )
-
-            json_schema = _convert_type_hints_to_json_schema(self.forward, error_on_missing_type_hints=False)[
-                "properties"
-            ]  # This function will not raise an error on missing docstrings, contrary to get_json_schema
-            for key, value in self.inputs.items():
-                assert key in json_schema, (
-                    f"Input '{key}' should be present in function signature, found only {json_schema.keys()}"
-                )
-                if "nullable" in value:
-                    assert "nullable" in json_schema[key], (
-                        f"Nullable argument '{key}' in inputs should have key 'nullable' set to True in function signature."
-                    )
-                if key in json_schema and "nullable" in json_schema[key]:
-                    assert "nullable" in value, (
-                        f"Nullable argument '{key}' in function signature should have key 'nullable' set to True in inputs."
-                    )
+        
 
     @abc.abstractmethod
     def forward(self, *args, **kwargs):
