@@ -1329,6 +1329,8 @@ class LocalPythonInterpreter(ExecutionEnvironment):
             max_print_outputs_length=self.max_print_outputs_length,
         )
         logs = self.state["print_outputs"]
+        if isinstance(output, pd.DataFrame):
+            output = output.to_dict(orient="records")
         markdown_table = json_to_markdown(json.dumps(output))
         logger.error(f"Python Environment Output: {output}")
         logger.error(f"Python Environment Logs: {logs}")
