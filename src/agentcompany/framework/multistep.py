@@ -381,7 +381,6 @@ class ReActPattern(ModelContextProtocolImpl):
         if observations is None:
             self.logger.log(title="No observations to update facts.")
             return
-        self.logger.log(title=f"Facts Update:")
         # Facts
         variables = {
             "role": self.description,
@@ -406,10 +405,7 @@ class ReActPattern(ModelContextProtocolImpl):
             ],
         }
         # Facts Message
-        self.logger.log(text=facts_update["content"][0]["text"], title="Update Facts Input:")
         self.facts_message = self.model([facts_update])
-        self.logger.log(text=self.facts_message.content, title="Update Facts Output:")
-        
         
     def _update_plan_next_step(self, step_id: int) -> str:
         next_step = self.planning_step.get_step(step_id)
@@ -573,7 +569,7 @@ class ReActPattern(ModelContextProtocolImpl):
                         "text": populate_template(
                             self.prompt_templates["planning"]["judge"],
                             variables={
-                                "task": next_step,
+                                "task": updated_next_step,
                                 "code": code_action,
                                 "storage_data": self.get_storage_data(next_step_id),
                                 "observations": observations,
@@ -582,7 +578,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     }
                 ]
             }
-            self.logger.log(text=judge_input_message["content"][0]["text"], title="Judge Input:")
+            self.logger.log(text=judge_input_message["content"][0]["text"], title=f"Judge Input ({self.interface_id}/{self.name}) :")
             judge_output_message: ChatMessage = self.model(
                 [judge_input_message]
             )
@@ -592,8 +588,8 @@ class ReActPattern(ModelContextProtocolImpl):
             # Judge Decision and Feedback
             decision = self.judge_step.to_decision()
             feedback = self.judge_step.get_feedback_content()
-            self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
-            self.logger.log(text=decision, title="Judge Decision:")
+            self.logger.log(text=self.judge_step.model_output_message.content, title=f"Judge Output ({self.interface_id}/{self.name}) :")
+            self.logger.log(text=decision, title=f"Judge Decision ({self.interface_id}/{self.name}) :")
             # Set Status
             self.planning_step.set_status(next_step_id, decision)
             # Set Judge Step Gate
@@ -606,7 +602,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 previous_environment_errors: List[EnvironmentError] = []
                 self.executor_environment.save_observations(next_step_id, next_step, code_action, observations, feedback)
                 self.executor_environment.set_storage(next_step_id, code_action)
-                self.logger.log(text=self.executor_environment.get_storage(next_step_id), title=f"Step Storage {next_step_id}:")
+                self.logger.log(text=self.executor_environment.get_storage(next_step_id), title=f"Step Storage {next_step_id} ({self.interface_id}/{self.name}):")
                 self._update_plan_facts(self.executor_environment.get_previous_observations(next_step_id))
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
