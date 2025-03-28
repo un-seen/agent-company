@@ -178,6 +178,15 @@ planning:
     Observations: 
     {{observations}}
 
+    You have to take into consideration results from previously completed steps:
+
+    {%- for storage in storage_data %}
+
+      - Step: {{ storage.step }}
+
+        {{ storage.storage }}
+
+    {%- endfor %}
     You must evaluate the agent's code and provide feedback on the following aspects:
     1. Correctness: Is the code correct and does it solve the task?
     2. Efficiency: Is the code efficient and does it follow best practices?

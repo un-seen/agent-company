@@ -181,130 +181,6 @@ class ReActPattern(ModelContextProtocolImpl):
             variables=variables,
         )
         return system_prompt
-    
-
-    def provide_final_answer(self, previous_observations: List[Observations]) -> str:
-        """
-        Provide the final answer to the task, based on the previous observations
-
-        Args:
-            task (`str`): Task to perform.
-            previous_observations (`list[Observations]`, *optional*): Previous Observations.
-
-        Returns:
-            `str`: Final answer to the task.
-        """
-        # Execute code in multiple attempts     
-        previous_environment_errors: List[EnvironmentError] = []
-        while True:            
-            # Set Input Messages
-            input_messages = []
-            # Add System Prompt
-            input_messages.extend(self.memory.system_prompt.to_messages(summary_mode=False))
-            variables = {
-                "task": self.task,
-                "role": self.description,
-                "observations": previous_observations,
-                "previous_environment_errors": previous_environment_errors,
-            }
-            final_code_message = {
-                "role": MessageRole.USER,
-                "content": [
-                    {
-                        "type": "text",
-                        "text": populate_template(
-                            self.prompt_templates["planning"]["final_answer"], 
-                            variables=variables
-                        ),
-                    }
-                ],
-            }
-            input_messages.extend([final_code_message])
-            # Log Input Messages to LLM 
-            input_messages_str = "\n".join([msg["content"][0]["text"] for msg in input_messages])
-            self.logger.log(
-                text=input_messages_str,
-                title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):"
-            )
-            # Execute LLM
-            try:
-                code_output_message: ChatMessage = self.model(
-                    self.input_messages
-                )
-                self.logger.log(
-                    text=code_output_message.content,
-                    title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
-                )
-            except Exception as e:
-                raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
-            
-            # Parse code as per exection environment
-            try:
-                code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
-                self.logger.log(title="Code:", text=code_action)
-            except Exception as e:
-                error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-                error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg, "task": self.task})
-                continue
-            
-            # Execute code in environment
-            try:
-                # Environment Code Compiles!
-                observations, execution_logs, _ = self.executor_environment(code_action=code_action, additional_variables={})
-                self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
-            except Exception as e:
-                # Environment Code Compilation Error or Runtime Error!
-                error_msg = "Error in Code Execution: \n"
-                if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                    error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
-                error_msg += str(e)
-                error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg, "task": self.task})
-                continue
-            
-            if len(observations) == 0:
-                previous_environment_errors.append({"code": code_action, "error": "There is no output for the code.", "prompt": updated_task})
-                continue
-            
-            # Judge
-            judge_input_message = {
-                "role": MessageRole.USER, 
-                "content": [
-                    {
-                        "type": "text", 
-                        "text": populate_template(
-                            self.prompt_templates["planning"]["judge"],
-                            variables={
-                                "task": self.task,
-                                "code": code_action,
-                                "observations": observations,
-                            }
-                        )
-                    }
-                ]
-            }
-            self.logger.log(text=judge_input_message["content"][0]["text"], title="Judge Input:")
-            judge_output_message: ChatMessage = self.model(
-                [judge_input_message]
-            )
-            # Record Judge Step
-            self.judge_step = JudgeStep([judge_input_message], judge_output_message)
-            self.memory.append_step(self.judge_step)
-            # Judge Decision
-            decision = self.judge_step.to_decision()
-            feedback = self.judge_step.get_feedback_content()
-            self.logger.log(text=self.judge_step.model_output_message.content, title="Judge Output:")
-            self.logger.log(text=decision, title="Judge Decision:")
-            # Set Judge Step Gate
-            if decision == "approve":
-                break
-            elif decision == "reattempt" or decision == "step":
-                previous_environment_errors: List[EnvironmentError] = [{"code": code_action, "error": feedback, "prompt": self.task}]
-            else:
-                raise AgentError(f"Unknown decision: {decision}", self.logger)
-        
-        return observations
 
     def execute_mcp_request(self, server_name: str, arguments: Union[Dict[str, str], str]) -> Any:
         """
@@ -537,14 +413,7 @@ class ReActPattern(ModelContextProtocolImpl):
         
     def _update_plan_next_step(self, step_id: int) -> str:
         next_step = self.planning_step.get_step(step_id)
-        storage_data = []
-        for prev_step_id in range(0, step_id):
-            prev_step = self.planning_step.get_original_step(prev_step_id)
-            prev_step_storage = self.executor_environment.get_storage(prev_step_id)
-            storage_data.append({
-                "step": prev_step,
-                "storage": prev_step_storage,
-            })
+        storage_data = self.get_storage_data(step_id)
         variables = {
             "role": self.description,
             "next_step": next_step,
@@ -567,6 +436,17 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=next_step_plan_message.content, title=f"Updated Plan Next Step Output ({self.interface_id}/{self.name}):")
         self.planning_step.update_step(step_id, next_step_plan_message.content)
         return next_step_plan_message.content
+    
+    def get_storage_data(self, step_id: int) -> List:
+        storage_data = []
+        for prev_step_id in range(0, step_id):
+            prev_step = self.planning_step.get_original_step(prev_step_id)
+            prev_step_storage = self.executor_environment.get_storage(prev_step_id)
+            storage_data.append({
+                "step": prev_step,
+                "storage": prev_step_storage,
+            })
+        return storage_data
     
     def _execute_plan(self) -> None:
         """
@@ -695,6 +575,7 @@ class ReActPattern(ModelContextProtocolImpl):
                             variables={
                                 "task": next_step,
                                 "code": code_action,
+                                "storage_data": self.get_storage_data(next_step_id),
                                 "observations": observations,
                             }
                         )
