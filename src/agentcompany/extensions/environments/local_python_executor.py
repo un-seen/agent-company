@@ -1330,8 +1330,9 @@ class LocalPythonInterpreter(ExecutionEnvironment):
         )
         logs = self.state["print_outputs"]
         if isinstance(output, pd.DataFrame):
-            output = output.to_dict(orient="records")
-        markdown_table = json_to_markdown(json.dumps(output))
+            markdown_table = output.to_markdown()
+        else:
+            markdown_table = json_to_markdown(json.dumps(output))
         logger.error(f"Python Environment Output: {output}")
         logger.error(f"Python Environment Logs: {logs}")
         logger.error(f"Python Environment Markdown Table: {markdown_table}")

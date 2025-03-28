@@ -553,6 +553,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
                 error_msg += str(e)
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
+                self.logger.log(text=f"Code: {code_action} \n\n Error: {error_msg}", title="Error in Code Execution:")
                 previous_environment_errors.append({"code": code_action, "error": error_msg, "task": updated_next_step})
                 continue
             
