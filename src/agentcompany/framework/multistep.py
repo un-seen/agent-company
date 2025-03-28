@@ -80,10 +80,10 @@ class ReActPattern(ModelContextProtocolImpl):
         self.prompt_templates = prompt_templates
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
-        self.setup_environment()
         # MCP Servers
         self.setup_mcp_servers(mcp_servers)
         self.final_answer_checks = final_answer_checks
+        self.setup_environment()
         # System Prompt
         self.system_prompt = self.initialize_system_prompt()
         # Generate Facts
