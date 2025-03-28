@@ -70,33 +70,30 @@ class ReActPattern(ModelContextProtocolImpl):
     ):
         # Identifiers
         self.name = name
-        # Prompt Templates
-        self.prompt_templates = prompt_templates
-        # Generate Facts
-        self._generate_initial_facts()
-        self.description = f"{description} \n\n {self.facts_message.content}"
         self.interface_id = interface_id
         self.session_id = session_id
-        # Logging
-        verbosity_level: int = 1
-        self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
-        # Storage Client
-        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
         # LLM
         self.model = model
-        # Planning
-        planning_interval = 1
-        self.planning_interval = planning_interval
         # Environment State
         self.state = {}
         # MCP Servers
         self.setup_mcp_servers(mcp_servers)
         self.final_answer_checks = final_answer_checks
+        # System Prompt
+        self.system_prompt = self.initialize_system_prompt()
+        # Prompt Templates
+        self.prompt_templates = prompt_templates
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
         self.setup_environment()
-        # System Prompt
-        self.system_prompt = self.initialize_system_prompt()
+        # Generate Facts
+        self._generate_initial_facts()
+        self.description = f"{description} \n\n {self.facts_message.content}"
+        # Logging
+        verbosity_level: int = 1
+        self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
+        # Storage Client
+        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
         # Context
         self.input_messages = None
         self.task = None
