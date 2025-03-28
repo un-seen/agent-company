@@ -65,14 +65,14 @@ class ReActPattern(ModelContextProtocolImpl):
         model: BaseLLM,
         prompt_templates: PromptTemplates,
         mcp_servers: List[ModelContextProtocolImpl],
-        step_callbacks: List[Callable],
         final_answer_checks: List[Callable],
-        final_answer_call: ModelContextProtocolImpl = None,
         max_steps: int = 6,
     ):
         # Identifiers
         self.name = name
-        self.description = description
+        # Generate Facts
+        self._generate_initial_facts()
+        self.description = f"{description} \n\n {self.facts_message.content}"
         self.interface_id = interface_id
         self.session_id = session_id
         # Logging
@@ -101,7 +101,6 @@ class ReActPattern(ModelContextProtocolImpl):
         self.input_messages = None
         self.task = None
         self.max_steps = max_steps
-        self.step_callbacks = step_callbacks if step_callbacks is not None else []
         # Memory
         self.memory = AgentMemory(name, interface_id, self.system_prompt)
         super().__init__()
@@ -292,7 +291,22 @@ class ReActPattern(ModelContextProtocolImpl):
         
         return final_answer        
         
-
+    def _generate_initial_facts(self) -> None:
+        # Empty Facts Initially
+        if len(self.prompt_templates["planning"]["initial_facts"]) > 0:
+            variables = {}
+            if "initial_facts_variables" in self.executor_environment_config:
+                variables.update({
+                    variable: getattr(self.executor_environment, variable)
+                    for variable in self.executor_environment_config["initial_facts_variables"] if hasattr(self.executor_environment, variable)
+                })
+            self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content=populate_template(
+                self.prompt_templates["planning"]["initial_facts"],
+                variables=variables,
+            ))
+        else:
+            self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content="")
+            
     def _generate_initial_plan(self, task: str) -> None:
         # Empty Facts Initially
         if len(self.prompt_templates["planning"]["initial_facts"]) > 0:

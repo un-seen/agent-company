@@ -12,9 +12,7 @@ def DuckDbAgent(name: str,
                 interface_id: str, 
                 description: str, 
                 mcp_servers: List[ModelContextProtocolImpl] = [],
-                step_callbacks: List[Callable] = [],
-                final_answer_checks: List[Callable] = [], 
-                final_answer_call: ModelContextProtocolImpl = None) -> ReActPattern:
+                final_answer_checks: List[Callable] = []) -> ReActPattern:
     """
     Create a Postgres SQL code agent.
     """
@@ -33,8 +31,6 @@ def DuckDbAgent(name: str,
         model=OpenAIServerLLM("gpt-4o-mini"),
         prompt_templates=prompt_templates,
         mcp_servers=mcp_servers,
-        step_callbacks=step_callbacks,
         final_answer_checks=final_answer_checks,
-        final_answer_call=final_answer_call,
         max_steps=4,
     )
