@@ -328,7 +328,7 @@ class ReActPattern(ModelContextProtocolImpl):
                         
                         {mcp_server.facts_message.content}
                         
-                        {mcp_server.prompt_templates["planning"]["common_prompting_errors"]}""".strip()
+                        {"\n".join(mcp_server.prompt_templates["planning"]["common_prompting_errors"] or [])}""".strip()
                     
         # Initial Plan
         variables = {
@@ -336,7 +336,7 @@ class ReActPattern(ModelContextProtocolImpl):
             "task": task,
             "facts": self.facts_message.content,
             "max_steps": self.max_steps,
-            "common_prompting_errors": self.prompt_templates["planning"]["common_prompting_errors"],
+            "common_prompting_errors": self.prompt_templates["planning"]["common_prompting_errors"] or [],
         }
         if "initial_plan_variables" in self.executor_environment_config:
             variables.update({
@@ -511,7 +511,7 @@ class ReActPattern(ModelContextProtocolImpl):
                     "next_step": next_step,  
                     "mcp_servers": self.mcp_servers,
                     "max_task_length": 150,
-                    "common_prompting_errors": self.prompt_templates["planning"]["common_prompting_errors"],
+                    "common_prompting_errors": self.prompt_templates["planning"]["common_prompting_errors"] or [],
                 }
                 prompt_engineer_input_message = {
                     "role": MessageRole.USER,
