@@ -52,7 +52,7 @@ class ReActPattern(ModelContextProtocolImpl):
             "description": "The task for the agent to solve.",
         }
     }
-    output_type = "pd.DataFrame"
+    output_type = "pandas.DataFrame"
     interface_id: str = None
     executor_environment: ExecutionEnvironment = None
 

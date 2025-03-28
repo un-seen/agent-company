@@ -17,7 +17,7 @@ AUTHORIZED_TYPES = [
     "object",
     "any",
     "null",
-    "pd.DataFrame"
+    "pandas.DataFrame"
 ]
 
 def validate_after_init(cls):
