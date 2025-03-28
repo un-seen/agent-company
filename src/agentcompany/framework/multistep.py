@@ -76,6 +76,9 @@ class ReActPattern(ModelContextProtocolImpl):
         self.model = model
         # Environment State
         self.state = {}
+        # Environment
+        self.executor_environment_config = self.prompt_templates["executor_environment"]
+        self.setup_environment()
         # MCP Servers
         self.setup_mcp_servers(mcp_servers)
         self.final_answer_checks = final_answer_checks
@@ -83,9 +86,6 @@ class ReActPattern(ModelContextProtocolImpl):
         self.system_prompt = self.initialize_system_prompt()
         # Prompt Templates
         self.prompt_templates = prompt_templates
-        # Environment
-        self.executor_environment_config = self.prompt_templates["executor_environment"]
-        self.setup_environment()
         # Generate Facts
         self._generate_initial_facts()
         self.description = f"{description} \n\n {self.facts_message.content}"
