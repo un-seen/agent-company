@@ -481,8 +481,6 @@ class ReActPattern(ModelContextProtocolImpl):
             # Next Step Node
             next_step_id, next_step = self.planning_step.get_next_step()
             self.logger.log(text=f"{next_step_id}: {next_step}", title="Next Step")
-            # Entry Gate Node
-            
             if next_step is None or len(next_step) == 0:
                 break
             # Create an updated next step node

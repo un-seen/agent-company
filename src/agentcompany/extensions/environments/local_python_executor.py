@@ -1434,7 +1434,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
     
     def get_storage(self, next_step_id: int) -> str:
         variable_name = self.get_storage_id(next_step_id)
-        variable_value = truncate_content(str(self.state.get(variable_name, None), max_length=self.max_print_outputs_length))
+        variable_value = truncate_content(str(self.state.get(variable_name, None)), max_length=self.max_print_outputs_length)
         trimmed = False if len(variable_value) < len(str(self.state.get(variable_name, None))) else True
         return f"""
         Variable to access result of step {next_step_id}:
