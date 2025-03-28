@@ -53,7 +53,7 @@ class ExecutionEnvironment(abc.ABC):
     def get_storage_id(self, next_step_id: int) -> str:
         raise NotImplementedError("get_previous_memory_prompt not implemented.")
     
-    def get_storage(self, storage_id: str) -> Dict[str, Any]:
+    def get_storage(self, storage_id: str) -> str:
         raise NotImplementedError("get_memory not implemented.")
     
     def save_observations(self, next_step_id: int, next_step: str, code_action: str, observations: str, feedback: str) -> Observations:

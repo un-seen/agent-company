@@ -375,10 +375,10 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
                 info_prompt.append(f"{col_name} ({col_type}), Example: {sample_value}")
             
         return f"""
-        SQL code to access result of step {next_step_id}:
+        Code to get result of step {next_step_id} in {temp_table_name}:
             SELECT {', '.join(select_prompt)} FROM {temp_table_name};
             
-        Facts about the columns in the {temp_table_name} table:
+        Information on the {temp_table_name} table:
             {', '.join(info_prompt)}
         """
     
