@@ -70,6 +70,8 @@ class ReActPattern(ModelContextProtocolImpl):
     ):
         # Identifiers
         self.name = name
+        # Prompt Templates
+        self.prompt_templates = prompt_templates
         # Generate Facts
         self._generate_initial_facts()
         self.description = f"{description} \n\n {self.facts_message.content}"
@@ -80,8 +82,6 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
         # Storage Client
         self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
-        # Prompt Templates
-        self.prompt_templates = prompt_templates
         # LLM
         self.model = model
         # Planning
