@@ -46,7 +46,7 @@ class ReActPattern(ModelContextProtocolImpl):
     
     description = "This is an agent implementing the ReAct design pattern."
     name = "ReActPattern"
-    inputs = "The task for the agent to solve in plain text english.",
+    inputs = "The task for the agent to solve in plain text english."
     output_type = "pandas.DataFrame"
     interface_id: str = None
     executor_environment: ExecutionEnvironment = None
