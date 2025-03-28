@@ -88,7 +88,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.system_prompt = self.initialize_system_prompt()
         # Generate Facts
         self._generate_initial_facts()
-        self.description = f"{description} \n\n {self.facts_message.content}"
+        self.description = description
         # Logging
         verbosity_level: int = 1
         self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
@@ -319,6 +319,14 @@ class ReActPattern(ModelContextProtocolImpl):
             ))
         else:
             self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content="")
+            
+        if len(self.mcp_servers) > 0:
+            self.facts_message.content += "You can take into consideration knowledge of the following functions:"
+            for server in self.mcp_servers:
+                if isinstance(self.mcp_servers[server], ReActPattern):
+                    mcp_server: ReActPattern = self.mcp_servers[server]
+                    self.facts_message.content += f"\n\n {mcp_server.name} \n" + mcp_server.facts_message.content
+                    
         # Initial Plan
         variables = {
             "role": self.description,
@@ -344,6 +352,7 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
+        self.logger.log(text=message_prompt_plan["content"][0]["text"], title=f"Initial Plan Message Input ({self.interface_id}/{self.name}):")
         self.plan_message: ChatMessage = self.model([message_prompt_plan])
         self.logger.log(text=self.plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
         # Add to Memory
