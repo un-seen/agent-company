@@ -406,7 +406,7 @@ class ReActPattern(ModelContextProtocolImpl):
             self._execute_plan()
             # No more next steps after execute plan
             status_table = self.planning_step.get_markdown_table()
-            self.logger.log(text=status_table, title="Final Plan Status:")
+            self.logger.log(text=status_table, title=f"Final Plan Status ({self.interface_id}/{self.name}) :")
             # Return final answer
             # Bridge from current environment to python code is always pd.DataFrame
             final_answer = self.executor_environment.get_final_storage()
@@ -556,9 +556,9 @@ class ReActPattern(ModelContextProtocolImpl):
                 }
             ],
         }
-        self.logger.log(text=update_plan_next_step["content"][0]["text"], title="Update Plan Next Step Input:")
+        self.logger.log(text=update_plan_next_step["content"][0]["text"], title=f"Update Plan Next Step Input ({self.interface_id}/{self.name}):")
         next_step_plan_message: ChatMessage = self.model([update_plan_next_step])
-        self.logger.log(text=next_step_plan_message.content, title="Updated Plan Next Step Output:")
+        self.logger.log(text=next_step_plan_message.content, title=f"Updated Plan Next Step Output ({self.interface_id}/{self.name}):")
         self.planning_step.update_step(step_id, next_step_plan_message.content)
         return next_step_plan_message.content
     

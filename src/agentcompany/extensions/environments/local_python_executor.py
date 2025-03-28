@@ -1226,7 +1226,7 @@ def evaluate_python_code(
     state: Optional[Dict[str, Any]] = None,
     authorized_imports: List[str] = BASE_BUILTIN_MODULES,
     max_print_outputs_length: int = DEFAULT_MAX_LEN_OUTPUT,
-):
+) -> Any:
     """
     Evaluate a python expression using the content of the variables stored in a state and only evaluating a given set
     of functions.
@@ -1261,21 +1261,11 @@ def evaluate_python_code(
     global OPERATIONS_COUNT
     OPERATIONS_COUNT = 0
 
-    def final_answer(value):
-        raise FinalAnswerException(value)
-
-    static_tools["final_answer"] = final_answer
-
     try:
         for node in expression.body:
             result = evaluate_ast(node, state, static_tools, custom_tools, authorized_imports)
         state["print_outputs"] = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
-        is_final_answer = False
-        return result, is_final_answer
-    except FinalAnswerException as e:
-        state["print_outputs"] = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
-        is_final_answer = True
-        return e.value, is_final_answer
+        return result
     except Exception as e:
         error_trace = traceback.format_exc()
         error_content = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
@@ -1336,7 +1326,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
         
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
         self.state.update(additional_variables)
-        output, is_final_answer = evaluate_python_code(
+        output = evaluate_python_code(
             code_action,
             static_tools=self.static_tools,
             custom_tools=self.custom_tools,
@@ -1346,7 +1336,10 @@ class LocalPythonInterpreter(ExecutionEnvironment):
         )
         logs = self.state["print_outputs"]
         markdown_table = json_to_markdown(json.dumps(output))
-        return markdown_table, logs, is_final_answer
+        logger.error(f"Python Environment Output: {output}")
+        logger.error(f"Python Environment Logs: {logs}")
+        logger.error(f"Python Environment Markdown Table: {markdown_table}")
+        return markdown_table, logs, False
 
     def attach_variables(self, variables: dict):
         self.state.update(variables)
