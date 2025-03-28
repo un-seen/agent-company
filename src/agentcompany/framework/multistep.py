@@ -725,8 +725,8 @@ class ReActPattern(ModelContextProtocolImpl):
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
         
     
-    def forward(self, task: str):
+    def forward(self, task: str) -> Any:
         """
         MCPContextProtocolImpl forward method.
         """
-        return self.run(task)()
+        return self.run(task)
