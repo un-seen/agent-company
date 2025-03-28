@@ -8,6 +8,7 @@ from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.llms.openai import OpenAIServerLLM
 
 def PythonCodeAgent(name: str, 
+                    session_id: str,
                     interface_id: str, 
                     description: str, 
                     mcp_servers: List[ModelContextProtocolImpl] = [],
@@ -25,6 +26,7 @@ def PythonCodeAgent(name: str,
     
     return ReActPattern(
         name=name, 
+        session_id=session_id,
         interface_id=interface_id, 
         description=description, 
         model=OpenAIServerLLM("gpt-4o-mini"),

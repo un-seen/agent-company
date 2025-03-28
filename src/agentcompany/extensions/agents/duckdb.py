@@ -8,12 +8,13 @@ from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.llms.openai import OpenAIServerLLM
 
 def DuckDbAgent(name: str, 
-             interface_id: str, 
-             description: str, 
-             mcp_servers: List[ModelContextProtocolImpl] = [],
-             step_callbacks: List[Callable] = [],
-             final_answer_checks: List[Callable] = [], 
-             final_answer_call: ModelContextProtocolImpl = None) -> ReActPattern:
+                session_id: str,
+                interface_id: str, 
+                description: str, 
+                mcp_servers: List[ModelContextProtocolImpl] = [],
+                step_callbacks: List[Callable] = [],
+                final_answer_checks: List[Callable] = [], 
+                final_answer_call: ModelContextProtocolImpl = None) -> ReActPattern:
     """
     Create a Postgres SQL code agent.
     """
@@ -26,6 +27,7 @@ def DuckDbAgent(name: str,
     
     return ReActPattern(
         name=name, 
+        session_id=session_id,
         interface_id=interface_id, 
         description=description, 
         model=OpenAIServerLLM("gpt-4o-mini"),
