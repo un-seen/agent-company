@@ -187,6 +187,16 @@ planning:
         {{ storage.storage }}
 
     {%- endfor %}
+
+    {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+    These functions are used to complete a step efficiently.
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+    {%- endfor %}
+    {%- endif %}
+
     You must evaluate the agent's code and provide feedback on the following aspects:
     1. Correctness: Is the code correct and does it solve the task?
     2. Efficiency: Is the code efficient and does it follow best practices?

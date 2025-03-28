@@ -572,6 +572,7 @@ class ReActPattern(ModelContextProtocolImpl):
                             variables={
                                 "task": updated_next_step,
                                 "code": code_action,
+                                "mcp_servers": self.mcp_servers,
                                 "storage_data": self.get_storage_data(next_step_id),
                                 "observations": observations,
                             }
