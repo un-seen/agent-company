@@ -62,6 +62,10 @@ planning:
       Error: No output after code execution.
       Resolution: Filter rows in note_structured table where 'abstraction' column value is 'her2' and interpretation column value is 'negative'.
 
+    - Task: Find patients with treatment
+      Error: No output after code execution.
+      Resolution: Filter rows in note_structured table where 'type' column value is 'treatment'.
+
   update_facts_pre_messages: |-
     {{role}}
     
