@@ -46,12 +46,7 @@ class ReActPattern(ModelContextProtocolImpl):
     
     description = "This is an agent implementing the ReAct design pattern."
     name = "ReActPattern"
-    inputs = {
-        "task": {
-            "type": "string",
-            "description": "The task for the agent to solve.",
-        }
-    }
+    inputs = "The task for the agent to solve in plain text english.",
     output_type = "pandas.DataFrame"
     interface_id: str = None
     executor_environment: ExecutionEnvironment = None
@@ -321,7 +316,7 @@ class ReActPattern(ModelContextProtocolImpl):
             self.facts_message = ChatMessage(role=MessageRole.ASSISTANT, content="\n\n")
             
         if len(self.mcp_servers) > 0:
-            self.facts_message.content += "You can take into consideration knowledge of the following functions:"
+            self.facts_message.content += "You can take into consideration knowledge of the following functions:\n\n"
             for server in self.mcp_servers:
                 if isinstance(self.mcp_servers[server], ReActPattern):
                     mcp_server: ReActPattern = self.mcp_servers[server]
