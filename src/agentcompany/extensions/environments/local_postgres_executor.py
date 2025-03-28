@@ -67,7 +67,7 @@ class FinalAnswerException(Exception):
         self.value = value
 
 
-def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProtocolImpl], custom_tools, authorized_imports):
+def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProtocolImpl], custom_tools, authorized_imports) -> List[dict]:
     # Check if the expression is a sqlglot SELECT statement.
     # (sqlglot returns expressions from the sqlglot.exp module;
     # adjust the type check if needed.)
@@ -107,7 +107,7 @@ def evaluate_sql_code(
     state: Optional[Dict[str, Any]] = None,
     authorized_imports: List[str] = BASE_BUILTIN_MODULES,
     max_print_outputs_length: int = DEFAULT_MAX_LEN_OUTPUT,
-):
+) -> List[dict]:
     """
     Evaluate a sql expression using the content of the variables stored in a state and only evaluating a given set
     of functions.
@@ -144,21 +144,11 @@ def evaluate_sql_code(
     global OPERATIONS_COUNT
     OPERATIONS_COUNT = 0
 
-    def final_answer(value):
-        raise FinalAnswerException(value)
-
-    static_tools["final_answer"] = final_answer
-
     try:
         for node in expression:
             result = evaluate_ast(pg_conn, node, state, static_tools, custom_tools, authorized_imports)            
         state["print_outputs"] = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
-        is_final_answer = False
-        return result, is_final_answer
-    except FinalAnswerException as e:
-        state["print_outputs"] = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
-        is_final_answer = True
-        return e.value, is_final_answer
+        return result
     except Exception as e:
         error_trace = traceback.format_exc()
         error_msg = f"Code execution failed at node '{node}' in code '{code}' due to exception:\n{error_trace}"
@@ -206,7 +196,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
                 for row in cur.fetchall():
                     self.sql_schema.append(f"- {row['column_name']}, has data type {row['data_type']}")                
         self.sql_schema = "\n".join(self.sql_schema)
-        # TODO: assert self.authorized imports are all installed 
+        # IMPROVE: assert self.authorized imports are all installed 
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         # Add base trusted tools to list
         self.static_tools = mcp_servers
@@ -242,7 +232,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[str, str, bool]:
         self.state.update(additional_variables)
         self.reset_connection()
-        tupled_rows, is_final_answer = evaluate_sql_code(
+        tupled_rows = evaluate_sql_code(
             self.pg_conn,
             code_action,
             static_tools=self.static_tools,
@@ -251,17 +241,9 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             authorized_imports=self.authorized_imports,
             max_print_outputs_length=self.max_print_outputs_length,
         )
-        if len(tupled_rows) > 0 and isinstance(tupled_rows, list):
-            if isinstance(tupled_rows[0], dict):
-                markdown_table = dict_rows_to_markdown_table(tupled_rows)
-                logs = self.state["print_outputs"]
-                return markdown_table, logs, is_final_answer
-            else:
-                logs = self.state["print_outputs"]
-                return "\n".join([str(r) for r in tupled_rows]), logs, is_final_answer
-        else:
-            logs = self.state["print_outputs"]
-            return tupled_rows, logs, is_final_answer
+        markdown_table = dict_rows_to_markdown_table(tupled_rows)
+        logs = self.state["print_outputs"]
+        return markdown_table, logs, False
         
     def attach_variables(self, variables: dict):
         self.state.update(variables)
@@ -322,9 +304,13 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Ensure the temp table is dropped if it exists
             cur.execute(f"DROP TABLE IF EXISTS {temp_table_name};")
-            
             # Create the temp table with the result of the code_action query
-            cur.execute(f"CREATE VIEW {temp_table_name} AS ({code_action.strip(';')});")
+            code_action = code_action.strip(';')
+            if "LIMIT " in code_action:
+                pattern = re.compile(r'LIMIT \d+')
+                code_action = pattern.sub('', code_action)
+            # Write to environment state
+            cur.execute(f"CREATE VIEW {temp_table_name} AS ({code_action});")
             self.pg_conn.commit()
             
             # Retrieve column names and data types from the temp table
@@ -357,12 +343,26 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
                     'type': col_type,
                     'sample_values': samples
                 })
+            # Write to storage
             self.storage[next_step_id] = column_dicts
         
                 
     def reset_storage(self):
         self.storage = {}
-        
+    
+    def get_final_storage(self) -> pd.DataFrame:
+        max_step_id = max(self.storage.keys())
+        temp_table_name = self.get_storage_id(max_step_id)
+        with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Fetch up to 3 sample rows from the temp table
+            cur.execute(f"SELECT * FROM {temp_table_name};")
+            sample_rows = cur.fetchall()
+            for row in sample_rows:
+                for key, value in row.items():
+                    if isinstance(value, np.ndarray):
+                        row[key] = value.tolist()
+        return pd.DataFrame(sample_rows)
+            
     def get_storage(self, next_step_id: int) -> str:
         select_prompt = []
         info_prompt = []

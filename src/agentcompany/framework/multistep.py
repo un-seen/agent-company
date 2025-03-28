@@ -1,14 +1,9 @@
-import inspect
-import time
-import re
-from collections import deque
+import pandas as pd
 from logging import getLogger
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
-import json
 from agentcompany.llms.monitoring import (
     AgentLogger,
 )
-import textwrap
 from redis import Redis
 import os
 from agentcompany.extensions.environments.base import ExecutionEnvironment, Observations
@@ -17,13 +12,8 @@ from agentcompany.driver.errors import (
     AgentError,
     AgentExecutionError,
     AgentGenerationError,
-    AgentMaxStepsError,
-    AgentParsingError,
 )
 from agentcompany.mcp.base import ModelContextProtocolImpl
-from agentcompany.extensions.pyfunc.base import FinalAnswerFunction
-from agentcompany.mcp.utils import truncate_content
-from agentcompany.llms.monitoring import LogLevel
 from agentcompany.framework.prompt_template import PromptTemplates, EMPTY_PROMPT_TEMPLATES, populate_template
 from agentcompany.llms.base import (
     ChatMessage,
@@ -32,8 +22,6 @@ from agentcompany.llms.base import (
 from agentcompany.llms.utils import (
     MessageRole
 )
-from agentcompany.driver.xml import plan_xml_to_dict, plan_dict_to_xml, plan_dict_to_markdown_with_status, step_dict_to_xml, plan_dict_to_markdown_without_status, step_xml_to_dict
-
 
 logger = getLogger(__name__)
 
@@ -380,7 +368,7 @@ class ReActPattern(ModelContextProtocolImpl):
         reset: bool = True,
         images: Optional[List[str]] = None,
         environment_variables: Optional[Dict] = None,
-    ) -> Union[str, None]:
+    ) -> pd.DataFrame:
         """
         Run the agent for the given task.
 
@@ -413,16 +401,16 @@ class ReActPattern(ModelContextProtocolImpl):
             # Make initial plan
             self._generate_initial_plan(task)
             # Execute plan
-            next_step_id = self._execute_plan()
-            previous_observations = self.executor_environment.get_previous_observations(next_step_id)
+            self._execute_plan()
             # No more next steps after execute plan
             status_table = self.planning_step.get_markdown_table()
             self.logger.log(text=status_table, title="Final Plan Status:")
             # Return final answer
-            final_answer = self.provide_final_answer(previous_observations)        
+            # Bridge from current environment to python code is always pd.DataFrame
+            final_answer = self.executor_environment.get_final_storage()
         except AgentError as e:
             self.logger.log(text=e.message, title="Error in Agent:")
-            final_answer = e.message
+            final_answer = pd.DataFrame([{"error": e.message}])
         
         return final_answer        
         
@@ -572,7 +560,7 @@ class ReActPattern(ModelContextProtocolImpl):
         self.planning_step.update_step(step_id, next_step_plan_message.content)
         return next_step_plan_message.content
     
-    def _execute_plan(self) -> int:
+    def _execute_plan(self) -> None:
         """
         Execute the plan as per the ReAct framework: the agent thinks, acts, and observes the result.
         """
@@ -734,7 +722,6 @@ class ReActPattern(ModelContextProtocolImpl):
             else:
                 raise AgentError(f"Unknown decision: {decision}", self.logger)
         
-        return next_step_id
     
     def forward(self, task: str):
         """

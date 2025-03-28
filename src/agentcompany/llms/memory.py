@@ -151,19 +151,19 @@ class PlanningStep(MemoryStep):
     facts: str
     plan: str
     _plan_list: List[str]
-    _plan_status: Dict[str, PlanningStepStatus] 
+    _plan_status: Dict[int, PlanningStepStatus] 
     
     def __init__(self, facts: str, plan: str):
         self.facts = facts
         self.plan = plan
-        # TODO validate the step in each plan
+        # IMPROVE validate the step in each plan
         self._plan_list = [p for p in plan.split("\n") if len(p.strip()) > 0]
-        self._plan_status = {step: "step" for step in self._plan_list}
+        self.original_plan_list = [p for p in self._plan_list]
+        self._plan_status = {step_id: "step" for step_id, step in enumerate(self._plan_list)}
         super().__init__()
     
     def set_status(self, i: int, status: PlanningStepStatus) -> None:
-        step = self._plan_list[i]
-        self._plan_status[step] = status
+        self._plan_status[i] = status
     
     def update_step(self, i: int, step: str) -> None:
         self.plan.replace(self._plan_list[i], step)
@@ -172,17 +172,20 @@ class PlanningStep(MemoryStep):
     def get_step(self, i: int) -> str:
         return self._plan_list[i]
     
+    def get_step_count(self) -> int:
+        return len(self._plan_list)
+    
     def get_markdown_table(self) -> str:
         markdown = "| Task | Status |\n"
         markdown += "| --- | --- |\n"
-        for task in self._plan_list:
-            markdown += f"| {task} | {self._plan_status.get(task, 'step')} |\n"
+        for step_id, task in enumerate(self.original_plan_list):
+            markdown += f"| {task} | {self._plan_status.get(step_id, 'step')} |\n"
         return markdown
     
     def get_next_step(self) -> Tuple[int, Union[str, None]]:
         i = 0
         for i, task in enumerate(self._plan_list):
-            if self._plan_status.get(task) != "approve":
+            if self._plan_status.get(i) != "approve":
                 return i, task
         return i, None
     

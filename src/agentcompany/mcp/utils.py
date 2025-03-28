@@ -208,7 +208,7 @@ def get_source(obj) -> str:
         ValueError: If source cannot be found in IPython history
 
     Note:
-        TODO: handle Python standard REPL
+        IMPROVE: handle Python standard REPL
     """
     if not (isinstance(obj, type) or callable(obj)):
         raise TypeError(f"Expected class or callable, got {type(obj)}")

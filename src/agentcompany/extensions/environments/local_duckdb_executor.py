@@ -100,7 +100,7 @@ def evaluate_ast(
         state, 
         static_tools: Dict[str, ModelContextProtocolImpl], 
         custom_tools, 
-        authorized_imports):
+        authorized_imports) -> pd.DataFrame:
     # Check if the expression is a sqlglot SELECT statement.
     # (sqlglot returns expressions from the sqlglot.exp module;
     # adjust the type check if needed.)
@@ -120,7 +120,7 @@ def evaluate_ast(
                 node.args["expressions"] = node.expressions[:idx] + [response_value] + node.expressions[idx+1:]
         sql_query = node.sql(dialect="postgres")
         try:
-            result = conn.sql(sql_query)
+            result = conn.sql(sql_query).to_df()
             return result
         except Exception as e:
             logger.error(f"Error executing SQL: {e}")
@@ -137,7 +137,7 @@ def evaluate_sql_code(
     state: Optional[Dict[str, Any]] = None,
     authorized_imports: List[str] = BASE_BUILTIN_MODULES,
     max_print_outputs_length: int = DEFAULT_MAX_LEN_OUTPUT,
-):
+) -> pd.DataFrame:
     """
     Evaluate a sql expression using the content of the variables stored in a state and only evaluating a given set
     of functions.
@@ -174,21 +174,11 @@ def evaluate_sql_code(
     global OPERATIONS_COUNT
     OPERATIONS_COUNT = 0
 
-    def final_answer(value):
-        raise FinalAnswerException(value)
-
-    static_tools["final_answer"] = final_answer
-
     try:
         for node in expression:
             result = evaluate_ast(conn, node, state, static_tools, custom_tools, authorized_imports)            
         state["print_outputs"] = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
-        is_final_answer = False
-        return result, is_final_answer
-    except FinalAnswerException as e:
-        state["print_outputs"] = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
-        is_final_answer = True
-        return e.value, is_final_answer
+        return result
     except Exception as e:
         error_trace = traceback.format_exc()
         error_content = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
@@ -225,7 +215,7 @@ class LocalDuckdbInterpreter(ExecutionEnvironment):
         self.dbname = dbname
         logger.info(f"Connecting to the database {dbname} on {aws_endpoint_url}:{aws_region_name}")
         self.conn = duckdb.connect(dbname)
-        # TODO: save s3 config in duckdb
+        # IMPROVE: save s3 config in duckdb
         self.conn.execute("INSTALL httpfs;")
         self.conn.execute("LOAD httpfs;")
         self.conn.execute(f"""CREATE SECRET datalake1 (
@@ -235,14 +225,14 @@ class LocalDuckdbInterpreter(ExecutionEnvironment):
             REGION '{aws_region_name}'
         );""")
         self._setup_sql_schema()
-        # TODO: assert self.authorized imports are all installed 
+        # IMPROVE: assert self.authorized imports are all installed 
         self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         # Add base trusted tools to list
         self.static_tools = mcp_servers
         super().__init__(session_id, mcp_servers)    
     
     def _setup_sql_schema(self):
-        # TODO fetch dataframe schemas from the duckdb dbname
+        # fetch dataframe schemas from the duckdb dbname
         # to initialize the system prompt with the correct schema
         # so that the duckdb agent can actually take prompts and make changes. 
         # it cannot do create, update or delete, but it can do select and insert.
@@ -255,14 +245,13 @@ class LocalDuckdbInterpreter(ExecutionEnvironment):
                 self.sql_schema[row["table_name"]] = {}
             self.sql_schema[row["table_name"]][row["column_name"]] = row["data_type"]        
 
-    def save_local_file(self, df: pd.DataFrame) -> bool:
-        # TODO CornerAgent will save the pandas dataframe to this Duckdb MCP.
-        # any dataframe saved will also put metadata in information_schema.columns
-        pass
+    def get_final_storage(self) -> pd.DataFrame:
+        logger.info("get_final_storage called but no storage available in DuckDB")
+        return pd.DataFrame()
     
-    def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
+    def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[str, str, bool]:
         self.state.update(additional_variables)
-        output, is_final_answer = evaluate_sql_code(
+        output = evaluate_sql_code(
             self.conn,
             code_action,
             static_tools=self.static_tools,
@@ -272,7 +261,8 @@ class LocalDuckdbInterpreter(ExecutionEnvironment):
             max_print_outputs_length=self.max_print_outputs_length,
         )
         logs = self.state["print_outputs"]
-        return output, logs, is_final_answer
+        markdown_table = output.to_markdown()
+        return markdown_table, logs, False
 
     def attach_variables(self, variables: dict):
         self.state.update(variables)

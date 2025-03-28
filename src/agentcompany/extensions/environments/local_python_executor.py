@@ -4,6 +4,7 @@ import builtins
 import difflib
 import inspect
 import math
+import json
 import re
 import logging
 from collections.abc import Mapping
@@ -13,6 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import traceback
 import numpy as np
 import pandas as pd
+from agentcompany.driver.markdown import json_to_markdown
 from agentcompany.mcp.utils import truncate_content
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.mcp.base import ModelContextProtocolImpl
@@ -1329,7 +1331,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
             **mcp_servers,
             **BASE_PYTHON_TOOLS.copy(),
         }
-        # TODO: assert self.authorized imports are all installed locally
+        # IMPROVE: assert self.authorized imports are all installed locally
         super().__init__(session_id, mcp_servers)
         
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
@@ -1343,7 +1345,8 @@ class LocalPythonInterpreter(ExecutionEnvironment):
             max_print_outputs_length=self.max_print_outputs_length,
         )
         logs = self.state["print_outputs"]
-        return output, logs, is_final_answer
+        markdown_table = json_to_markdown(json.dumps(output))
+        return markdown_table, logs, is_final_answer
 
     def attach_variables(self, variables: dict):
         self.state.update(variables)
@@ -1408,14 +1411,33 @@ class LocalPythonInterpreter(ExecutionEnvironment):
                 authorized_imports=self.authorized_imports,
                 max_print_outputs_length=self.max_print_outputs_length,
             )
+            # Write to environment state
             self.state[variable_name] = result
+            # Write to storage
+            self.storage[next_step_id] = variable_name
         except InterpreterError as e:
             self.state[variable_name] = None
-            logger.error(f"Error storing data in {variable_name}: {str(e)}")
-                
+            raise ValueError(f"Error storing data in {variable_name}: {str(e)}")
+        
     def reset_storage(self):
         self.storage = {}
-        
+    
+    def get_final_storage(self) -> pd.DataFrame:
+        max_step_id = max(self.storage.keys())
+        variable_name = self.get_storage_id(max_step_id)
+        result = self.state.get(variable_name, None)
+        if result is None:
+            pd.DataFrame()
+        if isinstance(result, pd.DataFrame):
+            return result
+        if isinstance(result, pd.Series):
+            return result.to_frame().T
+        if isinstance(result, (list, tuple)):
+            return pd.DataFrame(result)
+        if isinstance(result, dict):
+            return pd.DataFrame(result)
+        raise ValueError(f"Final storage is not a DataFrame, but a {type(result)}")
+    
     def get_storage(self, next_step_id: int) -> str:
         variable_name = self.get_storage_id(next_step_id)
         variable_value = truncate_content(str(self.state.get(variable_name, None), max_length=self.max_print_outputs_length))

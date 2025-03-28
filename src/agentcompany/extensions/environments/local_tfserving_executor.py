@@ -5,8 +5,10 @@ import numpy as np
 import io
 import re
 import json
+import pandas as pd
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.mcp.base import ModelContextProtocolImpl
+from agentcompany.driver.markdown import json_to_markdown
 import logging
 
 DEFAULT_MAX_LEN_OUTPUT = 5000
@@ -125,7 +127,7 @@ class LocalTfServingInterpreter(ExecutionEnvironment):
         except Exception as e:
             raise ValueError(f"Failed to preprocess image: {str(e)}")
 
-    def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[Any, str, bool]:
+    def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[str, str, bool]:
         """
         Executes the TFServing prediction request based on the provided action.
 
@@ -169,18 +171,14 @@ class LocalTfServingInterpreter(ExecutionEnvironment):
             response = requests.post(endpoint, json=payload, timeout=240)
             response.raise_for_status()
             output = response.json()  # Return raw JSON string
+            markdown_table = json_to_markdown(output)
+            # Append to log buffer (truncate if necessary)
+            self.print_outputs += str(output) + "\n"
+            if len(self.print_outputs) > self.max_print_outputs_length:
+                self.print_outputs = self.print_outputs[-self.max_print_outputs_length:]
+            return markdown_table, self.print_outputs, False
         except requests.exceptions.RequestException as e:
-            raise ValueError(f"TFServing request failed for {endpoint}: {str(e)}")
-
-        # Append to log buffer (truncate if necessary)
-        self.print_outputs += str(output) + "\n"
-        if len(self.print_outputs) > self.max_print_outputs_length:
-            self.print_outputs = self.print_outputs[-self.max_print_outputs_length:]
-
-        # For TFServing, the prediction is considered the final answer
-        is_final_answer = True
-
-        return output, self.print_outputs, is_final_answer
+            raise ValueError(f"TFServing request failed for {endpoint}: {str(e)}")        
 
     def set_storage(self, next_step_id: int, code_action: str):
         # No memory available for TFServing
@@ -195,6 +193,10 @@ class LocalTfServingInterpreter(ExecutionEnvironment):
     def get_storage(self, storage_id):
         logger.info("get_storage called but no memory available in TfServing")
         return {}
+    
+    def get_final_storage(self) -> pd.DataFrame:
+        logger.info("get_final_storage called but no storage available in TfServing")
+        return None
     
     def parse_code_blobs(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""

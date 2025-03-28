@@ -1,10 +1,8 @@
 import abc
-import uuid
+import pandas as pd
 from typing import Dict
 from typing import Tuple, Callable, Any, TypedDict, Union, List
 from agentcompany.mcp.base import ModelContextProtocolImpl
-
-# TODO - Implement on top of the ModelContextProtocolImpl class
 
 class Observations(TypedDict):
     step_id: int
@@ -79,3 +77,6 @@ class ExecutionEnvironment(abc.ABC):
                 break
             previous_observations.append(self.state["observations"][i])
         return previous_observations
+    
+    def get_final_storage(self) -> pd.DataFrame:
+        raise NotImplementedError("get_final_storage not implemented.")
