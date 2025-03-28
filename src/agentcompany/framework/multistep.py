@@ -487,21 +487,11 @@ class ReActPattern(ModelContextProtocolImpl):
                 break
             # Create an updated next step node
             updated_next_step = next_step
-            # if observations satisfy the task, return observations and continue to next step
-            # if isinstance(previous_observations, list) and len(previous_observations) > 0:
-            #     validate_previous_approved_observations = self._validate_observations(next_step, previous_observations)
-            #     if validate_previous_approved_observations == "approve":
-            #         self.planning_step.set_status(next_step_id, "approve")
-            #         continue
-            #     elif validate_previous_approved_observations == "fail" or \
-            #             validate_previous_approved_observations == "rethink" or\
-            #                 validate_previous_approved_observations == "step":
-            #         self._update_plan_next_step(next_step_id)
-            #     else:
-            #         raise AgentError(f"Unknown validate decision: {validate_previous_approved_observations}", self.logger)
-            # Update next step taking into account the previous observations
-            if next_step_id > 0:
+            # Update next step taking into account the previous results
+            # With no environment errors till now
+            if next_step_id > 0 and len(previous_environment_errors) == 0:
                 self._update_plan_next_step(next_step_id)
+                # previous_environment_errors = []
                 updated_next_step = self.planning_step.get_step(next_step_id)
             # Check previous CoT    
             if len(previous_environment_errors) > 0:
