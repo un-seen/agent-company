@@ -156,11 +156,6 @@ class PlanningStep(MemoryStep):
     def __init__(self, facts: str, plan: str):
         self.facts = facts
         self.plan = plan
-        # TODO validate the step in each plan
-        # Because the step updates are always at a plan level
-        # The approach of each step can be changed when executing
-        # But the key result is always the same and it must be in sync
-        # with other steps. Therefore the steps must be validated.
         self._plan_list = [p for p in plan.split("\n") if len(p.strip()) > 0]
         self.original_plan_list = [p for p in self._plan_list]
         self._plan_status = {step_id: "step" for step_id, step in enumerate(self._plan_list)}

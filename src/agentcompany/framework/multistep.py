@@ -461,6 +461,12 @@ class ReActPattern(ModelContextProtocolImpl):
         self.logger.log(text=self.plan_message.content, title=f"Initial Plan Message Output ({self.interface_id}/{self.name}):")
         # Add to Memory
         self.planning_step = PlanningStep(facts=self.facts_message.content, plan=self.plan_message.content)
+        # TODO validate the step in each plan
+        # Because the step updates are always at a plan level
+        # The approach of each step can be changed when executing
+        # But the key result is always the same and it must be in sync
+        # with other steps. Therefore the steps must be validated.
+        # Put a while loop even if one step is improper regenerate the planning step
         self.memory.append_step(self.planning_step)
     
     def _update_plan_last_step(self, step_id: int, code_action: str, feedback: str) -> str:

@@ -23,8 +23,9 @@ BASE_BUILTIN_MODULES = [
     "unicodedata",
 ]
 
-PRINT_OUTPUTS, DEFAULT_MAX_LEN_OUTPUT = "", 50000
-OPERATIONS_COUNT, MAX_OPERATIONS = 0, 10000000
+PRINT_OUTPUTS = ""
+DEFAULT_MAX_LEN_OUTPUT = 50000
+MAX_COUNT = 10
 
 
 def get_iterable(obj):
@@ -34,37 +35,6 @@ def get_iterable(obj):
         return list(obj)
     else:
         raise InterpreterError("Object is not iterable")
-
-def fix_final_answer_code(code: str) -> str:
-    """
-    Sometimes an LLM can try to assign a variable to final_answer, which would break the final_answer() tool.
-    This function fixes this behaviour by replacing variable assignments to final_answer with final_answer_variable,
-    while preserving function calls to final_answer().
-    """
-    # First, find if there's a direct assignment to final_answer
-    # Use word boundary and negative lookbehind to ensure it's not an object attribute
-    assignment_pattern = r"(?<!\.)(?<!\w)\bfinal_answer\s*="
-    if "final_answer(" not in code.lower() or not re.search(assignment_pattern, code.lower()):
-        # If final_answer tool is not called in this blob, then doing the replacement is hazardous because it could false the model's memory for next steps.
-        # Let's not modify the code and leave the subsequent assignment error happen.
-        return code
-
-    # Pattern for replacing variable assignments
-    # Looks for 'final_answer' followed by '=' with optional whitespace
-    # Negative lookbehind ensures we don't match object attributes
-    assignment_regex = r"(?<!\.)(?<!\w)(\bfinal_answer)(\s*=)"
-    code = re.sub(assignment_regex, r"final_answer_variable\2", code)
-
-    # Pattern for replacing variable usage but not function calls
-    # Negative lookahead (?!\s*\() ensures we don't match function calls
-    # Negative lookbehind (?<!\.|\w) ensures we don't match object methods or other variables
-    variable_regex = r"(?<!\.)(?<!\w)(\bfinal_answer\b)(?!\s*\()"
-    code = re.sub(variable_regex, "final_answer_variable", code)
-    return code
-
-class FinalAnswerException(Exception):
-    def __init__(self, value):
-        self.value = value
 
 
 def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProtocolImpl], custom_tools, authorized_imports) -> List[dict]:
@@ -141,9 +111,7 @@ def evaluate_sql_code(
     result = None
     global PRINT_OUTPUTS
     PRINT_OUTPUTS = ""
-    global OPERATIONS_COUNT
-    OPERATIONS_COUNT = 0
-
+    
     try:
         for node in expression:
             result = evaluate_ast(pg_conn, node, state, static_tools, custom_tools, authorized_imports)            
@@ -232,6 +200,8 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
     def __call__(self, code_action: str, additional_variables: Dict) -> Tuple[str, str, bool]:
         self.state.update(additional_variables)
         self.reset_connection()
+        code_action = code_action.strip(";")
+        code_action += f" LIMIT {MAX_COUNT};"
         tupled_rows = evaluate_sql_code(
             self.pg_conn,
             code_action,
@@ -260,27 +230,16 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
                 sqlglot.parse(code_blob)
                 return code_blob
             except SyntaxError:
-                pass
-            if "final" in code_blob.lower() and "answer" in code_blob.lower():
-                raise ValueError(f"""
-                        Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
+                raise ValueError(f"""Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
                         Here is your code snippet:
                         {code_blob}
-                        It seems like you're trying to return the final answer, you can do it as follows:
+                        Make sure to include code with the correct pattern, for instance:
+                        Thoughts: Your thoughts
                         Code:
                         ```sql
-                        SELECT final_answer(/* Your SQL code here */);
+                        # Your SQL code here
                         ```<end_code>""".strip())
-            raise ValueError(f"""Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
-                    Here is your code snippet:
-                    {code_blob}
-                    Make sure to include code with the correct pattern, for instance:
-                    Thoughts: Your thoughts
-                    Code:
-                    ```sql
-                    # Your SQL code here
-                    ```<end_code>""".strip())
-        return fix_final_answer_code("\n\n".join(match.strip() for match in matches))
+        return "\n".join(match.strip() for match in matches)
 
     def get_storage_id(self, next_step_id: int) -> str:
         return f"{self.session_id}_temp_storage_{next_step_id}"
@@ -306,9 +265,6 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             cur.execute(f"DROP VIEW IF EXISTS {temp_table_name} CASCADE;")
             # Create the temp table with the result of the code_action query
             code_action = code_action.strip(';')
-            if "LIMIT " in code_action:
-                pattern = re.compile(r'LIMIT \d+')
-                code_action = pattern.sub('', code_action)
             # Write to environment state
             cur.execute(f"CREATE VIEW {temp_table_name} AS ({code_action});")
             self.pg_conn.commit()

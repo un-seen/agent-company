@@ -1213,12 +1213,6 @@ def evaluate_ast(
         raise InterpreterError(f"{expression.__class__.__name__} is not supported.")
 
 
-class FinalAnswerException(Exception):
-    def __init__(self, value):
-        self.value = value
-
-
-
 def evaluate_python_code(
     code: str,
     static_tools: Optional[Dict[str, Callable]] = None,
