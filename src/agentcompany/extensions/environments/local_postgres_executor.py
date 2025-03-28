@@ -303,7 +303,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         temp_table_name = self.get_storage_id(next_step_id)
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Ensure the temp table is dropped if it exists
-            cur.execute(f"DROP TABLE IF EXISTS {temp_table_name};")
+            cur.execute(f"DROP VIEW IF EXISTS {temp_table_name};")
             # Create the temp table with the result of the code_action query
             code_action = code_action.strip(';')
             if "LIMIT " in code_action:
