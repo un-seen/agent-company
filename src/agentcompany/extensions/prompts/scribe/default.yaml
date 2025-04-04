@@ -1,0 +1,131 @@
+FunctionChange: |-
+  
+  You are a {{ environment_interface }} coder. 
+  You are asked to follow the given task to update this existing function as per the user's request and system rules.
+  
+  The function name is:
+  
+  {{ Function }}
+
+  The inputs to the function are:
+
+  {%- for item in InputType %}
+    - name: {{ item.name }}
+      type: {{ item.type }}
+      description: {{ item.description }}
+  {%- endfor %}
+  
+  The function returns a dictionary with the following keys:
+ 
+  {%- for item in ReturnType %}
+
+    - key name: {{ item.name }}
+
+      key type: {{ item.type }}
+
+      key value description: {{ item.description }}
+  {%- endfor %}
+
+  The existing function code is:
+  ```{{ environment_interface }} 
+  {{ existing_function_code }}
+  ```
+  
+  The system rules are as follows:
+  - The function name cannot be changed.
+  - The function inputs cannot be changed.
+  - The function return dict cannot be changed.
+  - The function code can be changed or rewritten as long as the function name, inputs, and return dict remain the same.
+  - The function code must be valid and executable {{ environment_interface }} code.
+
+  The user has given the following task:
+  {{ task }}
+
+  You need to identify the user's intent and return the updated function code.
+  If the user has not provided any intent to change it or if changes are not allowed as per system rules, return `None`.  
+Series:
+  - Source: SELECT * FROM project
+    SourceEnvironment: LocalPostgresInterpreter
+    SourceEnvironmentConfig: 
+      host: 127.0.0.1
+      port: 5432
+      dbname: core
+      user: postgres
+      password: root
+      additional_authorized_imports: "*"
+      additional_authorized_imports: "*"
+    # [USER-DEFINED] Prompt: "Whats the code diff between the base and the head html files?"
+    CodeOutput:
+        Variables:
+          Function: get_category_set_value
+          InputType:
+            - name: base_html
+              type: str
+              description: The base html file
+            - name: head_html
+              type: str
+              description: The head html file
+            - name: base_image
+              type: str
+              description: The base image file
+            - name: head_image
+              type: str
+              description: The head image file
+          ReturnType:
+            - name: category
+              type: str
+              description: The category of the return value
+            - name: set
+              type: str
+              description: The largest possible set of the return value
+            - name: value
+              type: Any
+              description: The value of the return value
+        Prompt: |-
+          You are a python coder and you have been given the task to write a python function.
+
+          Here is the task:
+          {{ task }}
+
+          The function signature is:
+          ```python
+          def {{ Function }}({%- for item in InputType %}{{ item.name }}: {{ item.type }}{%- if not loop.last %}, {% endif %}{%- endfor %}) -> Dict[str, Any]:
+          ```
+
+          {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+          You can use these functions to complete sub-tasks efficiently.
+          {%- for server in mcp_servers.values() %}
+          - {{ server.name }}: {{ server.description }}
+              Takes inputs: {{server.inputs}}
+              Returns an output of type: {{server.output_type}}
+          {%- endfor %}
+          {%- endif %}
+
+          The function must return a dictionary with the following keys:
+          {%- for item in ReturnType %}
+
+          - key name: {{ item.name }},
+            key type: {{ item.type }},
+            key value description: {{ item.description }}
+
+          {%- endfor %}
+        Environment: LocalPythonInterpreter
+        EnvironmentConfig:
+          additional_authorized_imports: "*"
+  - CodeOutput:
+        Constant: |-
+          INSERT INTO attribute (project_id, item_id, category, set, value)
+          VALUES ('{{project_id}}', '{{item_id}}', '{{category}}', '{{set}}', '{{value}}')
+          ON CONFLICT (project_id, item_id)
+          DO UPDATE SET category = EXCLUDED.category,
+                        set = EXCLUDED.set,
+                        value = EXCLUDED.value;
+        Environment: LocalPostgresInterpreter
+        EnvironmentConfig: 
+          host: 127.0.0.1
+          port: 5432
+          dbname: core
+          user: postgres
+          password: root
+          additional_authorized_imports: "*"
+        ReturnType:

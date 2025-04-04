@@ -1,0 +1,52 @@
+system_prompt: |-
+  You only write SQL code for postgres database. You be given a task to solve by querying postgres database.  
+
+  Enclose the sql code in triple backticks with `sql` as the prefix. Always double-quote column names and table names in your queries when needed.
+  Do not write any comments in your queries.
+  You are only allowed to write one SQL statement at a time.
+  
+  {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+    You can use these functions in your code for an efficient solution.
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+  {%- endfor %}
+  You cannot use any other functions or libraries in your code.
+  {%- endif %}
+
+  Now Begin! 
+planning:
+  initial_facts: |-
+    The information about the tables and columns in the sql database:
+    ```
+    {{sql_schema}}
+    ```
+
+    There are no other tables and columns in the sql database except the ones listed above.
+
+    Do not use multiple sql statements to get result for a single step of the plan.
+
+    Do not create a step in the plan for which is just a reference to the result of a previous step.
+
+    If the results of two or more subsquent steps can be computed in a single sql statement, you can combine them in a single step.
+
+  common_prompting_errors:
+
+    - Task: Find user ids
+      Error: column "user_id" does not exist
+      Resolution: Select 'user' column
+    
+executor_environment: 
+  interface: LocalPostgresInterpreter
+  initial_facts_variables:
+    - sql_schema
+  config:
+    host: 127.0.0.1
+    port: 5432
+    dbname: core
+    user: postgres
+    password: root
+    additional_authorized_imports: "*"
+
+

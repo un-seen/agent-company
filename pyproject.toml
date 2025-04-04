@@ -1,0 +1,44 @@
+    [project]
+    name = "agentcompany"
+    version = "0.1.0"
+    description = "An agent company"
+    readme = "README.md"
+    requires-python = ">=3.8"
+    dependencies = [
+        "pyfiglet",
+        "python-dotenv",
+        "rich",
+        "huggingface_hub",
+        "pillow",
+        "numpy",
+        "pydantic",
+        "openai",
+        "pandas>=2.2.3",
+        "redis",
+        "jinja2>=3.1.5",
+        "logfire",
+        "duckdb",
+        "sqlglot",
+        "boto3==1.35.99",
+        "duckduckgo-search",
+        "psycopg2-binary"
+    ]
+
+
+    [build-system]
+    requires = ["setuptools>=42", "wheel"]
+    build-backend = "setuptools.build_meta"
+
+
+    [tool.setuptools.packages.find]
+    # Look for packages inside the src folder.
+    where = ["src"]
+    # Include only packages starting with "agent_company".
+    include = ["agentcompany*"]
+
+    [tool.setuptools.package-data]
+    "agentcompany" = ["**/*.yaml", "**/*.yml"]
+
+    # [tool.uv]
+    # You can place uv-specific configuration here if needed.
+    # For example, you might specify script entry points, environment settings, etc.

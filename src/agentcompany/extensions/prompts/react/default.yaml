@@ -1,0 +1,265 @@
+planning:
+  final_answer: |-
+
+    {{ role }}
+    
+    Here is the task:
+    ```
+    {{task}}
+    ```
+
+    Here is the list of code written for each step in the plan:
+
+    {%- for observation in observations %}
+
+      - Step: 
+        {{ observation.step }}
+
+        Validated Code
+        {{ observation.code_action }}
+
+        Feedback
+        {{ observation.feedback }}
+
+
+    {%- endfor %}
+
+    {%- if previous_environment_errors|length > 0 %}
+    The previous attempts failed with the following errors:
+    {%- for error in previous_environment_errors %}
+
+      - Code: 
+        {{ error.code }}
+
+      - Error: 
+        {{ error.error }}
+
+    {%- endfor %}
+    {%- endif %}
+
+    You must write code that combines the validated code from previous steps to generate a final answer.
+    
+    Now Begin!
+  validate_observations: |-
+    {{role}}
+
+    Here is the task:
+    ```
+    {{task}}
+    ```
+
+    Here are the current observations:
+    {%- for observation in observations %}
+
+      - Step: {{ observation.step }}
+
+        Valid Code: {{ observation.code_action }}
+
+        Result: {{ observation.observations }}
+        
+    {%- endfor %}
+    
+    You must make a decision by responding with a hashtag:
+    1. #approve: If the previous observations completely solve the task.
+    2. #fail: If the previous observations do not completely solve the task.
+
+  initial_facts: |-
+  prompt_engineer: |-
+
+    {{ role }}
+
+    Here is the task:
+    ```
+    {{next_step}}
+    ```
+
+    {%- if previous_environment_errors|length > 0 %}
+    The previous attempts failed with the following errors:
+    {%- for error in previous_environment_errors %}
+
+      - Code: 
+        {{ error.code }}
+        - Error:
+          {{ error.error }}
+
+    {%- endfor %}
+    {%- endif %}
+
+    {%- if common_prompting_errors|length > 0 %}
+
+    Some common errors with their resolutions are:
+
+    {%- for error in common_prompting_errors %}
+
+      - Task: {{ error.Task }} 
+
+        Error: {{ error.Error }}
+
+        Resolution: {{ error.Resolution }}
+
+    {%- endfor %}
+    {%- endif %}
+    
+    You have to update the task in plain english with a different approach to overcome the coding errors.
+    
+    {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+    You can use these functions to complete sub-tasks for efficiently.
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+    {%- endfor %}
+    {%- endif %}
+
+    The updated task should not be longer than {{max_task_length}} words.
+
+    Now Begin!
+
+  common_prompting_errors: |-
+  initial_plan : |-
+    {{role}}
+
+    Here is the task:
+    ```
+    {{task}}
+    ```
+
+    ```
+    {{facts}}
+    ```
+
+    Now for the given task, write a step-by-step plan strictly following the rules below:
+    1. Every step must instruct a filtering or transformation of data to get closer to the final result.
+    2. Each filtering and transformation step must have a result that is used in the next step.
+    3. Steps must be in plain english with no code included
+    4. Every step must be separated by a newline.
+    5. Do not add any steps after computing the final result of the task.
+    6. The total number of steps must be less than {{ max_steps + 1 }}.
+
+    {%- if common_prompting_errors|length > 0 %}
+
+    Some common tasks and their corresponding steps are:
+
+    {%- for error in common_prompting_errors %}
+
+      - Task: {{ error.Task }} 
+        Step: {{ error.Resolution }}
+
+    {%- endfor %}
+    {%- endif %}
+
+    Now begin!
+  update_facts: |-
+    {{role}}
+    
+    {{facts}}
+
+    {%- for observation in observations %}
+      - Step: {{ observation.step }}
+        Validated Code: {{ observation.code_action }}
+        Observations: {{ observation.observations }}
+        Feedback: {{ observation.feedback }}
+    {%- endfor %}
+
+    Please update your list of facts based on the previous observations, and provide these headings:
+    ### 1. Facts that are established.
+    ### 2. Facts still unknown
+    
+    Now begin!
+  judge: |-
+    You are the supervisor of an AI agent who writes code and the agent is trying to solve a task. 
+    
+    Task: 
+    {{task}}
+    
+    Code: 
+    {{code}}
+    
+    Observations: 
+    {{observations}}
+
+    You have to take into consideration results from previously completed steps:
+
+    {%- for storage in storage_data %}
+
+      - Step: {{ storage.step }}
+
+        {{ storage.storage }}
+
+    {%- endfor %}
+
+    {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+    These functions are used to complete a step efficiently.
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+    {%- endfor %}
+    {%- endif %}
+
+    You must evaluate the agent's code and provide feedback on the following aspects:
+    1. Correctness: Is the code correct and does it solve the task?
+    2. Efficiency: Is the code efficient and does it follow best practices?
+
+    You must make a decision by starting with a hashtag:
+    1. #approve: If the code is correct, efficient and completes the task. Please specify why the code output does not miss any edge cases and it doesn't have issues in the output.
+    2. #fail: If the code is incorrect, inefficient, does not solve the task, or has issues in the output. Please specify why the code cannot be improved to solve the task.
+    3. #rethink: If the task can be rephrased for better outcome. Please provide guidance on how to rethink the task.
+
+    Now begin!
+  update_plan_last_step: |-
+    {{role}}
+
+    The task is:
+    ```
+    {{ task }}
+    ```
+    
+    List of facts you can use:  
+    ```
+    {{facts}}
+    ```
+
+    The current execution plan is:
+
+    {{ plan_status_table }}
+    
+    You have to rewrite this step of the plan which was attempted by a programmer:
+    ```
+    {{ next_step }}
+    ```
+
+    The last code attempt was:
+    ```
+    {{ code }}
+    ```
+
+    The last code execution returned this error:
+    ```
+    {{ feedback }}
+    ```
+    
+    Do not include any code in your plan. Only write the step in plain english.
+    
+    Now begin! 
+  update_plan_next_step: |-
+    {{role}}
+
+    The task is:
+    ```
+    {{ next_step }}
+    ```
+    
+    You have to update the above task based on results from previously completed steps:
+
+    {%- for storage in storage_data %}
+
+      - Step: {{ storage.step }}
+
+        {{ storage.storage }}
+
+    {%- endfor %}
+    
+    You should make sure the updated task does not repeat any work that has already been completed.
+    
+    Now begin! 
