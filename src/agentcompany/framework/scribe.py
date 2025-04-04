@@ -268,7 +268,7 @@ class ScribePattern(ModelContextProtocolImpl):
                 self.logger.log(title="Code Action:", text=", ".join(callable_dict.keys()))
                 # Save function in Redis
                 function_name = code_variables["Function"]
-                function_key = self.get_function_key(function_name)
+                function_key = self.get_function_id(function_name)
                 self.redis_client.set(function_key, code_output_message.content)
                 return
             except Exception as e:
@@ -277,7 +277,7 @@ class ScribePattern(ModelContextProtocolImpl):
                     self.logger,
                 ) from e
         
-    def get_function_key(self, function_name: str) -> str:
+    def get_function_id(self, function_name: str) -> str:
         """
         Get the function key for a given function name.
         Args:
@@ -312,7 +312,7 @@ class ScribePattern(ModelContextProtocolImpl):
             title=f"Create Function Prompt Input:"
         )  
         function_name = variables["Function"]
-        function_key = self.get_function_key(function_name)
+        function_key = self.get_function_id(function_name)
         # Create function code
         try:
             code_output_message: ChatMessage = self.model([function_create_message])
@@ -388,7 +388,7 @@ class ScribePattern(ModelContextProtocolImpl):
             # If Prompt Provided Call LLM
             if prompt_based_compute:
                 function_name = series["CodeOutput"]["Variables"]["Function"]
-                function_key = self.get_function_key(function_name)
+                function_key = self.get_function_id(function_name)
                 code_variables = series["CodeOutput"]["Variables"]
                 code_prompt = series["CodeOutput"]["Prompt"]
                 # The user is asking to call a minted function
