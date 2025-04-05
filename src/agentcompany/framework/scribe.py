@@ -221,13 +221,14 @@ class ScribePattern(ModelContextProtocolImpl):
             "environment_interface": environment.language,
         }
         variables.update(code_variables)
+        function_update_prompt = self.prompt_templates["FunctionUpdate"]
         function_change_message = {
             "role": MessageRole.USER,
             "content": [
                 {
                     "type": "text",
                     "text": populate_template(
-                        self.prompt_templates["FunctionChange"],
+                        function_update_prompt,
                         variables=variables
                     )
                 }
