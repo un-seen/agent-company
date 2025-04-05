@@ -531,7 +531,8 @@ class ReActPattern(ModelContextProtocolImpl):
             if len(previous_environment_errors) > 0:
                 variables = {
                     "role": self.description,
-                    "previous_environment_errors": previous_environment_errors, 
+                    # fetch most recent errors
+                    "previous_environment_errors": previous_environment_errors[-3:][::-1], 
                     "next_step": next_step,  
                     "mcp_servers": self.mcp_servers,
                     "max_task_length": 150,
