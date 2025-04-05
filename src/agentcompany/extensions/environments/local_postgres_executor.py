@@ -375,7 +375,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             for col in columns:
                 col_name = col['name']
                 col_type = col['type']
-                sample_value = ", ".join(col['sample_values'])
+                sample_value = ", ".join([item for item in col['sample_values'] if isinstance(item, str)])
                 select_prompt.append(col_name)
                 info_prompt.append(f"{col_name} ({col_type}), Example: {sample_value}")
             
