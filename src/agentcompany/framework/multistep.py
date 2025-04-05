@@ -591,7 +591,7 @@ class ReActPattern(ModelContextProtocolImpl):
             # Execute code in environment
             try:
                 # Environment Code Compiles!
-                observations, _, _ = self.executor_environment(code_action=code_action, additional_variables={})
+                observations, _, _ = self.executor_environment(code_action=code_action, additional_variables={}, return_type="string")
                 self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
             except Exception as e:
                 # Environment Code Compilation Error or Runtime Error!

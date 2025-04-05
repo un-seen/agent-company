@@ -236,7 +236,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             return ' '.join(error_lines).strip()
         return execution_logs
         
-    def __call__(self, code_action: str, additional_variables: Dict, return_type: str) -> Tuple[Union[List[dict], str], str, bool]:
+    def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[Union[List[dict], str], str, bool]:
         self.state.update(additional_variables)
         self.reset_connection()
         code_action = code_action.strip(";")
