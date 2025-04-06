@@ -46,10 +46,10 @@ The following table organizes the environment types, providing a structured view
 
 </div>
 
-- 🚀 **Coming Soon**: SFT & GRPO support for base LLMs!
-- 🛡️ Safe shell execution with permission controls
+- 🚀 **Coming Soon**: Remote MCP Server Support!
 - 🔍 Integrated memory search using Redis
 - 🤝 OpenAI-compatible API endpoints
+- 📖 Finetuning, Cloud SFT & GRPO training support for base LLMs
 
 
 ## Contribute
