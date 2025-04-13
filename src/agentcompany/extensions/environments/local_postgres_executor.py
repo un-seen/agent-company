@@ -71,7 +71,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
     # Check if the expression is a sqlglot SELECT statement.
     # (sqlglot returns expressions from the sqlglot.exp module;
     # adjust the type check if needed.)
-    if isinstance(node, sqlglot.exp.Select) or isinstance(node, sqlglot.exp.Insert) or isinstance(node, sqlglot.exp.Update) or isinstance(node, sqlglot.exp.Delete):
+    if isinstance(node, sqlglot.exp.Select) or isinstance(node, sqlglot.exp.Insert) or isinstance(node, sqlglot.exp.Update) or isinstance(node, sqlglot.exp.Delete) or isinstance(node, sqlglot.exp.Create) or isinstance(node, sqlglot.exp.Drop):
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
         for idx, statement in enumerate(node.expressions):
@@ -126,7 +126,7 @@ def evaluate_sql_code(
         authorized_imports (List[str]): List of modules that are allowed to be imported.
         max_count (int): Maximum number of items to return from a SELECT statement.
     """
-    if not (code.lower().startswith("select") or code.lower().startswith("create") or code.lower().startswith("insert") or code.lower().startswith("update") or code.lower().startswith("delete")):
+    if not (code.lower().startswith("drop") or code.lower().startswith("select") or code.lower().startswith("create") or code.lower().startswith("insert") or code.lower().startswith("update") or code.lower().startswith("delete")):
         code = f"SELECT {code}"
     
     if code.lower().startswith("select") and max_count != None:
