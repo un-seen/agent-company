@@ -88,17 +88,13 @@ class OpenAIServerLLM(AugmentedLLM):
             message = ChatMessage.from_dict(
                 response.choices[0].message.model_dump(include={"role", "content"})
             )
+            message.raw = response
         else:
             raise ValueError(
                 f"Invalid return_type '{return_type}'. Supported types are 'string' and 'list'."
             )
-        
-        
         # self.last_input_token_count = response.usage.prompt_tokens
-        # self.last_output_token_count = response.usage.completion_tokens
-
-        
-        message.raw = response
+        # self.last_output_token_count = response.usage.completion_tokens        
         return message
 
     def generate_system_prompt(self, model_cls: type[BaseModel]) -> str:
