@@ -326,6 +326,7 @@ class FlowPattern(ModelContextProtocolImpl):
         while i < len(plan):
             node = plan[i]
             step = node["step"]
+            state["task"] = step
             out = node.get("out", "one_to_one")
             out_id = node.get("out_id")
             action_type = node.get("action", "execute")
@@ -403,9 +404,11 @@ class FlowPattern(ModelContextProtocolImpl):
             if any(keyword.lower() in prompt_lower for keyword in hint.get("keyword", []))
         ]
         filtered_hints_str = f"""
+        ```md
         Hints
         ---
         {list_of_dict_to_markdown_table(filtered_hints)}
+        ```
         """.strip()
         system_prompt = self.description
 
