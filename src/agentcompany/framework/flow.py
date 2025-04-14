@@ -438,16 +438,12 @@ class FlowPattern(ModelContextProtocolImpl):
                 model_input_messages_with_errors.append(
                     {"role": "system", "content": [{"type": "text", "text": error_str}]}
                 )    
-            # TODO handle return type
             try:
                 code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
             except Exception as e:
                 raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
-
             observations = None
-            # TODO set return type when action type is not serial, add this in self.model call using type    
-            self.logger.log(text=action_type, title="Action Type:")
-            if action_type == "execute":
+            if return_type == "string":
                 try:
                     code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
                     self.logger.log(title="Code:", text=code_action)
@@ -456,6 +452,14 @@ class FlowPattern(ModelContextProtocolImpl):
                     error_msg = self.executor_environment.parse_error_logs(error_msg)
                     previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
                     continue
+            elif return_type == "list":
+                code_action = code_output_message.content
+            else:
+                raise ValueError(f"Unknown return type: {return_type}")
+            
+            self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
+            
+            if action_type == "execute":
                 try:
                     observations, _, _ = self.executor_environment(
                         code_action=code_action,
