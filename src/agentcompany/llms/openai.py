@@ -79,10 +79,15 @@ class OpenAIServerLLM(AugmentedLLM):
         
         if return_type == "list":
             completion_kwargs["response_format"] = ArrayOutput
+            value = self.client.beta.chat.completions.parse(**completion_kwargs).choices[0].message.parsed
+            print(f"list value: {value}")
+            value = value.model_dump(include={"array"})
+            print(f"list value: {value}")
             message = {
                 "role": "assistant",
-                "content": self.client.beta.chat.completions.parse(**completion_kwargs).choices[0].message.parsed
+                "content": value["array"],
             }
+            print(f"list message: {message}")
             message = ChatMessage.from_dict(
                 message
             )
