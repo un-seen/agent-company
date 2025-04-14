@@ -8,6 +8,47 @@ executor_environment:
     user: postgres
     password: root
     additional_authorized_imports: "*"
+judge: |-
+    You are the supervisor of an AI agent who writes code and the agent is trying to solve a task. 
+    
+    Task: 
+    {{task}}
+    
+    Code: 
+    {{code}}
+    
+    Observations: 
+    {{observations}}
+
+    You have to take into consideration results from previously completed steps:
+
+    {%- for storage in storage_data %}
+
+      - Step: {{ storage.step }}
+
+        {{ storage.storage }}
+
+    {%- endfor %}
+
+    {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+    These functions are used to complete a step efficiently.
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+    {%- endfor %}
+    {%- endif %}
+
+    You must evaluate the agent's code and provide feedback on the following aspects:
+    1. Correctness: Is the code correct and does it solve the task?
+    2. Efficiency: Is the code efficient and does it follow best practices?
+
+    You must make a decision by starting with a hashtag:
+    1. #approve: If the code is correct, efficient and completes the task. Please specify why the code output does not miss any edge cases and it doesn't have issues in the output.
+    2. #fail: If the code is incorrect, inefficient, does not solve the task, or has issues in the output. Please specify why the code cannot be improved to solve the task.
+    3. #rethink: If the task can be rephrased for better outcome. Please provide guidance on how to rethink the task.
+
+    Now begin!
 plan:
   - step: |-
       Here is the task:

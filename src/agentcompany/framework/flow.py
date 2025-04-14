@@ -451,7 +451,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 "content": [{
                     "type": "text", 
                     "text": populate_template(
-                        self.prompt_templates["planning"]["judge"],
+                        self.prompt_templates["judge"],
                         variables={
                             "task": model_input_messages_str,
                             "code": code_action,
