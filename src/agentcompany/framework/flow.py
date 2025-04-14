@@ -325,7 +325,6 @@ class FlowPattern(ModelContextProtocolImpl):
         i = 0
         while i < len(plan):
             node = plan[i]
-
             step = node["step"]
             out = node.get("out", "one_to_one")
             out_id = node.get("out_id")
@@ -334,7 +333,7 @@ class FlowPattern(ModelContextProtocolImpl):
             from jinja2 import Template
             template: Template = Template(step)
             rendered_step = template.render(**state)
-
+            self.logger.log(text=rendered_step, title=f"Step {i} ({self.interface_id}/{self.name}) Out-> {out}, Out_id-> {out_id}:")
             if out == "one_to_many":
                 output = self._run_step(rendered_step, action_type)
 
@@ -403,12 +402,16 @@ class FlowPattern(ModelContextProtocolImpl):
             hint for hint in hints
             if any(keyword.lower() in prompt_lower for keyword in hint.get("keyword", []))
         ]
-
+        filtered_hints_str = f"""
+        Hints
+        ---
+        {list_of_dict_to_markdown_table(filtered_hints)}
+        """.strip()
         system_prompt = self.description
 
         model_input_messages = [
             {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-            {"role": "user", "content": [{"type": "text", "text": list_of_dict_to_markdown_table(filtered_hints)}]},
+            {"role": "user", "content": [{"type": "text", "text": filtered_hints_str}]},
             {"role": "user", "content": [{"type": "text", "text": prompt}]}
         ]
 

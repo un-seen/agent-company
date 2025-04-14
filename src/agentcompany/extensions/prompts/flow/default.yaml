@@ -70,7 +70,6 @@ plan:
     out_id: result_table
     action: final_answer
   - step: |-  
-
       Here is the task:
       ```
       {{task}}
