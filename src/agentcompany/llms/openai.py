@@ -83,6 +83,9 @@ class OpenAIServerLLM(AugmentedLLM):
                 "role": "assistant",
                 "content": self.client.beta.chat.completions.parse(**completion_kwargs).choices[0].message.parsed
             }
+            message = ChatMessage.from_dict(
+                message
+            )
         elif return_type == "string":
             response = self.client.chat.completions.create(**completion_kwargs)
             message = ChatMessage.from_dict(

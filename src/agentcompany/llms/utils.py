@@ -52,7 +52,6 @@ class ChatMessageFunctionCall:
 class ChatMessage:
     role: str
     content: Optional[str] = None
-    function_calls: Optional[List[ChatMessageFunctionCall]] = None
     raw: Optional[Any] = None  # Stores the raw output from the API
 
     def model_dump_json(self):
@@ -60,14 +59,6 @@ class ChatMessage:
 
     @classmethod
     def from_dict(cls, data: dict) -> "ChatMessage":
-        if data.get("function_calls"):
-            function_calls = [
-                ChatMessageFunctionCall(
-                    function=ChatMessageFunctionCallDefinition(**tc["function"]), id=tc["id"], type=tc["type"]
-                )
-                for tc in data["function_calls"]
-            ]
-            data["function_calls"] = function_calls
         return cls(**data)
 
     def dict(self):

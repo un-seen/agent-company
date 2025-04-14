@@ -446,7 +446,6 @@ class FlowPattern(ModelContextProtocolImpl):
             if return_type == "string":
                 try:
                     code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
-                    self.logger.log(title="Code:", text=code_action)
                 except Exception as e:
                     error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
                     error_msg = self.executor_environment.parse_error_logs(error_msg)
