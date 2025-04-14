@@ -53,8 +53,6 @@ Series:
       user: postgres
       password: root
       additional_authorized_imports: "*"
-      additional_authorized_imports: "*"
-    # [USER-DEFINED] Prompt: "Whats the code diff between the base and the head html files?"
     CodeOutput:
         Variables:
           Function: get_category_set_value
