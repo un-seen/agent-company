@@ -287,8 +287,8 @@ class FlowPattern(ModelContextProtocolImpl):
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
                 additional_variables={},
-                return_type="string"
             )
+            self.executor_environment.set_storage(next_step_id=0, code_action=code_action)
             self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
         except Exception as e:
             error_msg = "Error in Code Execution: \n"
@@ -300,7 +300,8 @@ class FlowPattern(ModelContextProtocolImpl):
             raise AgentExecutionError(error_msg, self.logger) from e
         
         self.state["current"] = observations
-        return observations
+        
+        return self.executor_environment.get_final_storage()
     
     def setup_environment(self):
         # Get class name from config
