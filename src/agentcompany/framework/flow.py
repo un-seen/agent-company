@@ -439,17 +439,17 @@ class FlowPattern(ModelContextProtocolImpl):
                 raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
 
             observations = None
+            try:
+                code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
+                self.logger.log(title="Code:", text=code_action)
+            except Exception as e:
+                error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                error_msg = self.executor_environment.parse_error_logs(error_msg)
+                previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
+                continue
+                
             self.logger.log(text=action_type, title="Action Type:")
             if action_type == "execute":
-                try:
-                    code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
-                    self.logger.log(title="Code:", text=code_action)
-                except Exception as e:
-                    error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-                    error_msg = self.executor_environment.parse_error_logs(error_msg)
-                    previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
-                    continue
-
                 try:
                     observations, _, _ = self.executor_environment(
                         code_action=code_action,
