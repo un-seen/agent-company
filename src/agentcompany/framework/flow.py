@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from agentcompany.llms.monitoring import (
     AgentLogger,
 )
+import copy
 from typing_extensions import Literal
 from psycopg2.extras import RealDictCursor
 from agentcompany.extensions.environments.local_postgres_executor import LocalPostgresInterpreter
@@ -16,6 +17,7 @@ from agentcompany.driver.errors import (
     AgentExecutionError,
     AgentGenerationError,
 )
+from agentcompany.driver.markdown import list_of_dict_to_markdown_table
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from typing import TypedDict
 from agentcompany.framework.prompt_template import ExecutionEnvironmentConfig, populate_template
@@ -373,92 +375,109 @@ class FlowPattern(ModelContextProtocolImpl):
     
     def _run_step(self, prompt: str) -> None:
         hints = self.prompt_templates["hint"]
-        # TODO filter hint if prompt has any of the keywords associated with the hint
-        # and add it to the model_input_messages
-        filtered_hints = hints # TODO filter hints
-        system_prompt = self.prompt_templates["system_prompt"]
-        model_input_messages = [system_prompt, filtered_hints, prompt]
+        prompt_lower = prompt.lower()    
+
+        filtered_hints = [
+            hint for hint in hints
+            if any(keyword.lower() in prompt_lower for keyword in hint.get("keyword", []))
+        ]
+
+        system_prompt = self.description
+
+        model_input_messages = [
+            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+            {"role": "user", "content": [{"type": "text", "text": list_of_dict_to_markdown_table(filtered_hints)}]},
+            {"role": "user", "content": [{"type": "text", "text": prompt}]}
+        ]
+
         model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
         self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
-        
+
+        previous_environment_errors: List[Dict[str, Any]] = []
+
         while True:
-            # Execute LLM
+            model_input_messages_with_errors = copy.deepcopy(model_input_messages)
+
+            if previous_environment_errors:
+                error_str = "\n\n".join([
+                    f"Error encountered:\n{err['error']}\nProblematic code:\n{err['code']}"
+                    for err in previous_environment_errors
+                ])
+                model_input_messages_with_errors.append(
+                    {"role": "system", "content": [{"type": "text", "text": error_str}]}
+                )    
+
             try:
-                code_output_message: ChatMessage = self.model(
-                    model_input_messages
-                )
+                code_output_message: ChatMessage = self.model(model_input_messages_with_errors)
                 self.logger.log(
                     text=code_output_message.content,
                     title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
                 )
             except Exception as e:
                 raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
-            
-            # Parse code as per exection environment
+
             try:
                 code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
                 self.logger.log(title="Code:", text=code_action)
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_action, "error": error_msg})
+                previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
                 continue
-            
-            # Execute code in environment
+
             try:
-                # Environment Code Compiles!
-                observations, _, _ = self.executor_environment(code_action=code_action, additional_variables={}, return_type="string")
+                observations, _, _ = self.executor_environment(
+                    code_action=code_action,
+                    additional_variables={},
+                    return_type="string"
+                )
                 self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
             except Exception as e:
-                # Environment Code Compilation Error or Runtime Error!
                 error_msg = "Error in Code Execution: \n"
                 if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
                     error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
                 error_msg += str(e)
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                self.logger.log(text=f"Code: {code_action} \n\n Error: {error_msg}", title="Error in Code Execution:")
+                self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in Code Execution:")
                 previous_environment_errors.append({"code": code_action, "error": error_msg})
                 continue
-            
-            if len(observations) == 0:
+
+            if not observations:
                 previous_environment_errors.append({"code": code_action, "error": "There is no output for the code."})
                 continue
-            
-            # Judge
+
             judge_input_message = {
                 "role": MessageRole.USER, 
-                "content": [
-                    {
-                        "type": "text", 
-                        "text": populate_template(
-                            self.prompt_templates["planning"]["judge"],
-                            variables={
-                                "task": model_input_messages_str,
-                                "code": code_action,
-                                "mcp_servers": self.mcp_servers,
-                                "observations": observations,
-                            }
-                        )
-                    }
-                ]
+                "content": [{
+                    "type": "text", 
+                    "text": populate_template(
+                        self.prompt_templates["planning"]["judge"],
+                        variables={
+                            "task": model_input_messages_str,
+                            "code": code_action,
+                            "mcp_servers": self.mcp_servers,
+                            "observations": observations,
+                        }
+                    )
+                }]
             }
-            self.logger.log(text=judge_input_message["content"][0]["text"], title=f"Judge Input ({self.interface_id}/{self.name}) :")
-            judge_output_message: ChatMessage = self.model(
-                [judge_input_message]
-            )
-            # Record Judge Step
+            self.logger.log(text=judge_input_message["content"][0]["text"], title=f"Judge Input ({self.interface_id}/{self.name}):")
+            judge_output_message: ChatMessage = self.model([judge_input_message])
+
             self.judge_step = JudgeStep([judge_input_message], judge_output_message)
             self.memory.append_step(self.judge_step)
-            # Judge Decision and Feedback
+
             decision = self.judge_step.to_decision()
             feedback = self.judge_step.get_feedback_content()
-            self.logger.log(text=self.judge_step.model_output_message.content, title=f"Judge Output ({self.interface_id}/{self.name}) :")
-            self.logger.log(text=decision, title=f"Judge Decision ({self.interface_id}/{self.name}) :")
-            # Set Judge Step Gate
+
+            self.logger.log(text=self.judge_step.model_output_message.content, title=f"Judge Output ({self.interface_id}/{self.name}):")
+            self.logger.log(text=decision, title=f"Judge Decision ({self.interface_id}/{self.name}):")
+
             if decision == "approve":
                 break
             else:
-                previous_environment_errors: List[EnvironmentError] = [{"code": code_action, "error": feedback, "prompt": updated_next_step}]
+                previous_environment_errors = [{"code": code_action, "error": feedback}]
+
         
     
     def forward(self, task: str) -> Any:
