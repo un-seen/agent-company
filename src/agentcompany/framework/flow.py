@@ -6,7 +6,9 @@ from agentcompany.llms.monitoring import (
 )
 import copy
 from typing_extensions import Literal
-from psycopg2.extras import RealDictCursor
+from agentcompany.llms.base import (
+    ReturnType
+)
 from agentcompany.extensions.environments.local_postgres_executor import LocalPostgresInterpreter
 from redis import Redis
 import os
@@ -32,7 +34,7 @@ from agentcompany.llms.utils import (
 logger = getLogger(__name__)
 
 type ActionType = Literal["final_answer", "skip", "execute"]
-    
+
 class Node(TypedDict):
     """
     Node for the Agent Flow
@@ -337,14 +339,15 @@ class FlowPattern(ModelContextProtocolImpl):
             out = node.get("out", "one_to_one")
             out_id = node.get("out_id")
             action_type = node.get("action", "execute")
+            return_type = node.get("return_type", "string")
             # Replace placeholders in the step with values from state
             from jinja2 import Template
             template: Template = Template(step)
-            self.logger.log(text=step, title=f"Step {i} ({self.interface_id}/{self.name}) In-> {state}:")
+            self.logger.log(title=f"Step {i} ({self.interface_id}/{self.name})", text=state)
             rendered_step = template.render(**state)
             self.logger.log(text=rendered_step, title=f"Step {i} ({self.interface_id}/{self.name}) Out-> {out}, Out_id-> {out_id}:")
             if out == "one_to_many":
-                output = self._run_step(rendered_step, action_type)
+                output = self._run_step(rendered_step, action_type, return_type)
 
                 if not isinstance(output, list):
                     raise ValueError(f"Expected list output for 'one_to_many', got {type(output)}")
@@ -360,36 +363,33 @@ class FlowPattern(ModelContextProtocolImpl):
 
                     for next_step in next_steps:
                         next_step_out = next_step.get("out", "one_to_one")
+                        if next_step_out != "one_to_one":
+                            # TODO support other node outs like many_to_one and one_to_many
+                            raise ValueError("After one_to_many, only one_to_one is allowed")
                         next_step_out_id = next_step.get("out_id")
-
-                        template_next: Template = Template(next_step["step"])
-                        rendered_next_step = template_next.render(**local_state)
                         next_step_action_type = next_step.get("action", "execute")
-                        next_output = self._run_step(rendered_next_step, next_step_action_type)
-
+                        next_step_return_type = next_step.get("return_type", "string")
+                        template_next: Template = Template(next_step["step"])
+                        # Render the step
+                        rendered_next_step = template_next.render(**local_state)
+                        # Run the next step
+                        next_output = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type)
+                        # Set output in local state out id
                         if next_step_out_id:
                             local_state[next_step_out_id] = next_output
-                        local_state["current"] = next_output
-
-                        if next_step_out == "many_to_one":
-                            if not isinstance(local_state["current"], list):
-                                raise ValueError("Expected list output for 'many_to_one'")
-                            for sub_item in local_state["current"]:
-                                sub_local_state = local_state.copy()
-                                sub_local_state["current"] = sub_item
-                                # Assuming next recursive execution logic here if needed
+                        local_state["current"] = next_output                           
 
                 break  # Exiting the loop as subsequent steps were processed already
 
             elif out == "one_to_one":
-                output = self._run_step(rendered_step, action_type)
+                output = self._run_step(rendered_step, action_type, return_type)
                 state["current"] = output
                 if out_id:
                     state[out_id] = output
             elif out == "many_to_one":
                 if not isinstance(state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
-                output = self._run_step(rendered_step, action_type)
+                output = self._run_step(rendered_step, action_type, return_type)
                 state["current"] = output
                 if out_id:
                     state[out_id] = output
@@ -401,7 +401,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 self.state.update(state)
                 break
     
-    def _run_step(self, prompt: str, action_type: ActionType) -> None:
+    def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType) -> None:
         hints = self.prompt_templates["hint"]
         prompt_lower = prompt.lower()    
 
@@ -410,11 +410,9 @@ class FlowPattern(ModelContextProtocolImpl):
             if any(keyword.lower() in prompt_lower for keyword in hint.get("keyword", []))
         ]
         filtered_hints_str = f"""
-        ```md
-        Hints
-        ---
+        ## Hints
+        
         {list_of_dict_to_markdown_table(filtered_hints)}
-        ```
         """.strip()
         system_prompt = self.description
 
@@ -440,28 +438,24 @@ class FlowPattern(ModelContextProtocolImpl):
                 model_input_messages_with_errors.append(
                     {"role": "system", "content": [{"type": "text", "text": error_str}]}
                 )    
-
+            # TODO handle return type
             try:
-                code_output_message: ChatMessage = self.model(model_input_messages_with_errors)
-                self.logger.log(
-                    text=code_output_message.content,
-                    title=f"Augmented_LLM_Output({self.interface_id}/{self.name}):"
-                )
+                code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
             except Exception as e:
                 raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
 
             observations = None
-            try:
-                code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
-                self.logger.log(title="Code:", text=code_action)
-            except Exception as e:
-                error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-                error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
-                continue
-                
+            # TODO set return type when action type is not serial, add this in self.model call using type    
             self.logger.log(text=action_type, title="Action Type:")
             if action_type == "execute":
+                try:
+                    code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
+                    self.logger.log(title="Code:", text=code_action)
+                except Exception as e:
+                    error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                    error_msg = self.executor_environment.parse_error_logs(error_msg)
+                    previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
+                    continue
                 try:
                     observations, _, _ = self.executor_environment(
                         code_action=code_action,

@@ -5,9 +5,10 @@ from agentcompany.llms.utils import (
 )
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.llms.utils import ChatMessage
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, Literal
 
 BaseLLM = Callable[[List[Dict[str, str]]], ChatMessage]
+ReturnType = Literal["list", "string"]
 
 class AugmentedLLM:
     def __init__(self, **kwargs):
@@ -22,7 +23,6 @@ class AugmentedLLM:
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        functions_to_call_from: Optional[List[ModelContextProtocolImpl]] = None,
         custom_role_conversions: Optional[Dict[str, str]] = None,
         convert_images_to_image_urls: bool = False,
         flatten_messages_as_text: bool = False,
@@ -56,15 +56,6 @@ class AugmentedLLM:
         if grammar is not None:
             completion_kwargs["grammar"] = grammar
 
-        # Handle functions parameter
-        if functions_to_call_from:
-            completion_kwargs.update(
-                {
-                    "functions": [get_function_json_schema(function) for function in functions_to_call_from],
-                    "function_choice": "required",
-                }
-            )
-
         # Finally, use the passed-in kwargs to override all settings
         completion_kwargs.update(kwargs)
 
@@ -79,9 +70,7 @@ class AugmentedLLM:
     def __call__(
         self,
         messages: List[Dict[str, str]],
-        stop_sequences: Optional[List[str]] = None,
-        grammar: Optional[str] = None,
-        functions_to_call_from: Optional[List[ModelContextProtocolImpl]] = None,
+        return_type: ReturnType = "string",
         **kwargs,
     ) -> ChatMessage:
         """Process the input messages and return the LLM's response.

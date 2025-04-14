@@ -101,6 +101,7 @@ plan:
     out: one_to_many
     out_id: view_table
     skip_action: true
+    return_type: list
   - step: |-
       Create a description for the {{ view_table }} view which has clear instructions on how to compute the view using existing table.
     out_id: view_table_description

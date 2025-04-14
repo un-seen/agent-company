@@ -2,6 +2,7 @@ import json
 from agentcompany.llms.base import AugmentedLLM
 from typing import Dict, List, Optional, Type, Union
 from agentcompany.llms.utils import ChatMessage, parse_function_args_if_needed
+from agentcompany.llms.base import ReturnType
 from agentcompany.mcp.base import ModelContextProtocolImpl
 import logging
 from pydantic import BaseModel
@@ -61,32 +62,36 @@ class OpenAIServerLLM(AugmentedLLM):
     def __call__(
         self,
         messages: List[Dict[str, str]],
-        stop_sequences: Optional[List[str]] = None,
-        grammar: Optional[str] = None,
-        functions_to_call_from: Optional[List[ModelContextProtocolImpl]] = None,
+        return_type: ReturnType = "string",
         **kwargs,
     ) -> ChatMessage:
+        # TODO add return type
         completion_kwargs = self._prepare_completion_kwargs(
             messages=messages,
-            stop_sequences=stop_sequences,
-            grammar=grammar,
-            functions_to_call_from=functions_to_call_from,
             model=self.model_id,
             custom_role_conversions=self.custom_role_conversions,
             convert_images_to_image_urls=True,
             **kwargs,
         )
-
+        
+        if return_type == "list":
+            response_format = {"type": "array", "items": {"type": "string"}}
+            completion_kwargs["response_format"] = response_format
+        elif return_type == "string":
+            pass
+        else:
+            raise ValueError(
+                f"Invalid return_type '{return_type}'. Supported types are 'string' and 'list'."
+            )
+        
         response = self.client.chat.completions.create(**completion_kwargs)
-        self.last_input_token_count = response.usage.prompt_tokens
-        self.last_output_token_count = response.usage.completion_tokens
+        # self.last_input_token_count = response.usage.prompt_tokens
+        # self.last_output_token_count = response.usage.completion_tokens
 
         message = ChatMessage.from_dict(
-            response.choices[0].message.model_dump(include={"role", "content", "function_calls"})
+            response.choices[0].message.model_dump(include={"role", "content"})
         )
         message.raw = response
-        if functions_to_call_from is not None:
-            return parse_function_args_if_needed(message)
         return message
 
     def generate_system_prompt(self, model_cls: type[BaseModel]) -> str:
