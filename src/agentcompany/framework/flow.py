@@ -383,11 +383,9 @@ class FlowPattern(ModelContextProtocolImpl):
 
             elif out == "one_to_one":
                 output = self._run_step(rendered_step, action_type)
-
                 state["current"] = output
                 if out_id:
                     state[out_id] = output
-
             elif out == "many_to_one":
                 if not isinstance(state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
@@ -524,7 +522,7 @@ class FlowPattern(ModelContextProtocolImpl):
             else:
                 previous_environment_errors = [{"code": code_action, "error": feedback}]
 
-        
+        return observations
     
     def forward(self, task: str) -> Any:
         """
