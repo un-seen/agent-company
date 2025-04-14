@@ -75,8 +75,7 @@ class OpenAIServerLLM(AugmentedLLM):
         )
         
         if return_type == "list":
-            response_format = {"type": "json_schema", "schema": {"type": "array", "items": {"type": "string"}}}
-            completion_kwargs["response_format"] = response_format
+            completion_kwargs["response_format"] = list[str]
         elif return_type == "string":
             pass
         else:
