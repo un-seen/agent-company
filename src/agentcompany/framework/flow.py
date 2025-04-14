@@ -31,6 +31,7 @@ from agentcompany.llms.utils import (
 
 logger = getLogger(__name__)
 
+type ActionType = Literal["final_answer", "skip", "execute"]
     
 class Node(TypedDict):
     """
@@ -38,6 +39,7 @@ class Node(TypedDict):
     """
     step: str
     agent: Union[str, None]
+    action: Union[ActionType, None]
     out: Union[Literal["one_to_many", "one_to_one", "many_to_one"], None]
     out_id: Union[str, None]
     
@@ -234,7 +236,7 @@ class FlowPattern(ModelContextProtocolImpl):
             self.memory.reset()
         self.memory.append_step(TaskStep(task=self.task))
         # Execute Task
-        final_answer = None
+        observations = None
         try:
             # Execute vision
             self._execute_plan()
@@ -242,12 +244,12 @@ class FlowPattern(ModelContextProtocolImpl):
             status_table = self.get_status_table()
             self.logger.log(text=status_table, title=f"Final Vision Status ({self.interface_id}/{self.name}) :")
             # Return final answer
-            final_answer = self.get_final_answer()
+            observations = self.get_final_answer()
         except AgentError as e:
             self.logger.log(text=e.message, title="Error in Agent:")
-            final_answer = pd.DataFrame([{"error": e.message}])
+            observations = pd.DataFrame([{"error": e.message}])
         
-        return final_answer        
+        return observations        
     
     
     # TODO add get status table as a markdown text
@@ -259,8 +261,35 @@ class FlowPattern(ModelContextProtocolImpl):
         return ""
     
     
-    def get_final_answer(self):
-        return self.state.get("final_answer", None)
+    def get_final_answer(self) -> Any:
+        code_output_message_content = self.state.get("final_answer", None)
+        if code_output_message_content is None:
+            raise ValueError("No final answer found in the state.")
+        try:
+            code_action = self.executor_environment.parse_code_blobs(code_output_message_content)
+            self.logger.log(title="Code:", text=code_action)
+        except Exception as e:
+            error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+            error_msg = self.executor_environment.parse_error_logs(error_msg)
+            raise AgentExecutionError(error_msg, self.logger) from e
+        try:
+            observations, _, _ = self.executor_environment(
+                code_action=code_action,
+                additional_variables={},
+                return_type="string"
+            )
+            self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
+        except Exception as e:
+            error_msg = "Error in Code Execution: \n"
+            if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
+                error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
+            error_msg += str(e)
+            error_msg = self.executor_environment.parse_error_logs(error_msg)
+            self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in Code Execution:")
+            raise AgentExecutionError(error_msg, self.logger) from e
+        
+        self.state["current"] = observations
+        return observations
     
     def setup_environment(self):
         # Get class name from config
@@ -300,14 +329,14 @@ class FlowPattern(ModelContextProtocolImpl):
             step = node["step"]
             out = node.get("out", "one_to_one")
             out_id = node.get("out_id")
-
+            action_type = node.get("action", "execute")
             # Replace placeholders in the step with values from state
             from jinja2 import Template
             template: Template = Template(step)
             rendered_step = template.render(**state)
 
             if out == "one_to_many":
-                output = self._run_step(rendered_step)
+                output = self._run_step(rendered_step, action_type)
 
                 if not isinstance(output, list):
                     raise ValueError(f"Expected list output for 'one_to_many', got {type(output)}")
@@ -327,7 +356,8 @@ class FlowPattern(ModelContextProtocolImpl):
 
                         template_next: Template = Template(next_step["step"])
                         rendered_next_step = template_next.render(**local_state)
-                        next_output = self._run_step(rendered_next_step)
+                        next_step_action_type = next_step.get("action", "execute")
+                        next_output = self._run_step(rendered_next_step, next_step_action_type)
 
                         if next_step_out_id:
                             local_state[next_step_out_id] = next_output
@@ -344,7 +374,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 break  # Exiting the loop as subsequent steps were processed already
 
             elif out == "one_to_one":
-                output = self._run_step(rendered_step)
+                output = self._run_step(rendered_step, action_type)
 
                 state["current"] = output
                 if out_id:
@@ -353,27 +383,19 @@ class FlowPattern(ModelContextProtocolImpl):
             elif out == "many_to_one":
                 if not isinstance(state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
-
-                aggregated_output = []
-                for item in state["current"]:
-                    local_state = state.copy()
-                    local_state["current"] = item
-                    output = self._run_step(rendered_step)
-                    aggregated_output.append(output)
-
-                state["current"] = aggregated_output
+                output = self._run_step(rendered_step, action_type)
+                state["current"] = output
                 if out_id:
-                    state[out_id] = aggregated_output
-
+                    state[out_id] = output
             i += 1
             
             if i == len(plan):
-                # End of plan
+                # End of plan request final answer from environment
                 state["final_answer"] = state.get("current", None)
                 self.state.update(state)
                 break
     
-    def _run_step(self, prompt: str) -> None:
+    def _run_step(self, prompt: str, action_type: ActionType) -> None:
         hints = self.prompt_templates["hint"]
         prompt_lower = prompt.lower()    
 
@@ -416,31 +438,41 @@ class FlowPattern(ModelContextProtocolImpl):
             except Exception as e:
                 raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
 
-            try:
-                code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
-                self.logger.log(title="Code:", text=code_action)
-            except Exception as e:
-                error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-                error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
-                continue
+            observations = None
+            self.logger.log(text=action_type, title="Action Type:")
+            if action_type == "execute":
+                try:
+                    code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
+                    self.logger.log(title="Code:", text=code_action)
+                except Exception as e:
+                    error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                    error_msg = self.executor_environment.parse_error_logs(error_msg)
+                    previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
+                    continue
 
-            try:
-                observations, _, _ = self.executor_environment(
-                    code_action=code_action,
-                    additional_variables={},
-                    return_type="string"
-                )
-                self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
-            except Exception as e:
-                error_msg = "Error in Code Execution: \n"
-                if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                    error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
-                error_msg += str(e)
-                error_msg = self.executor_environment.parse_error_logs(error_msg)
-                self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in Code Execution:")
-                previous_environment_errors.append({"code": code_action, "error": error_msg})
-                continue
+                try:
+                    observations, _, _ = self.executor_environment(
+                        code_action=code_action,
+                        additional_variables={},
+                        return_type="string"
+                    )
+                    self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
+                except Exception as e:
+                    error_msg = "Error in Code Execution: \n"
+                    if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
+                        error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
+                    error_msg += str(e)
+                    error_msg = self.executor_environment.parse_error_logs(error_msg)
+                    self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in Code Execution:")
+                    previous_environment_errors.append({"code": code_action, "error": error_msg})
+                    continue
+            elif action_type == "skip":
+                observations = code_output_message.content
+            elif action_type == "final_answer":
+                observations = code_output_message.content
+                self.state["final_answer"] = observations                
+            else:
+                raise ValueError(f"Unknown action type: {action_type}")
 
             if not observations:
                 previous_environment_errors.append({"code": code_action, "error": "There is no output for the code."})
