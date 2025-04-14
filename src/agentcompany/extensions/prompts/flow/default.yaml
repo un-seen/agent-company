@@ -100,13 +100,71 @@ plan:
       Please list the views that are assumed to be created in the database to compute the result table.
     out: one_to_many
     out_id: view_table
-    skip_action: true
+    action: skip
     return_type: list
   - step: |-
+      Here is the task:
+      ```
+      {{task}}
+      ```
+
+      Here is the database description:
+      ```
+      {{ database.description }}
+      ```
+
+      Here are the tables in the database:
+      ````
+      {%- for table in database.tables %}
+        - Table: {{ table.name }}
+          Columns:
+            {%- for column in table.columns %}
+            - {{ column.name }}: {{ column.description }}
+            {%- endfor %}
+      {%- endfor %}
+      ````
+
+      You came up with the following result table:
+
+      ```
+      {{ result_table }}
+      ```
+
       Create a description for the {{ view_table }} view which has clear instructions on how to compute the view using existing table.
     out_id: view_table_description
-    skip_action: true
+    action: skip
   - step: |-
+      Here is the task:
+      ```
+      {{task}}
+      ```
+
+      Here is the database description:
+      ```
+      {{ database.description }}
+      ```
+
+      Here are the tables in the database:
+      ````
+      {%- for table in database.tables %}
+        - Table: {{ table.name }}
+          Columns:
+            {%- for column in table.columns %}
+            - {{ column.name }}: {{ column.description }}
+            {%- endfor %}
+      {%- endfor %}
+      ````
+
+      You came up with the following result table:
+
+      ```
+      {{ result_table }}
+      ```
+      
+      Here is the description of the {{ view_table }} view:
+      ```
+      {{ view_table_description }}
+      ```
       Write the SQL statement to create the {{ view_table }} view.
 
-      {{ view_table_description }}
+      
