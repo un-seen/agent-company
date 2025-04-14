@@ -98,6 +98,8 @@ class FlowPattern(ModelContextProtocolImpl):
         self.prompt_templates = prompt_templates
         # Environment State
         self.state = copy.deepcopy(self.prompt_templates)
+        self.state.pop("executor_environment", None)
+        self.state.pop("judge", None)
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
         # Postgres Agent
