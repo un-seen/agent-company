@@ -43,7 +43,7 @@ plan:
   - step: |-
       Here is the task:
       ```
-      {{task}}
+      {{ task }}
       ```
 
       Here is the database description:

@@ -96,12 +96,8 @@ class FlowPattern(ModelContextProtocolImpl):
         self.model = model
         # Prompt Templates
         self.prompt_templates = prompt_templates
-        # Environment State
-        self.state = copy.deepcopy(self.prompt_templates)
-        self.state.pop("executor_environment", None)
-        self.state.pop("judge", None)
-        self.state.pop("plan", None)
-        self.state.pop("hint", None)
+        # State
+        self.state = {}
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
         # Postgres Agent
@@ -232,7 +228,16 @@ class FlowPattern(ModelContextProtocolImpl):
         agent.run("What is the result of 2 power 3.7384?")
         ```
         """
-        self.task = task
+        
+        # Environment State
+        self.state = copy.deepcopy(self.prompt_templates)
+        self.state.pop("executor_environment", None)
+        self.state.pop("judge", None)
+        self.state.pop("plan", None)
+        self.state.pop("hint", None)
+        self.state["task"] = task
+        
+        # Add Environment Variables
         if environment_variables is not None:
             self.state.update(environment_variables)
             
@@ -325,12 +330,10 @@ class FlowPattern(ModelContextProtocolImpl):
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
         state = copy.deepcopy(self.state)
-
         i = 0
         while i < len(plan):
             node = plan[i]
             step = node["step"]
-            state["task"] = step
             out = node.get("out", "one_to_one")
             out_id = node.get("out_id")
             action_type = node.get("action", "execute")
