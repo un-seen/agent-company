@@ -291,7 +291,7 @@ class FlowPattern(ModelContextProtocolImpl):
         
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
-        state = {}
+        state = copy.deepcopy(self.state)
 
         i = 0
         while i < len(plan):
