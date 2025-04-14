@@ -352,14 +352,13 @@ class FlowPattern(ModelContextProtocolImpl):
                 if not isinstance(output, list):
                     raise ValueError(f"Expected list output for 'one_to_many', got {type(output)}")
 
-                state["current"] = output
-                if out_id:
-                    state[out_id] = output
-
+                
                 next_steps = plan[i + 1:]
                 for item in output:
-                    local_state = state.copy()
+                    local_state = copy.deepcopy(state)
                     local_state["current"] = item
+                    if out_id:
+                        local_state[out_id] = item
 
                     for next_step in next_steps:
                         next_step_out = next_step.get("out", "one_to_one")
