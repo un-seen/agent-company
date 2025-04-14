@@ -9,6 +9,9 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
+class ArrayOutput(BaseModel):
+    array: list[str]
+    
 class OpenAIServerLLM(AugmentedLLM):
     """This model connects to an OpenAI-compatible API server.
 
@@ -75,32 +78,26 @@ class OpenAIServerLLM(AugmentedLLM):
         )
         
         if return_type == "list":
-            completion_kwargs["response_format"] = {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "list",
-                    "schema": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
-                }
+            completion_kwargs["response_format"] = ArrayOutput
+            message = {
+                "role": "assistant",
+                "content": self.client.beta.chat.completions.parse(**completion_kwargs).choices[0].message.parsed
             }
         elif return_type == "string":
-            pass
+            response = self.client.chat.completions.create(**completion_kwargs)
+            message = ChatMessage.from_dict(
+                response.choices[0].message.model_dump(include={"role", "content"})
+            )
         else:
             raise ValueError(
                 f"Invalid return_type '{return_type}'. Supported types are 'string' and 'list'."
             )
         
-        response = self.client.chat.completions.create(**completion_kwargs)
+        
         # self.last_input_token_count = response.usage.prompt_tokens
         # self.last_output_token_count = response.usage.completion_tokens
 
-        message = ChatMessage.from_dict(
-            response.choices[0].message.model_dump(include={"role", "content"})
-        )
+        
         message.raw = response
         return message
 
