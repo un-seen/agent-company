@@ -482,10 +482,6 @@ class FlowPattern(ModelContextProtocolImpl):
             else:
                 raise ValueError(f"Unknown action type: {action_type}")
 
-            if not observations:
-                previous_environment_errors.append({"code": code_action, "error": "There is no output for the code."})
-                continue
-
             judge_input_message = {
                 "role": MessageRole.USER, 
                 "content": [{
