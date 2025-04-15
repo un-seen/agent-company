@@ -211,8 +211,6 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
                 for row in cur.fetchall():
                     self.sql_schema.append(f"- {row['column_name']}, has data type {row['data_type']}")                
         self.sql_schema = "\n".join(self.sql_schema)
-        # IMPROVE: assert self.authorized imports are all installed 
-        self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         # Add base trusted tools to list
         self.static_tools = mcp_servers
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
