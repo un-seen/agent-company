@@ -105,7 +105,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
                 function_call_list.append((function_name, function_arguments))
                 # TODO fix the function arguments type cast to make sure it is a valid addition
                 # to node.args["expressions"] - the statement to remove the function call and replace with just the arguments
-                node.args["expressions"] = node.expressions[:idx] + " " + args_str + " " + node.expressions[idx+1:]
+                node.args["expressions"] = node.expressions[:idx] + [" " + args_str + " "] + node.expressions[idx+1:]
         sql_query = node.sql(dialect="postgres")
         print(f"SQL query: {sql_query}")
         try:
