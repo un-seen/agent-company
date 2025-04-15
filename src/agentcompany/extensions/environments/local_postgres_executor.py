@@ -1,31 +1,20 @@
 
 import re
 import sqlglot
-from importlib import import_module
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import traceback
 import numpy as np
 import pandas as pd
-import sqlglot.expressions
 from agentcompany.mcp.base import ModelContextProtocolImpl
 import logging
 from agentcompany.driver.dict import dict_rows_to_markdown_table
 import psycopg2
 from urllib.parse import urlparse
 from psycopg2.extras import RealDictCursor
-from agentcompany.mcp.utils import truncate_content
 from agentcompany.extensions.environments.exceptions import InterpreterError, ERRORS
 from agentcompany.extensions.environments.base import ExecutionEnvironment, Observations
 
 logger = logging.getLogger(__name__)
-
-BASE_BUILTIN_MODULES = [
-    "time",
-    "unicodedata",
-]
-
-PRINT_OUTPUTS = ""
-DEFAULT_MAX_LEN_OUTPUT = 50000
 
 
 def connect_with_uri(uri):
@@ -197,7 +186,6 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         additional_authorized_imports: List[str]
     ):
         self.state = {}
-        self.max_print_outputs_length = DEFAULT_MAX_LEN_OUTPUT
         self.additional_authorized_imports = additional_authorized_imports
         self.pg_config = {
             "host": host,
@@ -269,7 +257,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             state=self.state,
             max_count=max_count
         )
-        logs = self.state["print_outputs"]
+        logs = self.state.get("logs", "")
         if return_type == "string":
             markdown_table = dict_rows_to_markdown_table(tupled_rows)
             return markdown_table, logs, False
