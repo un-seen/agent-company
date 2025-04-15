@@ -522,8 +522,11 @@ class FunctionPattern(ModelContextProtocolImpl):
         )
             
     
-    def forward(self, task: str) -> Any:
+    def forward(self, 
+                task: str, 
+                inputs: Union[str, List[str]] = None, 
+                context: Union[str, List[str], List[Dict[str, Any]], Dict[str, Any]] = None) -> Any:
         """
         MCPContextProtocolImpl forward method.
         """
-        return self.run(task)
+        return self.run(task, inputs=inputs, context=context)
