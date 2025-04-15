@@ -33,3 +33,4 @@ def list_of_dict_to_markdown_table(data: List[Dict[str, Any]]) -> str:
         table.append("| " + " | ".join(str(row.get(h, "")) for h in headers) + " |")
 
     return "\n".join(table)
+  
