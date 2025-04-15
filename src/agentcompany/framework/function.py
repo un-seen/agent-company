@@ -85,7 +85,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         description (`str`): Description of the agent.
         model (`Callable[[list[dict[str, str]]], ChatMessage]`): Model that will generate the agent's actions.
         prompt_templates (`PromptTemplates`, *optional*): Prompt templates for the agent.
-        mcp_servers (`list`, *optional*): Managed agents that the agent can call.
     """
     
     description = "This is an agent implementing the function design pattern."
@@ -152,47 +151,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         for memory_step in self.memory.steps:
             messages.extend(memory_step.to_messages())
         return messages
-        
-    def setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
-        self.mcp_servers = {}
-        if mcp_servers:
-            assert all(server.name and server.description for server in mcp_servers), (
-                "All managed agents need both a name and a description!"
-            )
-            self.mcp_servers = {server.name: server for server in mcp_servers}
-            
-    def execute_mcp_request(self, server_name: str, arguments: Union[Dict[str, str], str]) -> Any:
-        """
-        Execute tool with the provided input and returns the result.
-        This method replaces arguments with the actual values from the state if they refer to state variables.
-
-        Args:
-            tool_name (`str`): Name of the Tool to execute (should be one from self.tools).
-            arguments (Dict[str, str]): Arguments passed to the Tool.
-        """
-        available_mcp_servers = {**self.mcp_servers}
-        if server_name not in available_mcp_servers:
-            error_msg = f"Unknown server {server_name}, should be instead one of {list(available_mcp_servers.keys())}."
-            raise AgentExecutionError(error_msg, self.logger)
-
-        try:
-            if isinstance(arguments, str):
-                observation = available_mcp_servers[server_name].__call__(arguments)
-            elif isinstance(arguments, dict):
-                for key, value in arguments.items():
-                    if isinstance(value, str) and value in self.state:
-                        arguments[key] = self.state[value]
-                observation = available_mcp_servers[server_name].__call__(**arguments)
-            else:
-                error_msg = f"Arguments passed to tool should be a dict or string: got a {type(arguments)}."
-                raise AgentExecutionError(error_msg, self.logger)
-            return observation
-        except Exception as e:
-            error_msg = (
-                f"Error in calling mcp server: {e}\nYou should only ask this server with a correct request.\n"
-                f"As a reminder, this server's description is the following:\n{available_mcp_servers[server_name]}"
-            )
-            raise AgentExecutionError(error_msg, self.logger)
     
     def _validate_observations(self, step: str, previous_observations: List[Observations]) -> PlanningStepStatus:
         # Validate if next step is complete
@@ -313,7 +271,6 @@ class FunctionPattern(ModelContextProtocolImpl):
                         variables={
                             "task": model_input_messages_str,
                             "code": code_action,
-                            "mcp_servers": self.mcp_servers,
                             "observations": observations,
                         }
                     )
@@ -430,7 +387,6 @@ class FunctionPattern(ModelContextProtocolImpl):
                         variables={
                             "task": model_input_messages_str,
                             "code": code_action,
-                            "mcp_servers": self.mcp_servers,
                             "observations": observations,
                         }
                     )
@@ -561,10 +517,8 @@ class FunctionPattern(ModelContextProtocolImpl):
         # Instantiate the chosen class
         self.executor_environment = environment_cls(
             self.session_id,
-            self.mcp_servers,
             **self.executor_environment_config["config"]
         )
-        self.executor_environment.attach_mcp_servers(self.mcp_servers)
             
     
     def forward(self, task: str) -> Any:
