@@ -95,7 +95,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
         for idx, statement in enumerate(node.expressions):
-            function_name, *function_arguments = parse_function_call(statement.this)
+            function_name, *function_arguments = parse_function_call(str(statement.this))
             print(f"Function name: {function_name} Static tools: {static_tools}")
             if function_name in static_tools:
                 function_call = static_tools[function_name]
