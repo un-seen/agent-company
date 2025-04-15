@@ -517,6 +517,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         # Instantiate the chosen class
         self.executor_environment = environment_cls(
             self.session_id,
+            mcp_servers=[],
             **self.executor_environment_config["config"]
         )
             
