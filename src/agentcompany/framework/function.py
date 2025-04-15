@@ -449,6 +449,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         code: str = code
         inputs: List[str] = inputs
         context: List[Dict[str, Any]] = context
+        print(f"Received code: {code}, inputs: {inputs}, context: {context}")
         if not isinstance(code, str) or not isinstance(inputs, (list, str)) or not isinstance(context, (list, dict)):
             raise ValueError("Task should be a string, inputs should be a list of strings, and context should be a list of dictionaries.")
         observations = None
