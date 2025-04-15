@@ -169,6 +169,7 @@ def evaluate_sql_code(
                 for function_call in function_call_list:
                     function_name, function_arguments = function_call
                     function_exec = static_tools[function_name]
+                    # TODO pop the arguments for the dicts in result
                     function_output[function_name] = function_exec(task, function_arguments, result)
                 print(f"Function output: {function_output}")
                 # function_call_output.append(item_dict)
