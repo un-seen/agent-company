@@ -87,10 +87,11 @@ def parse_function_call(call_str):
         return [None, None]
 
 
-def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProtocolImpl], custom_tools, authorized_imports) -> List[dict]:
+def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProtocolImpl]) -> Tuple[List[dict], List[Any]]:
     # Check if the expression is a sqlglot SELECT statement.
     # (sqlglot returns expressions from the sqlglot.exp module;
     # adjust the type check if needed.)
+    function_call_list = []
     if isinstance(node, sqlglot.exp.Select) or isinstance(node, sqlglot.exp.Insert) or isinstance(node, sqlglot.exp.Update) or isinstance(node, sqlglot.exp.Delete) or isinstance(node, sqlglot.exp.Create) or isinstance(node, sqlglot.exp.Drop):
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
@@ -98,13 +99,10 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
             function_name, *function_arguments = parse_function_call(str(statement.this))
             print(f"Function name: {function_name} Static tools: {static_tools}")
             if function_name is not None and function_name in static_tools:
-                function_call = static_tools[function_name]
-                function_response = function_call(*function_arguments)
-                response_value = sqlglot.expressions.Literal()    
-                if function_call.output_type == "string":
-                    response_value.args["this"] = function_response
-                    response_value.args["is_string"] = True
-                node.args["expressions"] = node.expressions[:idx] + [response_value] + node.expressions[idx+1:]
+                function_call_list.append((function_name, function_arguments))
+                # TODO fix the function arguments type cast to make sure it is a valid addition
+                # to node.args["expressions"] - the statement to remove the function call and replace with just the arguments
+                node.args["expressions"] = node.expressions[:idx] + function_arguments + node.expressions[idx+1:]
         sql_query = node.sql(dialect="postgres")
         try:
             result = []
@@ -114,7 +112,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
                     result = cursor.fetchall()     
                 else:
                     pg_conn.commit()               
-            return result
+            return result, function_call_list
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Error executing SQL: {error_msg}")
@@ -127,9 +125,7 @@ def evaluate_sql_code(
     pg_conn,
     code: str,
     static_tools: Optional[Dict[str, Callable]] = None,
-    custom_tools: Optional[Dict[str, Callable]] = None,
     state: Optional[Dict[str, Any]] = None,
-    authorized_imports: List[str] = BASE_BUILTIN_MODULES,
     max_count: Optional[int] = None
 ) -> List[dict]:
     """
@@ -141,7 +137,6 @@ def evaluate_sql_code(
     Args:
         code (str): The code to evaluate.
         static_tools (Optional[Dict[str, Callable]]): The functions that may be called during the evaluation.
-        custom_tools (Optional[Dict[str, Callable]]): The functions that may be called during the evaluation.
         state (Optional[Dict[str, Any]]): A dictionary mapping variable names to values.
         authorized_imports (List[str]): List of modules that are allowed to be imported.
         max_count (int): Maximum number of items to return from a SELECT statement.
@@ -164,15 +159,21 @@ def evaluate_sql_code(
     if state is None:
         state = {}
     static_tools = static_tools.copy() if static_tools is not None else {}
-    custom_tools = custom_tools if custom_tools is not None else {}
     result = None
-    global PRINT_OUTPUTS
-    PRINT_OUTPUTS = ""
-    
     try:
         for node in expression:
-            result = evaluate_ast(pg_conn, node, state, static_tools, custom_tools, authorized_imports)            
-        state["print_outputs"] = truncate_content(PRINT_OUTPUTS)
+            result, function_call_list = evaluate_ast(pg_conn, node, state, static_tools)
+            if len(function_call_list) > 0:
+                function_call_output = []
+                for item_dict in result:
+                    function_output = {}
+                    for function_call in function_call_list:
+                        function_name, *function_arguments = function_call
+                        function_exec = static_tools[function_name]
+                        function_output[function_name] = function_exec(*function_arguments)
+                    item_dict.update(function_output)
+                    function_call_output.append(item_dict)
+                result = function_call_output
         return result
     except Exception as e:
         error_trace = traceback.format_exc()
@@ -195,7 +196,6 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         password: str,
         additional_authorized_imports: List[str]
     ):
-        self.custom_tools = {}
         self.state = {}
         self.max_print_outputs_length = DEFAULT_MAX_LEN_OUTPUT
         self.additional_authorized_imports = additional_authorized_imports
@@ -266,9 +266,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             self.pg_conn,
             code_action,
             static_tools=self.static_tools,
-            custom_tools=self.custom_tools,
             state=self.state,
-            authorized_imports=self.authorized_imports,
             max_count=max_count
         )
         logs = self.state["print_outputs"]
