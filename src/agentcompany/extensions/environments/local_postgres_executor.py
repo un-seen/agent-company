@@ -98,11 +98,12 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
     if isinstance(node, sqlglot.exp.Select) or isinstance(node, sqlglot.exp.Insert) or isinstance(node, sqlglot.exp.Update) or isinstance(node, sqlglot.exp.Delete) or isinstance(node, sqlglot.exp.Create) or isinstance(node, sqlglot.exp.Drop):
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
+        sql_query = node.sql(dialect="postgres")
         for idx, statement in enumerate(node.expressions):
             [function_name, *function_arguments], args_str = parse_function_call(str(statement.this), state)
             print(f"Function name: {function_name} Static tools: {static_tools}")
             if function_name is not None and function_name in static_tools:
-                function_call_list.append((function_name, function_arguments))
+                function_call_list.append((function_name, sql_query, function_arguments))
                 # TODO fix the function arguments type cast to make sure it is a valid addition
                 # to node.args["expressions"] - the statement to remove the function call and replace with just the arguments
                 node.args["expressions"] = node.expressions[:idx] + [" " + args_str + " "] + node.expressions[idx+1:]
@@ -172,9 +173,9 @@ def evaluate_sql_code(
                 for item_dict in result:
                     function_output = {}
                     for function_call in function_call_list:
-                        function_name, *function_arguments = function_call
+                        function_name, code, *function_arguments = function_call
                         function_exec = static_tools[function_name]
-                        function_output[function_name] = function_exec(*function_arguments)
+                        function_output[function_name] = function_exec(code, *function_arguments)
                     item_dict.update(function_output)
                     function_call_output.append(item_dict)
                 result = function_call_output
