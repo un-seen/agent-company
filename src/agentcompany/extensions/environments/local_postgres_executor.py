@@ -76,6 +76,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
         print(f"Static tools: {static_tools}")
         for idx, statement in enumerate(node.expressions):
+            print(f"statement.this: {statement.this}")
             if statement.this in static_tools:
                 function_name = statement.this.lower()
                 function_call = static_tools[function_name]
