@@ -74,6 +74,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
     if isinstance(node, sqlglot.exp.Select) or isinstance(node, sqlglot.exp.Insert) or isinstance(node, sqlglot.exp.Update) or isinstance(node, sqlglot.exp.Delete) or isinstance(node, sqlglot.exp.Create) or isinstance(node, sqlglot.exp.Drop):
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
+        print(f"Static tools: {static_tools}")
         for idx, statement in enumerate(node.expressions):
             if statement.this in static_tools:
                 function_name = statement.this.lower()

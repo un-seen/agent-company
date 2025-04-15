@@ -61,7 +61,15 @@ plan:
             {%- endfor %}
       {%- endfor %}
       ````
-      
+      {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+      These functions are used to complete a step efficiently.
+      {%- for server in mcp_servers.values() %}
+        - {{ server.name }}: {{ server.description }}
+            Takes inputs: {{server.inputs}}
+            Returns an output of type: {{server.output_type}}
+      {%- endfor %}
+      {%- endif %}
+
       You have to solve the task by computing a result table created using existing tables in the database.
 
       Just assume all the required views that can have transformed column values from existing table values are already created in the database.
@@ -90,6 +98,15 @@ plan:
             {%- endfor %}
       {%- endfor %}
       ````
+
+      {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+      These functions are used to complete a step efficiently.
+      {%- for server in mcp_servers.values() %}
+      - {{ server.name }}: {{ server.description }}
+          Takes inputs: {{server.inputs}}
+          Returns an output of type: {{server.output_type}}
+      {%- endfor %}
+      {%- endif %}
 
       You came up with the following result table:
 
@@ -124,6 +141,15 @@ plan:
       {%- endfor %}
       ````
 
+      {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+      These functions are used to complete a step efficiently.
+      {%- for server in mcp_servers.values() %}
+        - {{ server.name }}: {{ server.description }}
+            Takes inputs: {{server.inputs}}
+            Returns an output of type: {{server.output_type}}
+      {%- endfor %}
+      {%- endif %}
+
       You came up with the following result table:
 
       ```
@@ -154,6 +180,15 @@ plan:
             {%- endfor %}
       {%- endfor %}
       ````
+
+      {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+      These functions are used to complete a step efficiently.
+      {%- for server in mcp_servers.values() %}
+        - {{ server.name }}: {{ server.description }}
+            Takes inputs: {{server.inputs}}
+            Returns an output of type: {{server.output_type}}
+      {%- endfor %}
+      {%- endif %}
 
       You came up with the following result table:
 
