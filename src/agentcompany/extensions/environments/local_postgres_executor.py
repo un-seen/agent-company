@@ -84,9 +84,9 @@ def parse_function_call(call_str, state: dict) -> Tuple[List[str], str]:
             # Replace arg with state[arg_name] if present in state
             resolved_args.append(state.get(arg_name, arg_name))
 
-        return [func_name.lower(), resolved_args], args_str
+        return func_name.lower(), resolved_args, args_str
     else:
-        return [None, None], None
+        return None, None, None
 
 
 
@@ -98,17 +98,12 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
     if isinstance(node, sqlglot.exp.Select) or isinstance(node, sqlglot.exp.Insert) or isinstance(node, sqlglot.exp.Update) or isinstance(node, sqlglot.exp.Delete) or isinstance(node, sqlglot.exp.Create) or isinstance(node, sqlglot.exp.Drop):
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
-        sql_query = node.sql(dialect="postgres")
         for idx, statement in enumerate(node.expressions):
-            [function_name, *function_arguments], args_str = parse_function_call(str(statement.this), state)
-            print(f"Function name: {function_name} Static tools: {static_tools}")
+            function_name, function_arguments, args_str = parse_function_call(str(statement.this), state)
             if function_name is not None and function_name in static_tools:
-                function_call_list.append((function_name, sql_query, function_arguments))
-                # TODO fix the function arguments type cast to make sure it is a valid addition
-                # to node.args["expressions"] - the statement to remove the function call and replace with just the arguments
+                function_call_list.append((function_name, function_arguments))
                 node.args["expressions"] = node.expressions[:idx] + [" " + args_str + " "] + node.expressions[idx+1:]
         sql_query = node.sql(dialect="postgres")
-        print(f"SQL query: {sql_query}")
         try:
             result = []
             with pg_conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -129,8 +124,8 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
 def evaluate_sql_code(
     pg_conn,
     code: str,
+    state: Dict[str, Any],
     static_tools: Optional[Dict[str, Callable]] = None,
-    state: Optional[Dict[str, Any]] = None,
     max_count: Optional[int] = None
 ) -> List[dict]:
     """
@@ -161,10 +156,10 @@ def evaluate_sql_code(
             f"Error: {str(e)}"
         )
 
-    if state is None:
-        state = {}
+    
     static_tools = static_tools.copy() if static_tools is not None else {}
     result = None
+    task = state.get("task", None)
     try:
         for node in expression:
             result, function_call_list = evaluate_ast(pg_conn, node, state, static_tools)
@@ -172,9 +167,9 @@ def evaluate_sql_code(
                 # function_call_output = []
                 function_output = {}
                 for function_call in function_call_list:
-                    function_name, code, *function_arguments = function_call
+                    function_name, function_arguments = function_call
                     function_exec = static_tools[function_name]
-                    function_output[function_name] = function_exec(code, function_arguments, result)
+                    function_output[function_name] = function_exec(task, function_arguments, result)
                 print(f"Function output: {function_output}")
                 # function_call_output.append(item_dict)
                 # result = function_call_output
@@ -266,8 +261,8 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         tupled_rows = evaluate_sql_code(
             self.pg_conn,
             code_action,
-            static_tools=self.static_tools,
             state=self.state,
+            static_tools=self.static_tools,
             max_count=max_count
         )
         logs = self.state.get("logs", "")

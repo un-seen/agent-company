@@ -149,39 +149,6 @@ class FlowPattern(ModelContextProtocolImpl):
                 "All managed agents need both a name and a description!"
             )
             self.mcp_servers = {server.name: server for server in mcp_servers}
-            
-    def execute_mcp_request(self, server_name: str, arguments: Union[Dict[str, str], str]) -> Any:
-        """
-        Execute tool with the provided input and returns the result.
-        This method replaces arguments with the actual values from the state if they refer to state variables.
-
-        Args:
-            tool_name (`str`): Name of the Tool to execute (should be one from self.tools).
-            arguments (Dict[str, str]): Arguments passed to the Tool.
-        """
-        available_mcp_servers = {**self.mcp_servers}
-        if server_name not in available_mcp_servers:
-            error_msg = f"Unknown server {server_name}, should be instead one of {list(available_mcp_servers.keys())}."
-            raise AgentExecutionError(error_msg, self.logger)
-
-        try:
-            if isinstance(arguments, str):
-                observation = available_mcp_servers[server_name].__call__(arguments)
-            elif isinstance(arguments, dict):
-                for key, value in arguments.items():
-                    if isinstance(value, str) and value in self.state:
-                        arguments[key] = self.state[value]
-                observation = available_mcp_servers[server_name].__call__(**arguments)
-            else:
-                error_msg = f"Arguments passed to tool should be a dict or string: got a {type(arguments)}."
-                raise AgentExecutionError(error_msg, self.logger)
-            return observation
-        except Exception as e:
-            error_msg = (
-                f"Error in calling mcp server: {e}\nYou should only ask this server with a correct request.\n"
-                f"As a reminder, this server's description is the following:\n{available_mcp_servers[server_name]}"
-            )
-            raise AgentExecutionError(error_msg, self.logger)
     
     def _validate_observations(self, step: str, previous_observations: List[Observations]) -> PlanningStepStatus:
         # Validate if next step is complete
@@ -250,6 +217,7 @@ class FlowPattern(ModelContextProtocolImpl):
         observations = None
         try:
             # Execute vision
+            self.executor_environment.state.update(self.state)
             self._execute_plan()
             # TODO add a status table in markdown
             status_table = self.get_status_table()
