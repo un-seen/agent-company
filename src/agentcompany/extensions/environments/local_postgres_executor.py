@@ -56,24 +56,38 @@ def get_iterable(obj):
         raise InterpreterError("Object is not iterable")
 
 
-def parse_function_call(call_str):
+def parse_function_call(call_str, state: dict):
     """
-    Parses a string of the form FUNCTION_NAME(args) and returns [function_name, arg_name].
+    Parses a string of the form FUNCTION_NAME(args) and returns [function_name, arg_values].
 
     Parameters:
         call_str (str): The string representing the function call.
+        state (dict): Dictionary containing values for argument substitution.
 
     Returns:
-        list: A list containing [function_name, arg_name].
+        list: A list containing [function_name, arg_values].
     """
-    pattern = r'(\w+)\(\w+\.(\w+)\)'
+    pattern = r'(\w+)\(([^)]+)\)'
     match = re.match(pattern, call_str)
 
     if match:
-        func_name, arg_name = match.groups()
-        return [func_name.lower(), arg_name]
+        func_name, args_str = match.groups()
+        args = [arg.strip() for arg in args_str.split(',')]
+        resolved_args = []
+        for arg in args:
+            # Handle cases with dot notation (e.g., object.attr)
+            if '.' in arg:
+                _, arg_name = arg.split('.', 1)
+            else:
+                arg_name = arg
+
+            # Replace arg with state[arg_name] if present in state
+            resolved_args.append(state.get(arg_name, arg_name))
+
+        return [func_name.lower(), resolved_args]
     else:
         return [None, None]
+
 
 
 def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProtocolImpl]) -> Tuple[List[dict], List[Any]]:
@@ -85,9 +99,10 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
         for idx, statement in enumerate(node.expressions):
-            function_name, *function_arguments = parse_function_call(str(statement.this))
+            function_name, *function_arguments = parse_function_call(str(statement.this), state)
             print(f"Function name: {function_name} Static tools: {static_tools}")
             if function_name is not None and function_name in static_tools:
+                
                 function_call_list.append((function_name, function_arguments))
                 # TODO fix the function arguments type cast to make sure it is a valid addition
                 # to node.args["expressions"] - the statement to remove the function call and replace with just the arguments
