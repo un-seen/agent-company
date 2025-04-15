@@ -56,7 +56,7 @@ def get_iterable(obj):
         raise InterpreterError("Object is not iterable")
 
 
-def parse_function_call(call_str, state: dict):
+def parse_function_call(call_str, state: dict) -> Tuple[List[str], str]:
     """
     Parses a string of the form FUNCTION_NAME(args) and returns [function_name, arg_values].
 
@@ -84,9 +84,9 @@ def parse_function_call(call_str, state: dict):
             # Replace arg with state[arg_name] if present in state
             resolved_args.append(state.get(arg_name, arg_name))
 
-        return [func_name.lower(), resolved_args]
+        return [func_name.lower(), resolved_args], args_str
     else:
-        return [None, None]
+        return [None, None], None
 
 
 
@@ -99,15 +99,15 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
         for idx, statement in enumerate(node.expressions):
-            function_name, *function_arguments = parse_function_call(str(statement.this), state)
+            [function_name, *function_arguments], args_str = parse_function_call(str(statement.this), state)
             print(f"Function name: {function_name} Static tools: {static_tools}")
             if function_name is not None and function_name in static_tools:
-                
                 function_call_list.append((function_name, function_arguments))
                 # TODO fix the function arguments type cast to make sure it is a valid addition
                 # to node.args["expressions"] - the statement to remove the function call and replace with just the arguments
-                node.args["expressions"] = node.expressions[:idx] + function_arguments + node.expressions[idx+1:]
+                node.args["expressions"] = node.expressions[:idx] + " " + args_str + " " + node.expressions[idx+1:]
         sql_query = node.sql(dialect="postgres")
+        print(f"SQL query: {sql_query}")
         try:
             result = []
             with pg_conn.cursor(cursor_factory=RealDictCursor) as cursor:
