@@ -414,7 +414,7 @@ class FunctionPattern(ModelContextProtocolImpl):
     
     def run(
         self,
-        task: str,
+        code: str,
         inputs: Union[str, List[str]] = None,
         context: Union[str, List[str], List[Dict[str, Any]], Dict[str, Any]] = None, 
         reset: bool = True,
@@ -446,14 +446,14 @@ class FunctionPattern(ModelContextProtocolImpl):
         # TODO Setup task
         # TODO Setup inputs
         # TODO Setup context
-        task: str = task.get("task")
-        inputs: List[str] = task.get("inputs", None)
-        context: List[Dict[str, Any]] = task.get("context", None)
-        if not isinstance(task, str) or not isinstance(inputs, List[str]) or not isinstance(context, List[Dict[str, Any]]):
+        code: str = code
+        inputs: List[str] = inputs
+        context: List[Dict[str, Any]] = context
+        if not isinstance(code, str) or not isinstance(inputs, List[str]) or not isinstance(context, List[Dict[str, Any]]):
             raise ValueError("Task should be a string, inputs should be a list of strings, and context should be a list of dictionaries.")
         observations = None
         try:
-            preprocessed_inputs = self.preprocess(task, inputs, context)
+            preprocessed_inputs = self.preprocess(code, inputs, context)
             outputs = self.main(preprocessed_inputs)
             # Return final answer
             observations = outputs

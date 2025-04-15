@@ -169,16 +169,15 @@ def evaluate_sql_code(
         for node in expression:
             result, function_call_list = evaluate_ast(pg_conn, node, state, static_tools)
             if len(function_call_list) > 0:
-                function_call_output = []
-                for item_dict in result:
-                    function_output = {}
-                    for function_call in function_call_list:
-                        function_name, code, *function_arguments = function_call
-                        function_exec = static_tools[function_name]
-                        function_output[function_name] = function_exec(code, *function_arguments)
-                    item_dict.update(function_output)
-                    function_call_output.append(item_dict)
-                result = function_call_output
+                # function_call_output = []
+                function_output = {}
+                for function_call in function_call_list:
+                    function_name, code, *function_arguments = function_call
+                    function_exec = static_tools[function_name]
+                    function_output[function_name] = function_exec(code, function_arguments, result)
+                print(f"Function output: {function_output}")
+                # function_call_output.append(item_dict)
+                # result = function_call_output
         return result
     except Exception as e:
         error_trace = traceback.format_exc()
