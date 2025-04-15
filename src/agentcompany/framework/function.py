@@ -27,7 +27,7 @@ from agentcompany.extensions.environments.local_postgres_executor import LocalPo
 from redis import Redis
 import os
 from agentcompany.extensions.environments.base import ExecutionEnvironment, Observations
-from agentcompany.llms.memory import VisionStep, JudgeStep, ValidateStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, FunctionCall, PlanningStepStatus
+from agentcompany.llms.memory import VisionStep, JudgeStep, ValidateStep, AgentMemory, PlanningStep, SystemPromptStep, TaskStep, PlanningStepStatus
 from agentcompany.driver.errors import (
     AgentError,
     AgentExecutionError,
@@ -102,7 +102,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         description: str,
         model: BaseLLM,
         prompt_templates: PromptTemplates,
-        mcp_servers: List[ModelContextProtocolImpl],
     ):
         # Identifiers
         self.name = name
@@ -118,8 +117,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         self.executor_environment_config = self.prompt_templates["executor_environment"]
         # Postgres Agent
         # self.postgres_agent = postgres_agent
-        # MCP Servers
-        self.setup_mcp_servers(mcp_servers)
         self.setup_environment()
         self.description = description
         # Logging
