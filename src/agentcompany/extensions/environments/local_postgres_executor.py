@@ -67,6 +67,26 @@ def get_iterable(obj):
         raise InterpreterError("Object is not iterable")
 
 
+def parse_function_call(call_str):
+    """
+    Parses a string of the form FUNCTION_NAME(args) and returns [function_name, arg_name].
+
+    Parameters:
+        call_str (str): The string representing the function call.
+
+    Returns:
+        list: A list containing [function_name, arg_name].
+    """
+    pattern = r'(\w+)\(\w+\.(\w+)\)'
+    match = re.match(pattern, call_str)
+
+    if match:
+        func_name, arg_name = match.groups()
+        return [func_name.lower(), arg_name]
+    else:
+        raise ValueError(f"Input string '{call_str}' does not match expected pattern.")
+
+
 def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProtocolImpl], custom_tools, authorized_imports) -> List[dict]:
     # Check if the expression is a sqlglot SELECT statement.
     # (sqlglot returns expressions from the sqlglot.exp module;
@@ -74,13 +94,11 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
     if isinstance(node, sqlglot.exp.Select) or isinstance(node, sqlglot.exp.Insert) or isinstance(node, sqlglot.exp.Update) or isinstance(node, sqlglot.exp.Delete) or isinstance(node, sqlglot.exp.Create) or isinstance(node, sqlglot.exp.Drop):
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
-        print(f"Static tools: {static_tools}")
         for idx, statement in enumerate(node.expressions):
-            print(f"statement.this: {statement.this}")
-            if statement.this in static_tools:
-                function_name = statement.this.lower()
+            function_name, *function_arguments = parse_function_call(statement.this)
+            print(f"Function name: {function_name} Static tools: {static_tools}")
+            if function_name in static_tools:
                 function_call = static_tools[function_name]
-                function_arguments = [exp.this for exp in statement.expressions]
                 function_response = function_call(*function_arguments)
                 response_value = sqlglot.expressions.Literal()    
                 if function_call.output_type == "string":
