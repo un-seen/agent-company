@@ -84,7 +84,7 @@ def parse_function_call(call_str):
         func_name, arg_name = match.groups()
         return [func_name.lower(), arg_name]
     else:
-        raise ValueError(f"Input string '{call_str}' does not match expected pattern.")
+        return [None, None]
 
 
 def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProtocolImpl], custom_tools, authorized_imports) -> List[dict]:
@@ -97,7 +97,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
         for idx, statement in enumerate(node.expressions):
             function_name, *function_arguments = parse_function_call(str(statement.this))
             print(f"Function name: {function_name} Static tools: {static_tools}")
-            if function_name in static_tools:
+            if function_name is not None and function_name in static_tools:
                 function_call = static_tools[function_name]
                 function_response = function_call(*function_arguments)
                 response_value = sqlglot.expressions.Literal()    
