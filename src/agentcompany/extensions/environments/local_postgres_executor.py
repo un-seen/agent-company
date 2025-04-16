@@ -164,7 +164,7 @@ def evaluate_sql_code(
     try:
         for node in expression:
             result, function_call_list = evaluate_ast(pg_conn, node, state, static_tools)
-            if function_call_list is not None and len(function_call_list) > 0:
+            if len(function_call_list) > 0 and result is not None:
                 # function_call_output = []
                 function_output = {}
                 for function_call in function_call_list:
