@@ -256,19 +256,17 @@ class FlowPattern(ModelContextProtocolImpl):
                 code_action=code_action,
                 additional_variables={}
             )
-            self.executor_environment.set_storage(next_step_id=0, code_action=code_action, observations=observations)
         except Exception as e:
             error_msg = "Error in Code Execution: \n"
             if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
                 error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
             error_msg += str(e)
             error_msg = self.executor_environment.parse_error_logs(error_msg)
-            self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in Code Execution:")
+            self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in code execution (get_final_answer):")
             raise AgentExecutionError(error_msg, self.logger) from e
         
         self.state["current"] = observations
-        
-        return self.executor_environment.get_final_storage()
+        return observations
     
     def setup_environment(self):
         # Get class name from config
