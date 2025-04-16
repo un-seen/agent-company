@@ -201,7 +201,7 @@ class FunctionPattern(ModelContextProtocolImpl):
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
                 additional_variables={
-                    "inputs": pd.DataFrame(context)
+                    "df": pd.DataFrame(context)
                 },
                 return_type="pandas.DataFrame"
             )
