@@ -687,15 +687,13 @@ def evaluate_subscript(
         if not (-len(value) <= index < len(value)):
             raise InterpreterError(f"Index {index} out of bounds for string of length {len(value)}")
         return value[index]
-    elif index in value:
-        return value[index]
     else:
         error_message = f"Could not index {value} with '{index}'."
         if isinstance(index, str) and isinstance(value, Mapping):
             close_matches = difflib.get_close_matches(index, list(value.keys()))
             if len(close_matches) > 0:
                 error_message += f" Maybe you meant one of these indexes instead: {str(close_matches)}"
-        raise InterpreterError(error_message)
+        return value
 
 
 def evaluate_name(
