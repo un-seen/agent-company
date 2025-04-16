@@ -168,28 +168,40 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         # Push variables first
         push_variables_to_kernel(additional_variables, self.kc)
         
-        # Add cell with result capture
-        wrapped_code = f"""
+        import textwrap
+        import inspect
+        # Clean and dedent user code
+        user_code = textwrap.dedent(code_action).strip()
+        
+        # Create safe wrapper template
+        wrapper_template = """
         import pickle
         import base64
-
+        
         try:
-            # User's original code
-            {code_action}
+            {user_code}
             
-            # Capture the last expression result
+            # Capture last expression using Python's _
             __result__ = _
         except Exception as e:
-            __result__ = e  # Capture exceptions as results
-
-        # Serialize and clean up
+            __result__ = e
+        
         try:
             __serialized__ = base64.b64encode(pickle.dumps(__result__)).decode('utf-8')
-            print(__serialized__)  # This will be our captured output
+            print(__serialized__)
         except Exception as e:
             print(f"SERIALIZATION_ERROR: {{str(e)}}")
-        del __result__  # Clean up namespace
+        finally:
+            del __result__
         """
+        
+        # Dedent wrapper and format with proper indentation
+        wrapped_code = textwrap.dedent(wrapper_template).format(
+            user_code=textwrap.indent(
+                inspect.cleandoc(user_code), 
+                '    '  # 4-space indent for user code
+            )
+        )
         # Execute wrapped code
         cell_index = self._add_execute_cell(wrapped_code)
         outputs, error_logs = self._execute_cell(cell_index)
@@ -221,7 +233,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
             errors.append(f"Execution error: {str(result)}")
             result = None
             
-        return result, "\n".join(error_logs + errors), bool(error_logs or errors)
+        return result, "\n".join([error_logs] + errors), bool(error_logs or errors)
 
     
     def _add_execute_cell(self, code: str) -> int:
