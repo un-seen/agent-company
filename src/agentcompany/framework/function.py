@@ -287,7 +287,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         # Find all registered ExecutionEnvironment subclasses
         from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
         from agentcompany.extensions.environments.local_postgres_executor import LocalPostgresInterpreter
-        from agentcompany.extensions.environments.local_tfserving_executor import LocalTfServingInterpreter
+        from agentcompany.extensions.environments.jupyter_python_executor import JupyterPythonInterpreter
         
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
         try:
