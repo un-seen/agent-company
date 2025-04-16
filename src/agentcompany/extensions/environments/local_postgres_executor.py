@@ -2,6 +2,8 @@
 import re
 import copy
 import sqlglot
+from psycopg2 import sql
+import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import traceback
 import numpy as np
@@ -156,35 +158,29 @@ def evaluate_sql_code(
             f"{' ' * (e.offset or 0)}^\n"
             f"Error: {str(e)}"
         )
-
     
     static_tools = static_tools.copy() if static_tools is not None else {}
-    result = None
     task = state.get("task", None)
     try:
         for node in expression:
-            result, function_call_list = evaluate_ast(pg_conn, node, state, static_tools)
-            if len(function_call_list) > 0 and result is not None:
+            outputs, function_call_list = evaluate_ast(pg_conn, node, state, static_tools)
+            if len(function_call_list) > 0 and outputs is not None:
                 # function_call_output = []
                 function_output = {}
                 for function_call in function_call_list:
                     function_name, function_arguments = function_call
                     function_exec = static_tools[function_name]
-                    # TODO pop the arguments for the dicts in result
-                    function_output[function_name] = function_exec(task, function_arguments, result)
-                    print(f"Function output: {function_output[function_name][:10]}")
-                result_copy = copy.deepcopy(result)
-                for idx in range(len(result)):
-                    item = result_copy[idx]
+                    function_output[function_name] = function_exec(task, function_arguments, outputs)
+                outputs_copy = copy.deepcopy(outputs)
+                for idx in range(len(outputs_copy)):
+                    item = outputs_copy[idx]
                     for function_name in function_output:
                         try:
                             item[function_name] = function_output[function_name][idx]    
                         except:
                             item[function_name] = None
-                result = result_copy
-                # function_call_output.append(item_dict)
-                # result = function_call_output
-        return result
+                outputs = outputs_copy
+        return outputs
     except Exception as e:
         error_trace = traceback.format_exc()
         error_msg = f"Code execution failed at node '{node}' in code '{code}' due to exception:\n{error_trace}"
@@ -278,7 +274,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         )
         logs = self.state.get("logs", "")
         # Return the result as a list of dictionaries
-        return tupled_rows, logs, False
+        return tupled_rows or [], logs, False
         
     def attach_variables(self, variables: dict):
         self.state.update(variables)
@@ -312,7 +308,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
     def get_storage_id(self, next_step_id: int) -> str:
         return f"{self.session_id}_temp_storage_{next_step_id}"
     
-    def set_storage(self, next_step_id: int, code_action: str):
+    def set_storage(self, next_step_id: int, code_action: str, observations: List[Dict[str, Any]] = None):
         """
         Executes the provided SQL code_action, stores the result in a temporary table,
         and returns a list of column dictionaries with name, type, and sample values.
@@ -331,10 +327,39 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Ensure the temp table is dropped if it exists
             cur.execute(f"DROP VIEW IF EXISTS {temp_table_name} CASCADE;")
-            # Create the temp table with the result of the code_action query
-            code_action = code_action.strip(';')
-            # Write to environment state
-            cur.execute(f"CREATE VIEW {temp_table_name} AS ({code_action});")
+            
+            if observations:
+                # Collect all unique keys from all observations
+                all_keys = set()
+                for obs in observations:
+                    all_keys.update(obs.keys())
+                
+                if not all_keys:
+                    raise ValueError("Observations contain no keys to create columns")
+                
+                # Create column definitions safely
+                columns = [sql.Identifier(key) for key in all_keys]
+                column_defs = sql.SQL(', ').join(
+                    sql.SQL("{} JSONB").format(col) for col in columns
+                )
+                
+                # Create view with dynamic columns
+                create_view = sql.SQL("""
+                    CREATE VIEW {table} AS
+                    SELECT *
+                    FROM jsonb_to_recordset(%s::JSONB) AS t({columns})
+                """).format(
+                    table=sql.Identifier(temp_table_name),
+                    columns=column_defs
+                )
+                
+                # Execute with observations JSON
+                cur.execute(create_view, (json.dumps(observations),))
+            else:
+                # Create the temp table with the result of the code_action query
+                code_action = code_action.strip(';')
+                # Write to environment state
+                cur.execute(f"CREATE VIEW {temp_table_name} AS ({code_action});")
             self.pg_conn.commit()
             
             # Retrieve column names and data types from the temp table

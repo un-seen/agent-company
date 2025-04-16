@@ -254,9 +254,9 @@ class FlowPattern(ModelContextProtocolImpl):
         try:
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
-                additional_variables={},
+                additional_variables={}
             )
-            self.executor_environment.set_storage(next_step_id=0, code_action=code_action)
+            self.executor_environment.set_storage(next_step_id=0, code_action=code_action, observations=observations)
             self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
         except Exception as e:
             error_msg = "Error in Code Execution: \n"

@@ -52,7 +52,7 @@ class ExecutionEnvironment(abc.ABC):
     def __call__(self, code_action: str, additional_variables: dict, return_type: str = "string") -> Tuple[str, str, bool]:
         return super().__call__(code_action, additional_variables)
     
-    def set_storage(self, next_step_id: int, code_action: str):
+    def set_storage(self, next_step_id: int, code_action: str, observations: List[Dict[str, Any]] = None):
         raise NotImplementedError("save_in_memory not implemented.")
     
     def get_storage_id(self, next_step_id: int) -> str:
