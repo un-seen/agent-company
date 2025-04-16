@@ -1,13 +1,16 @@
 import os
 import ast
 import re
+import pickle
+import base64
 import nbformat
 from nbformat import v4 as nb_v4
 from jupyter_client import KernelManager
+from nbformat.notebooknode import NotebookNode
 from typing import Dict, Any, Tuple, Union, List, Callable, Set, Optional
 import logging
 import pandas as pd
-from nbformat.notebooknode import NotebookNode
+
 import json
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 
@@ -76,7 +79,36 @@ def get_pip_package(module_name: str) -> Optional[str]:
     # Return mapped package name if exists
     return _IMPORT_PACKAGE_MAP.get(module_name, module_name)
 
-
+def push_variables_to_kernel(local_vars: dict, kernel_client):
+    """
+    For each key/value in local_vars, serialize and define it in the Jupyter kernel via code injection.
+    """
+    for var_name, value in local_vars.items():
+        # 1) Serialize with pickle
+        pickled_bytes = pickle.dumps(value)
+        b64_str = base64.b64encode(pickled_bytes).decode('utf-8')
+        
+        # 2) Construct code to decode and assign in the kernel
+        # We wrap this in triple-quotes to avoid special char issues
+        code = f"""
+        import pickle, base64
+        {var_name} = pickle.loads(base64.b64decode(\"\"\"{b64_str}\"\"\"))
+        print(\"Assigned variable '{var_name}' in kernel.\")
+        """
+        # 3) Execute on the remote kernel
+        msg_id = kernel_client.execute(code)
+        
+        # Optional: wait for the execution result or handle outputs
+        # But typically you can just dispatch and keep going
+        # To block until complete:
+        while True:
+            msg = kernel_client.get_iopub_msg(timeout=1)
+            if msg['msg_type'] == 'stream':
+                print(msg['content']['text'], end='')
+            if (msg['msg_type'] == 'status' and
+                msg['content']['execution_state'] == 'idle'):
+                break
+            
 class JupyterPythonInterpreter(ExecutionEnvironment):
     
     language: str = "python"
@@ -129,6 +161,8 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         additional_variables: dict,
         return_type: str = "string"
     ) -> Tuple[Union[List[dict], str], str, bool]:
+        
+        push_variables_to_kernel(additional_variables, self.kc)
         
         # Add new cell with code
         cell_index = self._add_execute_cell(code_action)
