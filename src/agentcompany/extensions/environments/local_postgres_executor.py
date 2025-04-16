@@ -1,5 +1,6 @@
 
 import re
+import copy
 import sqlglot
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import traceback
@@ -171,7 +172,13 @@ def evaluate_sql_code(
                     function_exec = static_tools[function_name]
                     # TODO pop the arguments for the dicts in result
                     function_output[function_name] = function_exec(task, function_arguments, result)
-                print(f"Function output: {function_output}")
+                    print(f"Function output: {function_output[function_name][:10]}")
+                result_copy = copy.deepcopy(result)
+                for idx in range(len(result)):
+                    item = result_copy[idx]
+                    for function_name in function_output:
+                        item[function_name] = function_output[function_name][idx]    
+                result = result_copy
                 # function_call_output.append(item_dict)
                 # result = function_call_output
         return result
