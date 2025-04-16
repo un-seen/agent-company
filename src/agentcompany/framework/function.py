@@ -207,12 +207,13 @@ class FunctionPattern(ModelContextProtocolImpl):
         preprocess_choice_list = self.prompt_templates["preprocess_choice"]
         preprocess_choice: CodeChoiceDefinition = None
         for item in preprocess_choice_list:
-            if item["choice_id"] == choice_id:
+            if item["choice_id"] in choice_id:
                 preprocess_choice = item
                 break
         if preprocess_choice is None:
             raise ValueError(f"Choice ID '{choice_id}' not found in preprocess choices.")
         code_content = preprocess_choice[self.executor_environment.language]
+        self.logger.log(text=code_content, title=f"Preprocess Function Choice ({self.interface_id}/{self.name}):")
         try:
             code_action = self.executor_environment.parse_code_blobs(code_content)
         except Exception as e:
@@ -255,12 +256,13 @@ class FunctionPattern(ModelContextProtocolImpl):
         main_choice_list = self.prompt_templates["main_choice"]
         main_choice: CodeChoiceDefinition = None
         for item in main_choice_list:
-            if item["choice_id"] == choice_id:
+            if item["choice_id"] in choice_id:
                 main_choice = item
                 break
         if main_choice is None:
-            raise ValueError(f"Choice ID '{choice_id}' not found in preprocess choices.")
+            raise ValueError(f"Choice ID '{choice_id}' not found in main choices.")
         code_content = main_choice[self.executor_environment.language]
+        self.logger.log(text=code_content, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
         try:
             code_action = self.executor_environment.parse_code_blobs(code_content)
         except Exception as e:
