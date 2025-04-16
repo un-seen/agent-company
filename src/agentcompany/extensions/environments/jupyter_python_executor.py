@@ -1,4 +1,6 @@
 import os
+import ast
+import re
 import nbformat
 from nbformat import v4 as nb_v4
 from jupyter_client import KernelManager
@@ -85,6 +87,80 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         self.cell_counter += 1
         return self.cell_counter - 1
 
+    def parse_function(self, code_blob: str) -> Dict[str, Callable]:
+        """
+        Parses the given code blob using Python's ast module and returns a dictionary mapping
+        function names to their corresponding callable functions.
+        
+        If the input is not valid Python code, it first attempts to extract the substring inside
+        a markdown code block (```python ... ```).
+
+        Parameters:
+            code_blob (str): A string containing Python code or markdown with a python code block.
+
+        Returns:
+            Dict[str, Callable]: A dictionary where keys are function names and values are callable functions.
+        """
+        try:
+            # Attempt to parse the code blob directly.
+            tree = ast.parse(code_blob)
+            code_to_compile = code_blob
+        except SyntaxError:
+            # If parsing fails, extract the code block from markdown.
+            code_to_compile = self._extract_markdown_code(code_blob)
+            try:
+                tree = ast.parse(code_to_compile)
+            except SyntaxError as e:
+                raise ValueError(f"Extracted code is not valid Python: {e}")
+            
+        # Identify and install required modules
+        required_modules = self._collect_imports(tree)
+        self._install_missing_modules(required_modules)
+        # Compile and execute the (valid) code in a temporary namespace.
+        namespace = {}
+        compiled_code = compile(tree, filename="<ast>", mode="exec")
+        exec(compiled_code, namespace)
+
+        # Filter the namespace for functions (ignoring imported modules and other objects).
+        functions_dict = {
+            name: obj
+            for name, obj in namespace.items()
+            if callable(obj) and isinstance(obj, type(lambda: None))
+        }
+        return functions_dict
+    
+    
+    def parse_code_blobs(self, code_blob: str) -> str:
+        """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
+        pattern = r"```(?:python)?\n(.*?)\n```"
+        matches = re.findall(pattern, code_blob, re.DOTALL)
+        if len(matches) == 0:
+            try:  # Maybe the LLM outputted a code blob directly
+                ast.parse(code_blob)
+                return code_blob
+            except SyntaxError:
+                pass
+            if "final" in code_blob and "answer" in code_blob:
+                raise ValueError(f"""
+                        Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
+                        Here is your code snippet:
+                        {code_blob}
+                        It seems like you're trying to return the final answer, you can do it as follows:
+                        Code:
+                        ```py
+                        final_answer("YOUR FINAL ANSWER HERE")
+                        ```<end_code>""".strip())
+            raise ValueError(f"""Your code snippet is invalid, because the regex pattern {pattern} was not found in it.
+                    Here is your code snippet:
+                    {code_blob}
+                    Make sure to include code with the correct pattern, for instance:
+                    Thoughts: Your thoughts
+                    Code:
+                    ```py
+                    # Your python code here
+                    ```<end_code>""".strip())
+        return "\n\n".join(match.strip() for match in matches)
+    
     def _execute_cell(self, cell_index: int) -> Tuple[Any, str]:
         """Execute a specific notebook cell"""
         cell = self.notebook.cells[cell_index]
