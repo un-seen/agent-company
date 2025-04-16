@@ -990,7 +990,11 @@ def get_safe_module(raw_module, dangerous_patterns, authorized_imports, visited=
     visited.add(module_id)
 
     # Create new module for actual modules
-    safe_module = ModuleType(raw_module.__name__)
+    try:
+        safe_module = ModuleType(raw_module.__name__)
+    except AttributeError:
+        # If the module doesn't have a name, return the original
+        return raw_module
 
     # Copy all attributes by reference, recursively checking modules
     for attr_name in dir(raw_module):
