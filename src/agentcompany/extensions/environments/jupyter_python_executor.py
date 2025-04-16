@@ -162,23 +162,42 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         self.km.shutdown_kernel()
     
     def _normalize_code(self, code: str) -> str:
-        """Normalize code indentation using AST validation"""
+        """Force PEP8-compliant indentation with AST validation"""
+        # Convert tabs to spaces
+        code = code.expandtabs(4)
+        
+        # Parse and regenerate code with proper indentation
         try:
-            # Validate syntax first
-            ast.parse(code)
-            return textwrap.dedent(code).strip()
+            tree = ast.parse(code)
+            return ast.unparse(tree)
         except IndentationError:
-            # Reformat with consistent 4-space indentation
-            return textwrap.fill(
-                textwrap.dedent(code),
-                replace_whitespace=False,
-                drop_whitespace=True,
-                initial_indent='',
-                subsequent_indent='    '
-            )
+            # Fallback to aggressive reindentation
+            return self._reindent_code(code)
         except SyntaxError:
-            # For non-indentation syntax errors, just dedent
-            return textwrap.dedent(code).strip()
+            return code  
+
+    def _reindent_code(self, code: str) -> str:
+        """Force 4-space indentation preserving block structure"""
+        lines = code.split('\n')
+        indent_level = 0
+        new_lines = []
+        
+        for line in lines:
+            stripped = line.lstrip()
+            if not stripped:
+                new_lines.append('')
+                continue
+                
+            # Calculate new indent
+            if stripped.startswith(('def ', 'class ', 'for ', 'if ', 'elif ', 'else:', 'try:', 'except ', 'finally:')):
+                indent_level += 1
+            elif stripped.startswith(('return', 'raise', 'pass', 'break', 'continue')):
+                indent_level = max(0, indent_level - 1)
+                
+            new_indent = '    ' * indent_level
+            new_lines.append(f"{new_indent}{stripped}")
+            
+        return '\n'.join(new_lines)
     
     def __call__(
         self, 
@@ -189,18 +208,18 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         # Push variables first
         push_variables_to_kernel(additional_variables, self.kc)
         
-        # Normalize user code indentation
+        # Normalize code with strict indentation rules
         user_code = self._normalize_code(code_action)
         
         # Create safe wrapper template
-        wrapper_template = textwrap.dedent("""
+        wrapper_template = textwrap.dedent('''\
         import pickle
         import base64
         
         try:
-            # USER CODE START #
-            {user_code}
-            # USER CODE END #
+        {user_code}
+        
+            # Capture last expression
             __result__ = _
         except Exception as e:
             __result__ = e
@@ -210,7 +229,9 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
             print(__serialized__)
         except Exception as e:
             print(f"SERIALIZATION_ERROR: {{str(e)}}")
-        """)
+        finally:
+            del __result__
+        ''')
         
         # Format with properly indented user code
         wrapped_code = wrapper_template.format(
@@ -218,7 +239,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         )
         
         # Debug: log the final code being executed
-        logger.debug("Executing wrapped code:\n%s", wrapped_code)
+        print("Executing wrapped code:\n%s", wrapped_code)
         
         # Execute and process results
         cell_index = self._add_execute_cell(wrapped_code)
