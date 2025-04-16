@@ -276,7 +276,6 @@ class FunctionPattern(ModelContextProtocolImpl):
             {"role": "system", "content": [{"type": "text", "text": input_message}]},
         ]
         main_code, main_outputs = self.execute_main_choice(model_input_messages, context)
-        self.logger.log(text=main_code, title=f"Code Output ({self.interface_id}/{self.name}):")
         return main_outputs
                 
     def setup_environment(self):
