@@ -2,6 +2,8 @@ import os
 import ast
 import re
 import pickle
+import time
+from queue import Empty
 import base64
 import nbformat
 from nbformat import v4 as nb_v4
@@ -282,37 +284,48 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         return "\n\n".join(match.strip() for match in matches)
     
     def _execute_cell(self, cell_index: int) -> Tuple[Any, str]:
-        """Execute a specific notebook cell"""
+        """Execute cell with extended timeouts and output filtering"""
         cell = self.notebook.cells[cell_index]
         msg_id = self.kc.execute(cell.source)
         
         outputs = []
         error_logs = []
-        
-        # Wait for execution to complete
+        last_activity = time.time()
         while True:
             try:
-                msg = self.kc.get_iopub_msg(timeout=30)
+                # Use dynamic timeout based on last activity
+                elapsed = time.time() - last_activity
+                timeout = max(300, 60 - elapsed)  # Allow up to 5 minutes between messages
+                msg = self.kc.get_iopub_msg(timeout=timeout)
+                
                 if msg['parent_header'].get('msg_id') == msg_id:
                     msg_type = msg['msg_type']
                     content = msg['content']
+                    last_activity = time.time()
+
+                    # Handle different message types
                     if msg_type == 'execute_result':
                         outputs.append(content['data'])
                     elif msg_type == 'stream':
-                        outputs.append({'text/plain': content['text']})
+                        # Filter TensorFlow/XLA noise
+                        if 'XLA service' not in content['text'] and 'cuDNN version' not in content['text']:
+                            outputs.append({'text/plain': content['text']})
                     elif msg_type == 'error':
-                        error_logs.extend([
-                            f"{content['ename']}: {content['evalue']}",
-                            "\n".join(content['traceback'])
-                        ])
-                    elif msg_type == 'status' and content['execution_state'] == 'idle':
-                        break
-                        
-            except Exception as e:
-                error_logs.append(f"Kernel communication error: {str(e)}")
-                break
+                        error_logs.extend(content['traceback'])
+                    elif msg_type == 'status':
+                        if content['execution_state'] == 'idle':
+                            break
+
+            except Empty:
+                if time.time() - last_activity > 300:  # 5 minute global timeout
+                    error_logs.append("Timeout: No kernel activity for 5 minutes")
+                    break
+                continue
                 
-        # Update cell outputs
+            except Exception as e:
+                error_logs.append(f"Kernel error: {str(e)}")
+                break
+
         cell.outputs = outputs
         return outputs, "\n".join(error_logs)
 
