@@ -226,7 +226,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         
         try:
             __serialized__ = base64.urlsafe_b64encode(pickle.dumps(__result__)).decode()
-            print(f"SERIALIZED_DATA:{__serialized__}")
+            print(f"SERIALIZED_DATA:{{__serialized__}}")
         except Exception as e:
             print(f"SERIALIZATION_ERROR: {{str(e)}}")
         finally:
