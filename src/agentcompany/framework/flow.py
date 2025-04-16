@@ -312,7 +312,6 @@ class FlowPattern(ModelContextProtocolImpl):
             # Replace placeholders in the step with values from state
             from jinja2 import Template
             template: Template = Template(step)
-            self.logger.log(title=f"Step {i} ({self.interface_id}/{self.name})", text=state)
             rendered_step = template.render(**state)
             self.logger.log(text=rendered_step, title=f"Step {i} ({self.interface_id}/{self.name}) Out-> {out}, Out_id-> {out_id}:")
             if out == "one_to_many":
