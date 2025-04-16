@@ -1005,7 +1005,11 @@ def get_safe_module(raw_module, dangerous_patterns, authorized_imports, visited=
         ):
             continue
 
-        attr_value = getattr(raw_module, attr_name)
+        try:
+            attr_value = getattr(raw_module, attr_name)
+        except Exception as e:
+            logger.error(f"Error getting attribute {attr_name} from {raw_module}: {e}")
+            continue
 
         # Recursively process nested modules, passing visited set
         if isinstance(attr_value, ModuleType):
