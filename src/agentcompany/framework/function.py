@@ -168,80 +168,6 @@ class FunctionPattern(ModelContextProtocolImpl):
             messages.extend(memory_step.to_messages())
         return messages
     
-    def _validate_observations(self, step: str, previous_observations: List[Observations]) -> PlanningStepStatus:
-        # Validate if next step is complete
-        variables = {
-            "role": self.description,
-            "task": step,
-            "observations": previous_observations,
-        }
-        message_prompt_plan = {
-            "role": MessageRole.USER,
-            "content": [
-                {
-                    "type": "text",
-                    "text": populate_template(
-                        self.prompt_templates["planning"]["validate_observations"],
-                        variables=variables,
-                    ),
-                }
-            ],
-        }
-        self.logger.log(text=message_prompt_plan["content"][0]["text"], title="Validate Observations Input:")
-        validate_answer_message: ChatMessage = self.model([message_prompt_plan])
-        self.validate_step = ValidateStep([message_prompt_plan], validate_answer_message)
-        self.logger.log(text=validate_answer_message.content, title="Validate Observations Output:")
-        return self.validate_step.to_decision()
-    
-    def execute_preprocess_choice(self, model_input_messages: list[dict[str, any]], context: list[dict[str, any]]) -> Tuple[str, Any]:
-        model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
-        self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
-        try:
-            code_output_message: ChatMessage = self.model(model_input_messages)
-        except Exception as e:
-            raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
-        
-        choice_id = code_output_message.content
-        # TODO parse the choice id
-        self.logger.log(text=choice_id, title=f"Preprocess Choice ID ({self.interface_id}/{self.name}):")
-        preprocess_choice_list = self.prompt_templates["preprocess_choice"]
-        preprocess_choice: CodeChoiceDefinition = None
-        for item in preprocess_choice_list:
-            if item["choice_id"] in choice_id:
-                preprocess_choice = item
-                break
-        if preprocess_choice is None:
-            raise ValueError(f"Choice ID '{choice_id}' not found in preprocess choices.")
-        code_content = preprocess_choice[self.executor_environment.language]
-        self.logger.log(text=code_content, title=f"Preprocess Function Choice ({self.interface_id}/{self.name}):")
-        try:
-            code_action = self.executor_environment.parse_code_blobs(code_content)
-        except Exception as e:
-            error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-            error_msg = self.executor_environment.parse_error_logs(error_msg)
-            raise AgentError(f"Error in code parsing:\n{e}", self.logger) from e
-        
-        self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
-        try:
-            observations, _, _ = self.executor_environment(
-                code_action=code_action,
-                additional_variables={
-                    "inputs": pd.DataFrame(context)
-                },
-                return_type="pandas.DataFrame"
-            )
-            self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
-        except Exception as e:
-            error_msg = "Error in Code Execution: \n"
-            if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
-            error_msg += str(e)
-            error_msg = self.executor_environment.parse_error_logs(error_msg)
-            raise AgentError(f"Error in code execution:\n{e}", self.logger) from e
-
-        return code_action, observations
-    
-    
     def execute_main_choice(self, model_input_messages: list[dict[str, any]], context: list[dict[str, any]]) -> Tuple[str, Any]:
         model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
         self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
@@ -290,121 +216,6 @@ class FunctionPattern(ModelContextProtocolImpl):
 
         return code_action, observations
     
-    def main(
-            self, 
-            task: str,
-            inputs: List[str] = None,
-            context: List[Dict[str, Any]] = None
-        ) -> List[Dict[str, Any]]:
-        # Input Message
-        context_as_str = list_of_dict_to_markdown_table(context)
-        main_prompt = self.prompt_templates["preprocess"]
-        input_message = populate_template(
-            main_prompt,
-            variables={
-                "task": task,
-                "inputs": inputs,
-                "context_as_str": context_as_str,
-            }
-        )
-        input_message_lower = input_message.lower()
-        # Hints
-        hints = self.prompt_templates["main_hint"]
-        filtered_hints = [
-            hint for hint in hints
-            if any(keyword.lower() in input_message_lower for keyword in hint.get("keyword", []))
-        ]
-        filtered_hints_str = f"""
-        ## Hints
-        
-        {list_of_dict_to_markdown_table(filtered_hints)}
-        """.strip()        
-        model_input_messages = [
-            {"role": "user", "content": [{"type": "text", "text": input_message}]},
-            {"role": "user", "content": [{"type": "text", "text": filtered_hints_str}]},
-        ]
-        model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
-        self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
-
-        previous_environment_errors: List[Dict[str, Any]] = []
-
-        while True:
-            model_input_messages_with_errors = copy.deepcopy(model_input_messages)
-
-            if previous_environment_errors:
-                error_str = "\n\n".join([
-                    f"Error encountered:\n{err['error']}\nProblematic code:\n{err['code']}"
-                    for err in previous_environment_errors
-                ])
-                model_input_messages_with_errors.append(
-                    {"role": "system", "content": [{"type": "text", "text": error_str}]}
-                )    
-            try:
-                code_output_message: ChatMessage = self.model(model_input_messages_with_errors)
-            except Exception as e:
-                raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
-            observations = None
-            try:
-                code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
-            except Exception as e:
-                error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-                error_msg = self.executor_environment.parse_error_logs(error_msg)
-                previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
-                continue
-            
-            self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
-            try:
-                observations, _, _ = self.executor_environment(
-                    code_action=code_action,
-                    additional_variables={
-                        "inputs": pd.DataFrame(context)
-                    },
-                    return_type="pandas.DataFrame"
-                )
-                self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
-            except Exception as e:
-                error_msg = "Error in Code Execution: \n"
-                if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                    error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
-                error_msg += str(e)
-                error_msg = self.executor_environment.parse_error_logs(error_msg)
-                self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in Code Execution:")
-                previous_environment_errors.append({"code": code_action, "error": error_msg})
-                continue
-            
-            judge_input_message = {
-                "role": MessageRole.USER, 
-                "content": [{
-                    "type": "text", 
-                    "text": populate_template(
-                        self.prompt_templates["judge"],
-                        variables={
-                            "task": model_input_messages_str,
-                            "code": code_action,
-                            "observations": observations,
-                        }
-                    )
-                }]
-            }
-            self.logger.log(text=judge_input_message["content"][0]["text"], title=f"Judge Input ({self.interface_id}/{self.name}):")
-            judge_output_message: ChatMessage = self.model([judge_input_message])
-
-            self.judge_step = JudgeStep([judge_input_message], judge_output_message)
-            self.memory.append_step(self.judge_step)
-
-            decision = self.judge_step.to_decision()
-            feedback = self.judge_step.get_feedback_content()
-
-            self.logger.log(text=self.judge_step.model_output_message.content, title=f"Judge Output ({self.interface_id}/{self.name}):")
-            self.logger.log(text=decision, title=f"Judge Decision ({self.interface_id}/{self.name}):")
-
-            if decision == "approve":
-                break
-            else:
-                previous_environment_errors = [{"code": code_action, "error": feedback}]
-
-        return observations
-    
     
     def run(
         self,
@@ -448,25 +259,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         if not isinstance(task, str) or not isinstance(inputs, (list, str)) or not isinstance(context, (list, dict)):
             raise ValueError("Task should be a string, inputs should be a list of strings, and context should be a list of dictionaries.")
         
-        # Preprocesss
-        # Input Message
-        preprocess_prompt = self.prompt_templates["preprocess"]
-        preprocess_choice = self.prompt_templates["preprocess_choice"]
-        input_message = populate_template(
-            preprocess_prompt,
-            variables={
-                "task": task,
-                "inputs": inputs,
-                "context_as_str": context_as_str,
-                "preprocess_choice": preprocess_choice,
-            }
-        )
-        # Model Input Messages
-        model_input_messages = [
-            {"role": "system", "content": [{"type": "text", "text": input_message}]},
-        ]
-        preprocessing_code, preprocessing_outputs = self.execute_preprocess_choice(model_input_messages, context)
-        
         # Main
         # Input Message
         main_prompt = self.prompt_templates["main"]
@@ -475,8 +267,8 @@ class FunctionPattern(ModelContextProtocolImpl):
             main_prompt,
             variables={
                 "task": task,
+                "inputs": inputs,
                 "context_as_str": context_as_str,
-                "preprocessing_code": preprocessing_code,
                 "main_choice": main_choice,
             }
         )
@@ -484,42 +276,10 @@ class FunctionPattern(ModelContextProtocolImpl):
         model_input_messages = [
             {"role": "system", "content": [{"type": "text", "text": input_message}]},
         ]
-        main_code, main_outputs = self.execute_main_choice(model_input_messages, preprocessing_outputs)
+        main_code, main_outputs = self.execute_main_choice(model_input_messages, context)
         self.logger.log(text=main_code, title=f"Code Output ({self.interface_id}/{self.name}):")
         return main_outputs
                 
-    
-    def get_final_answer(self) -> Any:
-        code_output_message_content = self.state.get("final_answer", None)
-        if code_output_message_content is None:
-            raise ValueError("No final answer found in the state.")
-        try:
-            code_action = self.executor_environment.parse_code_blobs(code_output_message_content)
-            self.logger.log(title="Code:", text=code_action)
-        except Exception as e:
-            error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-            error_msg = self.executor_environment.parse_error_logs(error_msg)
-            raise AgentExecutionError(error_msg, self.logger) from e
-        try:
-            observations, _, _ = self.executor_environment(
-                code_action=code_action,
-                additional_variables={},
-            )
-            self.executor_environment.set_storage(next_step_id=0, code_action=code_action)
-            self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
-        except Exception as e:
-            error_msg = "Error in Code Execution: \n"
-            if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
-            error_msg += str(e)
-            error_msg = self.executor_environment.parse_error_logs(error_msg)
-            self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in Code Execution:")
-            raise AgentExecutionError(error_msg, self.logger) from e
-        
-        self.state["current"] = observations
-        
-        return self.executor_environment.get_final_storage()
-    
     def setup_environment(self):
         # Get class name from config
         interface_name = self.executor_environment_config["interface"]

@@ -762,8 +762,11 @@ def evaluate_condition(
 
         if isinstance(result, bool) and not result:
             break
-
-    return result if isinstance(result, (bool, pd.Series)) else result.all()
+    
+    if isinstance(result, (bool, pd.Series)):
+        return result
+    else:
+        return result.all()
 
 
 def evaluate_if(
