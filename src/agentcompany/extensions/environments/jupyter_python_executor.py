@@ -4,13 +4,78 @@ import re
 import nbformat
 from nbformat import v4 as nb_v4
 from jupyter_client import KernelManager
-from typing import Dict, Any, Tuple, Union, List, Callable, Set
+from typing import Dict, Any, Tuple, Union, List, Callable, Set, Optional
 import logging
 import pandas as pd
+from nbformat.notebooknode import NotebookNode
 import json
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 
 logger = logging.getLogger(__name__)
+
+
+
+_IMPORT_PACKAGE_MAP = {
+    # Computer Vision
+    "cv2": "opencv-python",
+    
+    # Web Scraping
+    "bs4": "beautifulsoup4",
+    "lxml": "lxml",
+    
+    # Data Science
+    "sklearn": "scikit-learn",
+    "pd": "pandas",
+    "np": "numpy",
+    "plt": "matplotlib",
+    
+    # Image Processing
+    "PIL": "pillow",
+    
+    # Configuration
+    "yaml": "pyyaml",
+    "dotenv": "python-dotenv",
+    
+    # Database
+    "psycopg2": "psycopg2-binary",
+    
+    # Utilities
+    "dateutil": "python-dateutil",
+    "jwt": "pyjwt",
+    "django": "django",
+    "flask": "flask"
+}
+
+_STANDARD_LIBRARY_MODULES = {
+    "sys", "os", "re", "json", "ast", "subprocess", "typing", "logging",
+    "importlib", "collections", "datetime", "math", "random", "socket",
+    "argparse", "itertools", "functools", "threading", "pathlib", "csv",
+    "html", "http", "urllib", "xml", "email", "ssl", "hashlib", "base64",
+    "io", "time", "unittest", "pdb", "traceback", "zipfile", "sqlite3",
+    "glob", "pickle", "tempfile", "uuid", "webbrowser", "ctypes", "queue",
+    "asyncio", "signal", "warnings", "weakref", "dataclasses", "enum",
+    "statistics", "pprint", "textwrap", "shutil", "doctest", "profile"
+}
+
+def get_pip_package(module_name: str) -> Optional[str]:
+    """
+    Maps Python import names to their corresponding PyPI package names.
+    
+    Args:
+        module_name (str): The name used in import statements
+        
+    Returns:
+        str: PyPI package name if mapping exists
+        None: For standard library modules
+        module_name: For unmapped packages (assumed same as import name)
+    """
+    # Check if it's a known standard library module
+    if module_name in _STANDARD_LIBRARY_MODULES:
+        return None
+        
+    # Return mapped package name if exists
+    return _IMPORT_PACKAGE_MAP.get(module_name, module_name)
+
 
 class JupyterPythonInterpreter(ExecutionEnvironment):
     
@@ -38,7 +103,8 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         self.kc.start_channels()
         
         # Create new notebook structure
-        self.notebook = nb_v4.new_notebook()
+        
+        self.notebook: NotebookNode = nb_v4.new_notebook()
         self._add_initial_cells()
         
         super().__init__(session_id, mcp_servers)
@@ -60,7 +126,6 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
     def __call__(
         self, 
         code_action: str,
-        additional_variables: Dict,
         return_type: str = "string"
     ) -> Tuple[Union[List[dict], str], str, bool]:
         try:
@@ -105,6 +170,16 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
                 packages.add(node.module.split('.')[0])
         return packages
     
+    def _install_missing_modules(self, modules: Set[str]):
+        """Installs packages that aren't available in the environment"""
+        for module in modules:
+            if not self._is_module_installed(module):
+                logger.info(f"Installing missing module: {module}")
+                pip_package_name = get_pip_package(module)
+                logger.info(f"Installing pip package: {pip_package_name}")
+                if not self._pip_install(pip_package_name):
+                    raise ImportError(f"Failed to install required module: {module}")
+                
     def parse_function(self, code_blob: str) -> Dict[str, Callable]:
         """
         Parses the given code blob using Python's ast module and returns a dictionary mapping
@@ -261,9 +336,6 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
             return execution_logs.split('Traceback')[-1]
         return execution_logs
 
-    # Implement other required methods from base class
-    # ... (get_storage_id, set_storage, etc)
-    
     def get_storage(self, next_step_id: int) -> str:
         """Get variable from kernel namespace"""
         code = f"print({self.get_storage_id(next_step_id)})"
