@@ -689,7 +689,7 @@ def evaluate_subscript(
             raise InterpreterError(f"Index {index} out of bounds for string of length {len(value)}")
         return value[index]
     elif isinstance(value, tf.Tensor):
-        return value.numpy()[index]
+        return value
     else:
         error_message = f"Could not index {value} with '{index}'."
         if isinstance(index, str) and isinstance(value, Mapping):
