@@ -108,7 +108,7 @@ def push_variables_to_kernel(local_vars: dict, kernel_client):
         # But typically you can just dispatch and keep going
         # To block until complete:
         while True:
-            msg = kernel_client.get_iopub_msg(timeout=1)
+            msg = kernel_client.get_iopub_msg(timeout=30)
             if msg['msg_type'] == 'stream':
                 print(msg['content']['text'], end='')
             if (msg['msg_type'] == 'status' and
