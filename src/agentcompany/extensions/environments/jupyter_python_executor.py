@@ -4,7 +4,7 @@ import re
 import nbformat
 from nbformat import v4 as nb_v4
 from jupyter_client import KernelManager
-from typing import Dict, Any, Tuple, Union, List
+from typing import Dict, Any, Tuple, Union, List, Callable, Set
 import logging
 import pandas as pd
 import json
@@ -87,6 +87,24 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         self.cell_counter += 1
         return self.cell_counter - 1
 
+    def _extract_markdown_code(self, code_blob: str) -> str:
+        """Extracts Python code from markdown code block"""
+        match = re.search(r"```python\s*\n(.+?)\n*```", code_blob, re.DOTALL)
+        if not match:
+            raise ValueError("No valid Python code or markdown code block found")
+        return match.group(1)
+
+    def _collect_imports(self, tree: ast.AST) -> Set[str]:
+        """Collects root package names from all import statements"""
+        packages = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    packages.add(alias.name.split('.')[0])
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                packages.add(node.module.split('.')[0])
+        return packages
+    
     def parse_function(self, code_blob: str) -> Dict[str, Callable]:
         """
         Parses the given code blob using Python's ast module and returns a dictionary mapping
