@@ -225,8 +225,8 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
             __result__ = e
         
         try:
-            __serialized__ = base64.b64encode(pickle.dumps(__result__)).decode('utf-8')
-            print(__serialized__)
+            __serialized__ = base64.urlsafe_b64encode(pickle.dumps(__result__)).decode()
+            print(f"SERIALIZED_DATA:{{__serialized__}}")
         except Exception as e:
             print(f"SERIALIZATION_ERROR: {{str(e)}}")
         finally:
@@ -394,50 +394,84 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         return "\n\n".join(match.strip() for match in matches)
     
     def _execute_cell(self, cell_index: int) -> Tuple[Any, str]:
-        """Execute cell with extended timeouts and output filtering"""
+        """Execute cell with robust output handling and serialization support"""
         cell = self.notebook.cells[cell_index]
         msg_id = self.kc.execute(cell.source)
         
         outputs = []
         error_logs = []
         last_activity = time.time()
+        serialized_data = []
+        serialization_error = None
+
         while True:
             try:
-                # Use dynamic timeout based on last activity
                 elapsed = time.time() - last_activity
-                timeout = max(300, 60 - elapsed)  # Allow up to 5 minutes between messages
+                timeout = max(300, 60 - elapsed)
                 msg = self.kc.get_iopub_msg(timeout=timeout)
-                
-                if msg['parent_header'].get('msg_id') == msg_id:
-                    msg_type = msg['msg_type']
-                    content = msg['content']
-                    last_activity = time.time()
 
-                    # Handle different message types
-                    if msg_type == 'execute_result':
-                        outputs.append(content['data'])
-                    elif msg_type == 'stream':
-                        # Filter TensorFlow/XLA noise
-                        if 'XLA service' not in content['text'] and 'cuDNN version' not in content['text']:
-                            outputs.append({'text/plain': content['text']})
-                    elif msg_type == 'error':
-                        error_logs.extend(content['traceback'])
-                    elif msg_type == 'status':
-                        if content['execution_state'] == 'idle':
-                            break
+                if msg['parent_header'].get('msg_id') != msg_id:
+                    continue
+
+                msg_type = msg['msg_type']
+                content = msg['content']
+                last_activity = time.time()
+
+                if msg_type == 'execute_result':
+                    # Capture structured data outputs
+                    outputs.append(content['data'])
+                    
+                elif msg_type == 'stream':
+                    text = content['text'].strip()
+                    
+                    # Capture serialization markers
+                    if text.startswith("SERIALIZED_DATA:"):
+                        serialized_data.append(text[len("SERIALIZED_DATA:"):])
+                    elif text.startswith("SERIALIZATION_ERROR:"):
+                        serialization_error = text
+                        
+                elif msg_type == 'error':
+                    error_logs.extend(content['traceback'])
+                    
+                elif msg_type == 'status' and content['execution_state'] == 'idle':
+                    break
 
             except Empty:
-                if time.time() - last_activity > 300:  # 5 minute global timeout
+                if time.time() - last_activity > 300:
                     error_logs.append("Timeout: No kernel activity for 5 minutes")
                     break
-                continue
-                
+                    
             except Exception as e:
                 error_logs.append(f"Kernel error: {str(e)}")
                 break
 
+        # Process serialized data
+        result = None
+        if serialized_data:
+            try:
+                # Join multi-part data and sanitize
+                serialized_str = ''.join(serialized_data)
+                clean_b64 = re.sub(r'[^A-Za-z0-9+/=]', '', serialized_str)
+                
+                # Fix padding
+                missing_padding = len(clean_b64) % 4
+                if missing_padding:
+                    clean_b64 += '=' * (4 - missing_padding)
+                    
+                # Try multiple decoding methods
+                try:
+                    result = pickle.loads(base64.b64decode(clean_b64))
+                except:
+                    result = pickle.loads(base64.urlsafe_b64decode(clean_b64))
+                    
+            except Exception as e:
+                error_logs.append(f"Deserialization failed: {str(e)}")
+                
+        elif serialization_error:
+            error_logs.append(serialization_error)
+
         cell.outputs = outputs
-        return outputs, "\n".join(error_logs)
+        return result, "\n".join(error_logs)
 
 
     def attach_variables(self, variables: dict):
