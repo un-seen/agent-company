@@ -295,7 +295,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         cell_index = self._add_execute_cell(wrapped_code)
         result, outputs, error_logs = self._execute_cell(cell_index)
             
-        return result, error_logs
+        return result, outputs, error_logs
 
     
     def _add_execute_cell(self, code: str) -> int:
