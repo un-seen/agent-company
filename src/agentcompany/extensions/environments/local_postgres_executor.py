@@ -258,7 +258,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
         self.reset_connection()
         code_action = code_action.strip(";")
         logger.info(f"{self.__class__.__name__}.__call__ Return type: {return_type}")
-        max_count = 10 if return_type == "string" else None
+        max_count = None
         tupled_rows = evaluate_sql_code(
             self.pg_conn,
             code_action,
