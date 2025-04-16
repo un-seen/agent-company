@@ -277,12 +277,8 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             max_count=max_count
         )
         logs = self.state.get("logs", "")
-        if return_type == "string":
-            markdown_table = dict_rows_to_markdown_table(tupled_rows)
-            return markdown_table, logs, False
-        else:
-            # Return the result as a list of dictionaries
-            return tupled_rows, logs, False
+        # Return the result as a list of dictionaries
+        return tupled_rows, logs, False
         
     def attach_variables(self, variables: dict):
         self.state.update(variables)
