@@ -126,24 +126,17 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
     def __call__(
         self, 
         code_action: str,
+        additional_variables: dict,
         return_type: str = "string"
     ) -> Tuple[Union[List[dict], str], str, bool]:
-        try:
-            # Add new cell with code
-            cell_index = self._add_execute_cell(code_action)
-            
-            # Execute the cell
-            output, error_logs = self._execute_cell(cell_index)
-            
-            # Save notebook state
-            self._save_notebook()
-            
-            return self._format_output(output, return_type), error_logs, bool(error_logs)
-            
-        except Exception as e:
-            error_msg = f"Jupyter execution failed: {str(e)}"
-            logger.error(error_msg)
-            return "", error_msg, True
+        
+        # Add new cell with code
+        cell_index = self._add_execute_cell(code_action)
+        
+        # Execute the cell
+        output, error_logs = self._execute_cell(cell_index)
+        
+        return self._format_output(output, return_type), error_logs, bool(error_logs)
 
     def _add_execute_cell(self, code: str) -> int:
         """Add a new code cell to the notebook"""
@@ -289,16 +282,11 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         cell.outputs = outputs
         return outputs, "\n".join(error_logs)
 
-    def _save_notebook(self):
-        """Save current notebook state to file"""
-        nb_path = os.path.join(self.notebook_path, self.notebook_name)
-        with open(nb_path, 'w') as f:
-            nbformat.write(self.notebook, f, version=4)
-
     def _format_output(self, outputs: List[Dict], return_type: str) -> str:
         """Format execution outputs based on return type"""
         formatted = []
         for output in outputs:
+            print(f"Output: {output}")
             if 'text/plain' in output:
                 formatted.append(output['text/plain'])
             elif 'text/html' in output:
