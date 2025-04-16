@@ -1,4 +1,6 @@
 import os
+import textwrap
+import inspect        
 import ast
 import re
 import pickle
@@ -158,7 +160,26 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
     def __del__(self):
         """Cleanup kernel when instance is destroyed"""
         self.km.shutdown_kernel()
-        
+    
+    def _normalize_code(self, code: str) -> str:
+        """Normalize code indentation using AST validation"""
+        try:
+            # Validate syntax first
+            ast.parse(code)
+            return textwrap.dedent(code).strip()
+        except IndentationError:
+            # Reformat with consistent 4-space indentation
+            return textwrap.fill(
+                textwrap.dedent(code),
+                replace_whitespace=False,
+                drop_whitespace=True,
+                initial_indent='',
+                subsequent_indent='    '
+            )
+        except SyntaxError:
+            # For non-indentation syntax errors, just dedent
+            return textwrap.dedent(code).strip()
+    
     def __call__(
         self, 
         code_action: str,
@@ -168,20 +189,18 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         # Push variables first
         push_variables_to_kernel(additional_variables, self.kc)
         
-        import textwrap
-        import inspect
-        # Clean and dedent user code
-        user_code = textwrap.dedent(code_action).strip()
+        # Normalize user code indentation
+        user_code = self._normalize_code(code_action)
         
         # Create safe wrapper template
-        wrapper_template = """
+        wrapper_template = textwrap.dedent("""
         import pickle
         import base64
         
         try:
+            # USER CODE START #
             {user_code}
-            
-            # Capture last expression using Python's _
+            # USER CODE END #
             __result__ = _
         except Exception as e:
             __result__ = e
@@ -191,18 +210,17 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
             print(__serialized__)
         except Exception as e:
             print(f"SERIALIZATION_ERROR: {{str(e)}}")
-        finally:
-            del __result__
-        """
+        """)
         
-        # Dedent wrapper and format with proper indentation
-        wrapped_code = textwrap.dedent(wrapper_template).format(
-            user_code=textwrap.indent(
-                inspect.cleandoc(user_code), 
-                '    '  # 4-space indent for user code
-            )
+        # Format with properly indented user code
+        wrapped_code = wrapper_template.format(
+            user_code=textwrap.indent(user_code, '    ')
         )
-        # Execute wrapped code
+        
+        # Debug: log the final code being executed
+        logger.debug("Executing wrapped code:\n%s", wrapped_code)
+        
+        # Execute and process results
         cell_index = self._add_execute_cell(wrapped_code)
         outputs, error_logs = self._execute_cell(cell_index)
         
