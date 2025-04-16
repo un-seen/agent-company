@@ -254,7 +254,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         task: str = task
         inputs: List[str] = inputs
         context: List[Dict[str, Any]] = context
-        context_as_str = list_of_dict_to_markdown_table(context)
+        context_as_str = list_of_dict_to_markdown_table(context[:5])
         if not isinstance(task, str) or not isinstance(inputs, (list, str)) or not isinstance(context, (list, dict)):
             raise ValueError("Task should be a string, inputs should be a list of strings, and context should be a list of dictionaries.")
         
