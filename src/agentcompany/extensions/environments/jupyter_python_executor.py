@@ -162,7 +162,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         code_action: str,
         additional_variables: dict,
         return_type: str = "string"
-    ) -> Tuple[Union[List[dict], str], str, bool]:
+    ) -> Tuple[Any, str, bool]:
         
         push_variables_to_kernel(additional_variables, self.kc)
         
@@ -170,10 +170,48 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         cell_index = self._add_execute_cell(code_action)
         
         # Execute the cell
-        outputs, error_logs = self._execute_cell(cell_index)
+        _, error_logs = self._execute_cell(cell_index)
         
-        return outputs[-1], error_logs, bool(error_logs)
+        # Capture the actual result using kernel namespace
+        result_code = """
+        import pickle
+        import base64
+        from IPython import get_ipython
 
+        # Get last result from kernel history
+        shell = get_ipython()
+        last_result = shell.user_ns['Out'][list(shell.user_ns['Out'].keys())[-1]]
+
+        # Serialize and encode
+        try:
+            print(base64.b64encode(pickle.dumps(last_result)).decode('utf-8')
+        except Exception as e:
+            print(f"SERIALIZATION_ERROR: {str(e)}")"""
+        # Execute capture code
+        serialized, ser_errors = self._execute_code_snippet(result_code)
+        
+        # Deserialize the result
+        result = None
+        if serialized and not serialized.startswith("SERIALIZATION_ERROR"):
+            try:
+                result = pickle.loads(base64.b64decode(serialized))
+            except Exception as e:
+                error_logs.append(f"Deserialization failed: {str(e)}")
+        elif serialized:
+            error_logs.append(serialized)
+        
+        return result, "\n".join(error_logs + ser_errors), bool(error_logs or ser_errors)
+
+    # Add this helper to your class
+    def _get_last_result(self):
+        """Direct kernel access for last result"""
+        code = """
+        from IPython import get_ipython
+        __last_result__ = get_ipython().user_ns['Out'].values()[-1]
+        """
+        self.kc.execute(code)
+        return self._execute_code_snippet("print(__last_result__)")[0]
+    
     def _add_execute_cell(self, code: str) -> int:
         """Add a new code cell to the notebook"""
         new_cell = nb_v4.new_code_cell(source=code)
@@ -329,30 +367,6 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         cell.outputs = outputs
         return outputs, "\n".join(error_logs)
 
-    def _format_output(self, outputs: List[Dict], return_type: str) -> str:
-        """Format execution outputs based on return type"""
-        formatted = []
-        for output in outputs:
-            print(f"Output: {output}")
-            if 'text/plain' in output:
-                formatted.append(output['text/plain'])
-            elif 'text/html' in output:
-                formatted.append(output['text/html'])
-            elif 'application/json' in output:
-                formatted.append(json.dumps(output['application/json']))
-        
-        final_output = "\n".join(formatted)
-        
-        if return_type == "dataframe":
-            return self._output_to_dataframe(final_output)
-        return final_output
-
-    def _output_to_dataframe(self, output: str) -> pd.DataFrame:
-        """Convert text output to DataFrame"""
-        try:
-            return pd.read_json(output)
-        except ValueError:
-            return pd.DataFrame([output])
 
     def attach_variables(self, variables: dict):
         """Inject variables into kernel"""
