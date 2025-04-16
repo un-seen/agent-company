@@ -221,7 +221,7 @@ class FlowPattern(ModelContextProtocolImpl):
             self._execute_plan()
             # TODO add a status table in markdown
             status_table = self.get_status_table()
-            self.logger.log(text=status_table, title=f"Final Vision Status ({self.interface_id}/{self.name}) :")
+            self.logger.log(text=status_table, title=f"Final Status ({self.interface_id}/{self.name}) :")
             # Return final answer
             observations = self.get_final_answer()
         except AgentError as e:
