@@ -37,6 +37,8 @@ _IMPORT_PACKAGE_MAP = {
     # Image Processing
     "PIL": "pillow",
     
+    "IPython": "ipython",
+    
     # Configuration
     "yaml": "pyyaml",
     "dotenv": "python-dotenv",
@@ -163,54 +165,64 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         additional_variables: dict,
         return_type: str = "string"
     ) -> Tuple[Any, str, bool]:
-        
+        # Push variables first
         push_variables_to_kernel(additional_variables, self.kc)
         
-        # Add new cell with code
-        cell_index = self._add_execute_cell(code_action)
-        
-        # Execute the cell
-        _, error_logs = self._execute_cell(cell_index)
-        
-        # Capture the actual result using kernel namespace
-        result_code = """
+        # Add cell with result capture
+        wrapped_code = f"""
         import pickle
         import base64
-        from IPython import get_ipython
 
-        # Get last result from kernel history
-        shell = get_ipython()
-        last_result = shell.user_ns['Out'][list(shell.user_ns['Out'].keys())[-1]]
-
-        # Serialize and encode
         try:
-            print(base64.b64encode(pickle.dumps(last_result)).decode('utf-8')
+            # User's original code
+            {code_action}
+            
+            # Capture the last expression result
+            __result__ = _
         except Exception as e:
-            print(f"SERIALIZATION_ERROR: {str(e)}")"""
-        # Execute capture code
-        serialized, ser_errors = self._execute_code_snippet(result_code)
+            __result__ = e  # Capture exceptions as results
+
+        # Serialize and clean up
+        try:
+            __serialized__ = base64.b64encode(pickle.dumps(__result__)).decode('utf-8')
+            print(__serialized__)  # This will be our captured output
+        except Exception as e:
+            print(f"SERIALIZATION_ERROR: {{str(e)}}")
+        del __result__  # Clean up namespace
+        """
+        # Execute wrapped code
+        cell_index = self._add_execute_cell(wrapped_code)
+        outputs, error_logs = self._execute_cell(cell_index)
         
+        # Extract serialized result
+        serialized = ""
+        for output in outputs:
+            if 'text/plain' in output:
+                text = output['text/plain']
+                if text.strip():
+                    serialized = text.strip()
+                    break
+
         # Deserialize the result
         result = None
-        if serialized and not serialized.startswith("SERIALIZATION_ERROR"):
+        errors = []
+        if serialized.startswith("SERIALIZATION_ERROR:"):
+            errors.append(serialized)
+        elif serialized:
             try:
                 result = pickle.loads(base64.b64decode(serialized))
             except Exception as e:
-                error_logs.append(f"Deserialization failed: {str(e)}")
-        elif serialized:
-            error_logs.append(serialized)
+                errors.append(f"Deserialization failed: {str(e)}")
+        else:
+            errors.append("No output captured from kernel")
         
-        return result, "\n".join(error_logs + ser_errors), bool(error_logs or ser_errors)
+        # Handle exceptions that were captured
+        if isinstance(result, Exception):
+            errors.append(f"Execution error: {str(result)}")
+            result = None
+            
+        return result, "\n".join(error_logs + errors), bool(error_logs or errors)
 
-    # Add this helper to your class
-    def _get_last_result(self):
-        """Direct kernel access for last result"""
-        code = """
-        from IPython import get_ipython
-        __last_result__ = get_ipython().user_ns['Out'].values()[-1]
-        """
-        self.kc.execute(code)
-        return self._execute_code_snippet("print(__last_result__)")[0]
     
     def _add_execute_cell(self, code: str) -> int:
         """Add a new code cell to the notebook"""
