@@ -201,7 +201,8 @@ class FunctionPattern(ModelContextProtocolImpl):
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
                 additional_variables={
-                    "df": pd.DataFrame(context)
+                    # TODO remove 512
+                    "df": pd.DataFrame(context)[:512]
                 },
                 return_type="pandas.DataFrame"
             )
