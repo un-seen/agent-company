@@ -170,9 +170,9 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         cell_index = self._add_execute_cell(code_action)
         
         # Execute the cell
-        output, error_logs = self._execute_cell(cell_index)
+        outputs, error_logs = self._execute_cell(cell_index)
         
-        return self._format_output(output, return_type), error_logs, bool(error_logs)
+        return outputs[-1], error_logs, bool(error_logs)
 
     def _add_execute_cell(self, code: str) -> int:
         """Add a new code cell to the notebook"""
