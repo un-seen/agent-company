@@ -199,6 +199,57 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
             
         return '\n'.join(new_lines)
     
+    def _execute_cell(self, cell_index: int) -> Tuple[Any, list, str]:
+        """Execute cell with robust output handling for serialization"""
+        cell = self.notebook.cells[cell_index]
+        msg_id = self.kc.execute(cell.source)
+        
+        outputs = []
+        error_logs = []
+        serialized_data = None
+        last_activity = time.time()
+
+        while True:
+            try:
+                elapsed = time.time() - last_activity
+                timeout = max(300, 60 - elapsed)
+                msg = self.kc.get_iopub_msg(timeout=timeout)
+
+                if msg['parent_header'].get('msg_id') != msg_id:
+                    continue
+
+                msg_type = msg['msg_type']
+                content = msg['content']
+                last_activity = time.time()
+
+                if msg_type == 'execute_result':
+                    outputs.append(content['data'])
+                elif msg_type == 'stream':
+                    text = content['text'].strip()
+                    if text.startswith("SERIALIZED_DATA:"):
+                        # Capture serialized data chunks
+                        serialized_data = text[len("SERIALIZED_DATA:"):]
+                        break
+                    elif text.startswith("SERIALIZATION_ERROR:"):
+                        serialization_error = text
+                elif msg_type == 'error':
+                    error_logs.extend(content['traceback'])
+                elif msg_type == 'status' and content['execution_state'] == 'idle':
+                    break
+
+            except Empty:
+                if time.time() - last_activity > 300:
+                    error_logs.append("Timeout: No kernel activity for 5 minutes")
+                    break
+            except Exception as e:
+                error_logs.append(f"Kernel error: {str(e)}")
+                break
+
+        # Process serialized data
+        result = pickle.loads(base64.urlsafe_b64decode(serialized_data))
+        cell.outputs = outputs
+        return result, outputs, "\n".join(error_logs)
+    
     def __call__(
         self, 
         code_action: str,
@@ -218,9 +269,6 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         
         try:
         {user_code}
-        
-            # Capture last expression
-            __result__ = locals().get('_', None)
         except Exception as e:
             __result__ = e
         
@@ -243,45 +291,9 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         
         # Execute and process results
         cell_index = self._add_execute_cell(wrapped_code)
-        outputs, error_logs = self._execute_cell(cell_index)
-        
-        # Extract and sanitize base64 string
-        serialized = ""
-        for output in outputs:
-            print(output)
-            if 'text/plain' in output:
-                text = output['text/plain'].strip()
-                # Extract only base64 characters
-                serialized += re.sub(r'[^a-zA-Z0-9+/=]', '', text)
-        
-        # Add padding if needed (base64 requires length divisible by 4)
-        missing_padding = len(serialized) % 4
-        if missing_padding:
-            serialized += '=' * (4 - missing_padding)
-        
-        # Deserialize with error handling
-        result = None
-        errors = []
-        if serialized.startswith("SERIALIZATION_ERROR:"):
-            errors.append(serialized)
-        elif serialized:
-            try:
-                result = pickle.loads(base64.b64decode(serialized))
-            except Exception as e:
-                try:
-                    # Fallback to URL-safe base64
-                    result = pickle.loads(base64.urlsafe_b64decode(serialized))
-                except Exception as urlsafe_e:
-                    errors.append(f"Deserialization failed: {str(e)} (Original), {str(urlsafe_e)} (URL-safe)")
-        else:
-            errors.append("No output captured from kernel")
-        
-        # Handle exceptions that were captured
-        if isinstance(result, Exception):
-            errors.append(f"Execution error: {str(result)}")
-            result = None
+        result, outputs, error_logs = self._execute_cell(cell_index)
             
-        return result, "\n".join([error_logs] + errors), bool(error_logs or errors)
+        return result, error_logs
 
     
     def _add_execute_cell(self, code: str) -> int:
@@ -393,78 +405,6 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
                     ```<end_code>""".strip())
         return "\n\n".join(match.strip() for match in matches)
     
-    def _execute_cell(self, cell_index: int) -> Tuple[Any, str]:
-        """Execute cell with robust output handling for serialization"""
-        cell = self.notebook.cells[cell_index]
-        msg_id = self.kc.execute(cell.source)
-        
-        outputs = []
-        error_logs = []
-        serialized_data = []
-        serialization_error = None
-        last_activity = time.time()
-
-        while True:
-            try:
-                elapsed = time.time() - last_activity
-                timeout = max(300, 60 - elapsed)
-                msg = self.kc.get_iopub_msg(timeout=timeout)
-
-                if msg['parent_header'].get('msg_id') != msg_id:
-                    continue
-
-                msg_type = msg['msg_type']
-                content = msg['content']
-                last_activity = time.time()
-
-                if msg_type == 'execute_result':
-                    outputs.append(content['data'])
-                elif msg_type == 'stream':
-                    text = content['text'].strip()
-                    if text.startswith("SERIALIZED_DATA:"):
-                        # Capture serialized data chunks
-                        serialized_data.append(text[len("SERIALIZED_DATA:"):])
-                    elif text.startswith("SERIALIZATION_ERROR:"):
-                        serialization_error = text
-                elif msg_type == 'error':
-                    error_logs.extend(content['traceback'])
-                elif msg_type == 'status' and content['execution_state'] == 'idle':
-                    break
-
-            except Empty:
-                if time.time() - last_activity > 300:
-                    error_logs.append("Timeout: No kernel activity for 5 minutes")
-                    break
-            except Exception as e:
-                error_logs.append(f"Kernel error: {str(e)}")
-                break
-
-        # Process serialized data
-        result = None
-        if serialized_data:
-            try:
-                serialized_str = ''.join(serialized_data)
-                # Sanitize and fix padding
-                clean_b64 = re.sub(r'[^A-Za-z0-9+/=]', '', serialized_str)
-                missing_padding = len(clean_b64) % 4
-                if missing_padding:
-                    clean_b64 += '=' * (4 - missing_padding)
-                
-                # Try multiple decoding methods
-                try:
-                    result = pickle.loads(base64.b64decode(clean_b64))
-                except:
-                    result = pickle.loads(base64.urlsafe_b64decode(clean_b64))
-            except Exception as e:
-                error_logs.append(f"Deserialization failed: {str(e)}")
-        elif serialization_error:
-            error_logs.append(serialization_error)
-
-        cell.outputs = outputs
-        return result, "\n".join(error_logs)
-
-
-
     def attach_variables(self, variables: dict):
         """Inject variables into kernel"""
         for name, value in variables.items():
