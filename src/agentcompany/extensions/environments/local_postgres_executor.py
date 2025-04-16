@@ -176,7 +176,12 @@ def evaluate_sql_code(
                     item = outputs_copy[idx]
                     for function_name in function_output:
                         try:
-                            item[function_name] = function_output[function_name][idx]    
+                            value = function_output[function_name][idx]    
+                            if isinstance(value, np.ndarray):
+                                value = value.tolist()
+                                if len(value) == 1:
+                                    value = value[0]
+                            item[function_name] = value
                         except:
                             item[function_name] = None
                 outputs = outputs_copy
@@ -354,7 +359,7 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
                 )
                 
                 # Execute with observations JSON
-                cur.execute(create_view, (json.dumps(observations),))
+                cur.execute(create_view, (json.dumps(observations)))
             else:
                 # Create the temp table with the result of the code_action query
                 code_action = code_action.strip(';')
