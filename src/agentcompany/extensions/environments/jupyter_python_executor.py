@@ -239,22 +239,27 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         )
         
         # Debug: log the final code being executed
-        print("Executing wrapped code:\n%s", wrapped_code)
+        logger.info("Executing wrapped code:\n%s", wrapped_code)
         
         # Execute and process results
         cell_index = self._add_execute_cell(wrapped_code)
         outputs, error_logs = self._execute_cell(cell_index)
         
-        # Extract serialized result
+        # Extract and sanitize base64 string
         serialized = ""
         for output in outputs:
+            print(output)
             if 'text/plain' in output:
-                text = output['text/plain']
-                if text.strip():
-                    serialized = text.strip()
-                    break
-
-        # Deserialize the result
+                text = output['text/plain'].strip()
+                # Extract only base64 characters
+                serialized += re.sub(r'[^a-zA-Z0-9+/=]', '', text)
+        
+        # Add padding if needed (base64 requires length divisible by 4)
+        missing_padding = len(serialized) % 4
+        if missing_padding:
+            serialized += '=' * (4 - missing_padding)
+        
+        # Deserialize with error handling
         result = None
         errors = []
         if serialized.startswith("SERIALIZATION_ERROR:"):
@@ -263,7 +268,11 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
             try:
                 result = pickle.loads(base64.b64decode(serialized))
             except Exception as e:
-                errors.append(f"Deserialization failed: {str(e)}")
+                try:
+                    # Fallback to URL-safe base64
+                    result = pickle.loads(base64.urlsafe_b64decode(serialized))
+                except Exception as urlsafe_e:
+                    errors.append(f"Deserialization failed: {str(e)} (Original), {str(urlsafe_e)} (URL-safe)")
         else:
             errors.append("No output captured from kernel")
         
