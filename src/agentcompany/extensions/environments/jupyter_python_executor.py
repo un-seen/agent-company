@@ -246,7 +246,9 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
                 break
 
         # Process serialized data
-        result = pickle.loads(base64.urlsafe_b64decode(serialized_data))
+        result = None
+        if serialized_data:
+            result = pickle.loads(base64.urlsafe_b64decode(serialized_data))
         cell.outputs = outputs
         return result, outputs, "\n".join(error_logs)
     
