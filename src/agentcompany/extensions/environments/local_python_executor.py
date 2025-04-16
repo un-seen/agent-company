@@ -973,47 +973,54 @@ def evaluate_with(
             context.__exit__(None, None, None)
 
 
-def get_safe_module(raw_module, dangerous_patterns, authorized_imports, visited=None):
-    """Creates a safe copy of a module or returns the original if it's a function"""
-    # If it's a function or non-module object, return it directly
-    if not isinstance(raw_module, ModuleType):
+def get_safe_module(raw_module, dangerous_patterns, authorized_imports, visited=None, depth=0):
+    """Creates a safe copy of a module with depth limiting and error handling"""
+    # Max depth to prevent infinite recursion with packages like TF/Keras
+    MAX_DEPTH = 3
+    
+    if not isinstance(raw_module, ModuleType) or depth > MAX_DEPTH:
         return raw_module
 
-    # Handle circular references: Initialize visited set for the first call
     if visited is None:
         visited = set()
 
     module_id = id(raw_module)
     if module_id in visited:
-        return raw_module  # Return original for circular refs
-
+        return raw_module
     visited.add(module_id)
 
-    # Create new module for actual modules
     try:
         safe_module = ModuleType(raw_module.__name__)
     except AttributeError:
-        # If the module doesn't have a name, return the original
         return raw_module
 
-    # Copy all attributes by reference, recursively checking modules
-    for attr_name in dir(raw_module):
-        # Skip dangerous patterns at any level
-        if any(
-            pattern in raw_module.__name__.split(".") + [attr_name] and pattern not in authorized_imports
-            for pattern in dangerous_patterns
-        ):
+    # Get attributes without triggering full module load
+    try:
+        attr_names = dir(raw_module)
+    except Exception as e:
+        logger.warning(f"Couldn't list attributes for {raw_module}: {str(e)}")
+        return safe_module
+
+    for attr_name in attr_names:
+        # Skip dangerous attributes
+        if any(p in attr_name for p in dangerous_patterns):
             continue
 
         try:
             attr_value = getattr(raw_module, attr_name)
         except Exception as e:
-            logger.error(f"Error getting attribute {attr_name} from {raw_module}: {e}")
+            logger.debug(f"Skipping attribute {attr_name} in {raw_module}: {str(e)}")
             continue
 
-        # Recursively process nested modules, passing visited set
+        # Handle submodules with increased depth counter
         if isinstance(attr_value, ModuleType):
-            attr_value = get_safe_module(attr_value, dangerous_patterns, authorized_imports, visited=visited)
+            attr_value = get_safe_module(
+                attr_value, 
+                dangerous_patterns,
+                authorized_imports,
+                visited=visited,
+                depth=depth + 1
+            )
 
         setattr(safe_module, attr_name, attr_value)
 
@@ -1039,6 +1046,7 @@ def import_modules(expression, state, authorized_imports):
         "eval",
         "exec",
         "multiprocessing",
+        "__internal__"
     )
 
     def check_module_authorized(module_name):
@@ -1380,7 +1388,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
         self.custom_tools = {}
         self.state = {}
         self.additional_authorized_imports = additional_authorized_imports
-        self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
+        self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports) | {"tensorflow", "keras"})
         # Add base trusted tools to list
         self.static_tools = {
             **mcp_servers,
