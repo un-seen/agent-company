@@ -177,7 +177,10 @@ def evaluate_sql_code(
                 for idx in range(len(result)):
                     item = result_copy[idx]
                     for function_name in function_output:
-                        item[function_name] = function_output[function_name][idx]    
+                        try:
+                            item[function_name] = function_output[function_name][idx]    
+                        except:
+                            item[function_name] = None
                 result = result_copy
                 # function_call_output.append(item_dict)
                 # result = function_call_output
