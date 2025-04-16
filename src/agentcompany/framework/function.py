@@ -206,7 +206,6 @@ class FunctionPattern(ModelContextProtocolImpl):
                 },
                 return_type="pandas.DataFrame"
             )
-            self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
         except Exception as e:
             error_msg = "Error in Code Execution: \n"
             if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
