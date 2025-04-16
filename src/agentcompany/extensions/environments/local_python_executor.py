@@ -765,8 +765,11 @@ def evaluate_condition(
     
     if isinstance(result, (bool, pd.Series)):
         return result
-    else:
+    elif hasattr(result, "all"):
         return result.all()
+    else:
+        logger.warning(f"Unexpected result type from comparison: {type(result)}, result={result}")
+        return result
 
 
 def evaluate_if(
