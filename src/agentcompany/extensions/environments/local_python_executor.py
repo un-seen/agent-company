@@ -1399,7 +1399,7 @@ class LocalPythonInterpreter(ExecutionEnvironment):
             authorized_imports=self.authorized_imports,
         )
         logs = self.state["print_outputs"]
-        if return_type == "string":
+        if return_type == "string" and output is not None:
             if isinstance(output, pd.DataFrame):
                 markdown_table = output.head(10).to_markdown()
             elif isinstance(output, pd.Series):
