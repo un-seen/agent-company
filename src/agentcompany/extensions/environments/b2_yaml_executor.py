@@ -3,7 +3,7 @@ import re
 import shlex
 import logging
 import yaml
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Callable
 import boto3
 from botocore.client import Config
 from agentcompany.extensions.environments.exceptions import InterpreterError
