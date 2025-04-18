@@ -420,7 +420,7 @@ class FlowPattern(ModelContextProtocolImpl):
             else:
                 raise ValueError(f"Unknown return type: {return_type}")
             
-            self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
+            self.logger.log(text=f"```{self.executor_environment.language} \n {code_action} \n```", title=f"Code Output ({self.interface_id}/{self.name}):")
             
             if action_type == "execute":
                 try:
