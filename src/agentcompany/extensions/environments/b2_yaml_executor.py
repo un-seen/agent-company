@@ -241,6 +241,9 @@ class B2YamlInterpreter(ExecutionEnvironment):
         file_list = "\n".join([f"# - {base_name}" for base_name in self.file_map])
         return f"# Available file references (use as variables):\n{file_list}\n\n{code_action}"
 
+    def parse_function(self, code_blob):
+        raise NotImplementedError("Function parsing is not implemented in this environment.")
+    
     def parse_code_blobs(self, code_blob: str) -> str:
         pattern = r"```(?:yaml)?\n(.*?)\n```"
         matches = re.findall(pattern, code_blob, re.DOTALL)
