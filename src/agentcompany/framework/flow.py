@@ -275,7 +275,7 @@ class FlowPattern(ModelContextProtocolImpl):
         # Find all registered ExecutionEnvironment subclasses
         from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
         from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
-        from agentcompany.extensions.environments.b2_yaml_executor import B2YamlInterpreter
+        from agentcompany.extensions.environments.b2_jinja_executor import B2JinjaInterpreter
         
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
         try:

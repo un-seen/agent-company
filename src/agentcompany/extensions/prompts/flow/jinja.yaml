@@ -13,28 +13,22 @@ plan:
       {{ task }}
       ```
 
-      You have to complete the task by writing yaml file with two fields body and variables.
+      You have to complete the task by writing a text response in jinja template format.
       
-      In the body field insert text to complete the task. You can use variable names as placeholders for the values that will be computed in the variables field.
-      In the variables capture any text in the body field that must be referenced because it is changing value in the real world or it is not known at the time of writing the yaml file.
+      You can use jinja variables to capture text that is a variable value or it is not known at the time of writing the jinja template.
+      
+      You must make sure the template has a text structure relevant to the task.
 
-      The body field should be text and the variables field must be a list.
-
-      Write the yaml file to complete the task.
+      Write the jinja template to complete the task.
     out_id: result_file
     action: final_answer
   - step: |-  
-      Here is the task:
+      Here is a jinja template:
       ```
-      {{task}}
-      ```
-
-      You came up with the following yaml result file:
-      ```
-      {{ result_file }}
+      {{jinja_template}}
       ```
 
-      Please list the variable values to insert in the result file.
+      Please list the variables that are used in the jinja template.
     out: one_to_many
     out_id: variable_list
     action: skip
@@ -45,15 +39,13 @@ plan:
       {{task}}
       ```
 
-      Here are the text files in the datalake:
-      ````
-      {%- for file in files %}
-        - {{ file.name }}: {{ file.description }}
-      {%- endfor %}
-      ````
+      You came up with the following result file:
+      ```
+      {{ result_file }}
+      ```
 
       {%- if mcp_servers and mcp_servers.values()|length > 0 %}
-      These functions are used to complete a step efficiently.
+      These functions are can be used to compute a variable value.
       {%- for server in mcp_servers.values() %}
         - {{ server.name }}: {{ server.description }}
             Takes inputs: {{server.inputs}}
@@ -61,14 +53,14 @@ plan:
       {%- endfor %}
       {%- endif %}
 
-      You came up with the following result file:
-
-      ```
-      {{ result_file }}
-      ```
-
-      Please write a detailed description of the {{ variable_name }} variable with clear instructions on how to leverage functions and files
-      in the datalake to compute the value of the variable.
+      Here text files in the datalake which can also be used to compute a variable value:
+      ````
+      {%- for file in files %}
+        - {{ file.name }}: {{ file.description }}
+      {%- endfor %}
+      ````
+      
+      Please write a detailed description of the {{ variable_name }} variable with clear instructions on how to leverage functions and files in the datalake to compute the value of the variable.
     out_id: variable_description
     action: skip
   - step: |-
@@ -94,5 +86,5 @@ plan:
       {%- endfor %}
       {%- endif %}
 
-      You have to write a yaml file making use of function calls and file names stated as yaml variables to compute the value of the {{ variable_name }} variable.
+      You have to write a jinja template file making use of function calls and file names stated as yaml variables to compute the value of the {{ variable_name }} variable.
     out_id: variable_yaml
