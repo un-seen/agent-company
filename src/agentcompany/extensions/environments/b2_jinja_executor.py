@@ -96,6 +96,19 @@ class B2JinjaInterpreter(ExecutionEnvironment):
             if any(keyword in line for keyword in ['TemplateSyntaxError', 'TemplateRuntimeError', 'UndefinedError']):
                 error_lines.append(line.strip())
         return ' | '.join(error_lines)
+    
+    
+    def attach_mcp_servers(self, mcp_servers: Dict[str, Any]):
+        """Inject MCP servers into kernel context"""
+        for name, server in mcp_servers.items():
+            self.mcp_servers[name] = server
+        self.static_tools.update(mcp_servers)
+    
+    def parse_function(self, code_blob):
+        raise NotImplementedError("parse_function not implemented")
+    
+    def attach_variables(self, variables: dict):
+        self.state.update(variables)
 
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
         self.state.update(additional_variables)
