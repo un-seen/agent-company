@@ -25,11 +25,19 @@ plan:
     out_id: result_file
     action: final_answer
   - step: |-  
-      Here is a jinja template:
+
+      Here is the task:
       ```
-      {{jinja_template}}
+      {{ task }}
       ```
 
+      You have to complete the task by writing a text report.
+
+      Here is the result file that you came up with:
+      ```
+      {{ result_file }}
+      ```
+      
       Please list the variables that are used in the jinja template.
     out: one_to_many
     out_id: variable_list
