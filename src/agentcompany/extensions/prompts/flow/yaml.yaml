@@ -1,7 +1,7 @@
 executor_environment: 
   interface: B2YamlInterpreter
   config:
-    bucket_name: marketresearch
+    bucket_name: yaml_bucket
     endpoint_url: http://localhost:9000
     access_key_id: minioadmin
     secret_access_key: minioadmin
