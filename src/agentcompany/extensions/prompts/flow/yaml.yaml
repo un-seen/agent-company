@@ -3,8 +3,8 @@ executor_environment:
   config:
     bucket_name: marketresearch
     endpoint_url: http://localhost:9000
-    access_key: minioadmin
-    secret_key: minioadmin
+    access_key_id: minioadmin
+    secret_access_key: minioadmin
     prefix: jennifer
 plan:
   - step: |-
