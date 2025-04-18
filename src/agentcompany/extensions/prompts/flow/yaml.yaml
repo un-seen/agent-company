@@ -13,11 +13,24 @@ plan:
       {{ task }}
       ```
 
-      You have to solve the task by writing yaml text with variables to include additional content to complete the task.
+      You have to complete the task by writing yaml file with two fields body and variables.
+      
+      In the variables field capture any text in the body field that must be referenced because it is changing value in the real world or it is not known at the time of writing the yaml file.
 
-      Just assume all the required variables are already created for the task.
+      {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+      These functions are used to insert text efficiently.
+      {%- for server in mcp_servers.values() %}
+        - {{ server.name }}: {{ server.description }}
+            Takes inputs: {{server.inputs}}
+            Returns an output of type: {{server.output_type}}
+      {%- endfor %}
+      {%- endif %}
 
-      You have to write the yaml text to compute the result using the available variables.
+      In the body field insert text to complete the task. You can use variable names as placeholders for the values that will be computed in the variables field.
+      
+      The body field should be text and the variables field must be a dictionary.
+
+      Write the yaml file to complete the task.
     out_id: result_file
     action: final_answer
   - step: |-  

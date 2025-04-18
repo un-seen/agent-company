@@ -382,8 +382,8 @@ class FlowPattern(ModelContextProtocolImpl):
 
         model_input_messages = [
             {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-            {"role": "user", "content": [{"type": "text", "text": filtered_hints_str}]},
-            {"role": "user", "content": [{"type": "text", "text": prompt}]}
+            {"role": "user", "content": [{"type": "text", "text": prompt}]},
+            {"role": "user", "content": [{"type": "text", "text": filtered_hints_str}]}
         ]
 
         model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
