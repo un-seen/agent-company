@@ -13,11 +13,11 @@ plan:
       {{ task }}
       ```
 
-      You have to complete the task by writing a text response in jinja template format.
+      You have to complete the task by writing a text report with intelligent usage of jinja templating language.
       
       You can use jinja variables to capture text that is a variable value or it is not known at the time of writing the jinja template.
       
-      You must make sure the template has a text structure relevant to the task.
+      You must make sure the template has a text structure relevant to the task. 
 
       Write the jinja template to complete the task.
     out_id: result_file

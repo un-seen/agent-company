@@ -310,7 +310,7 @@ class FlowPattern(ModelContextProtocolImpl):
             from jinja2 import Template
             template: Template = Template(step)
             rendered_step = template.render(**state)
-            self.logger.log(text=rendered_step, title=f"Step {i} ({self.interface_id}/{self.name}) Out-> {out}, Out_id-> {out_id}:")
+            self.logger.log(title=f"Step {i} ({self.interface_id}/{self.name}) Out-> {out}, Out_id-> {out_id}:")
             if out == "one_to_many":
                 output = self._run_step(rendered_step, action_type, return_type)
 
