@@ -13,13 +13,15 @@ plan:
       {{ task }}
       ```
 
-      You have to complete the task by writing a text report with intelligent usage of jinja templating language.
+      You have to complete the task by writing a text report.
       
-      You can use jinja variables to capture text that is a variable value or it is not known at the time of writing the jinja template.
-      
-      You must make sure the template has a text structure relevant to the task. 
+      You can use use curly braces to place variables in the text report like in a jinja template. 
 
-      Write the jinja template to complete the task.
+      You must use variables to present information that is not known at the time of writing the report and it requires grounding in external data sources.
+      
+      The report must have a structure that is easy to read and understand.
+
+      Write the text report with variables compatible with jinja template engine.
     out_id: result_file
     action: final_answer
   - step: |-  
