@@ -9,7 +9,7 @@ from typing_extensions import Literal
 from agentcompany.llms.base import (
     ReturnType
 )
-from agentcompany.extensions.environments.local_postgres_executor import LocalPostgresInterpreter
+from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
 from redis import Redis
 import os
 from agentcompany.extensions.environments.base import ExecutionEnvironment, Observations
@@ -274,8 +274,8 @@ class FlowPattern(ModelContextProtocolImpl):
 
         # Find all registered ExecutionEnvironment subclasses
         from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
-        from agentcompany.extensions.environments.local_postgres_executor import LocalPostgresInterpreter
-        from agentcompany.extensions.environments.local_tfserving_executor import LocalTfServingInterpreter
+        from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
+        from agentcompany.extensions.environments.b2_yaml_executor import B2YamlInterpreter
         
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
         try:

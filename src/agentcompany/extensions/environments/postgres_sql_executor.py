@@ -192,7 +192,7 @@ def evaluate_sql_code(
         raise InterpreterError(error_msg)
     
     
-class LocalPostgresInterpreter(ExecutionEnvironment):
+class PostgresSqlInterpreter(ExecutionEnvironment):
     
     language: str = "sql"
     
@@ -438,4 +438,4 @@ class LocalPostgresInterpreter(ExecutionEnvironment):
             {', '.join(info_prompt)}
         """
     
-__all__ = ["evaluate_sql_code", "LocalPostgresInterpreter"]
+__all__ = ["evaluate_sql_code", "PostgresSqlInterpreter"]

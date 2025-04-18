@@ -47,7 +47,7 @@ class SeriesStep(TypedDict):
 class PromptTemplates(TypedDict):
     Series: List[SeriesStep]
     
-class ScribePattern(ModelContextProtocolImpl):
+class SequencePattern(ModelContextProtocolImpl):
     """
     Agent class that takes as input a series and executes code in an environment to process every item in the series.
     The agent will keep track of the state of the environment and if there are new additions to the series it will
@@ -65,8 +65,8 @@ class ScribePattern(ModelContextProtocolImpl):
         max_steps (`int`, default `6`): Maximum number of steps the agent can take to solve the task.
     """
     
-    description = "This is an agent implementing the scribe design pattern."
-    name = "ScribePattern"
+    description = "This is an agent implementing the sequence design pattern."
+    name = "SequencePattern"
     inputs = "The task for the agent to solve in plain text english."
     output_type = "pandas.DataFrame"
     interface_id: str = None
@@ -144,7 +144,7 @@ class ScribePattern(ModelContextProtocolImpl):
         '''
         # Find all registered ExecutionEnvironment subclasses
         from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
-        from agentcompany.extensions.environments.local_postgres_executor import LocalPostgresInterpreter
+        from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
         from agentcompany.extensions.environments.local_tfserving_executor import LocalTfServingInterpreter
         
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        

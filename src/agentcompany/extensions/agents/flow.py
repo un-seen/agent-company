@@ -9,26 +9,33 @@ from agentcompany.llms.openai import OpenAIServerLLM
 from pathlib import Path
 
 def FlowAgent(name: str, 
-                  session_id: str,
-                  interface_id: str, 
-                  description: str, 
-                  custom_yaml_path: str = None,
-                  mcp_servers: List[ModelContextProtocolImpl] = []) -> FlowPattern:
+              session_id: str,
+              interface_id: str, 
+              description: str, 
+              mod_yaml_path: str = None,
+              custom_yaml_path: str = None,
+              mcp_servers: List[ModelContextProtocolImpl] = []) -> FlowPattern:
     """
     Create a Python code agent.
     """
     default_yaml_path = importlib.resources.files("agentcompany.extensions.prompts.flow").joinpath("default.yaml")
     default_prompt_templates: Dict = yaml.safe_load(default_yaml_path.read_text())
-    # agent_yaml_path = importlib.resources.files("agentcompany.extensions.prompts.residual").joinpath("python.yaml")
-    # updated_prompt_templates: Dict = yaml.safe_load(agent_yaml_path.read_text())
     updated_prompt_templates = default_prompt_templates
+    # Mod
+    if mod_yaml_path:
+        mod_yaml_path = importlib.resources.files("agentcompany.extensions.prompts.flow").joinpath(f"{mod_yaml_path}.yaml")
+        mod_yaml_path = Path(mod_yaml_path)
+        file_reader =  open(mod_yaml_path, 'r')
+        mod_prompt_templates: Dict = yaml.safe_load(file_reader)
+        updated_prompt_templates = merge_dicts(updated_prompt_templates, mod_prompt_templates)
+    # Custom
     if custom_yaml_path:
         custom_yaml_path = Path(custom_yaml_path)
         file_reader =  open(custom_yaml_path, 'r')
         custom_prompt_templates: Dict = yaml.safe_load(file_reader)
         updated_prompt_templates = merge_dicts(updated_prompt_templates, custom_prompt_templates)
-    prompt_templates = merge_dicts(default_prompt_templates, updated_prompt_templates)
     
+    prompt_templates = merge_dicts(default_prompt_templates, updated_prompt_templates)
     return FlowPattern(
         name=name, 
         session_id=session_id,

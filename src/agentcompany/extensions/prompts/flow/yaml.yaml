@@ -1,0 +1,105 @@
+executor_environment: 
+  interface: B2YamlInterpreter
+  config:
+    bucket_name: marketresearch
+    endpoint_url: http://localhost:9000
+    access_key: minioadmin
+    secret_key: minioadmin
+    prefix: jennifer
+plan:
+  - step: |-
+      Here is the task:
+      ```
+      {{ task }}
+      ```
+
+      You have to solve the task by writing yaml text with variables to include additional content to complete the task.
+
+      Just assume all the required variables are already created for the task.
+
+      You have to write the yaml text to compute the result using the available variables.
+    out_id: result_file
+    action: final_answer
+  - step: |-  
+      Here is the task:
+      ```
+      {{task}}
+      ```
+
+      You came up with the following yaml result file:
+      ```
+      {{ result_file }}
+      ```
+
+      Please list the variables that are assumed to be created in the result file.
+    out: one_to_many
+    out_id: variable_list
+    action: skip
+    return_type: list
+  - step: |-
+      Here is the task:
+      ```
+      {{task}}
+      ```
+
+      Here are the text files in the datalake:
+      ````
+      {%- for file in files %}
+        - File: : {{ file.name }}
+          Description: {{ file.description }}
+      {%- endfor %}
+      ````
+
+      {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+      These functions are used to complete a step efficiently.
+      {%- for server in mcp_servers.values() %}
+        - {{ server.name }}: {{ server.description }}
+            Takes inputs: {{server.inputs}}
+            Returns an output of type: {{server.output_type}}
+      {%- endfor %}
+      {%- endif %}
+
+      You came up with the following result file:
+
+      ```
+      {{ result_file }}
+      ```
+
+      Create a description for the {{ variable_name }} variable which has clear instructions on how to write the yaml text to put in place of the variable in the result file.
+    out_id: variable_description
+    action: skip
+  - step: |-
+      Here is the task:
+      ```
+      {{ task }}
+      ```
+
+      Here are the text files in the datalake:
+      ````
+      {%- for file in files %}
+        - File: : {{ file.name }}
+          Description: {{ file.description }}
+      {%- endfor %}
+      ````
+
+      {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+      These functions are used to complete a step efficiently.
+      {%- for server in mcp_servers.values() %}
+        - {{ server.name }}: {{ server.description }}
+            Takes inputs: {{server.inputs}}
+            Returns an output of type: {{server.output_type}}
+      {%- endfor %}
+      {%- endif %}
+
+      You came up with the following result file:
+
+      ```
+      {{ result_file }}
+      ```
+      
+      Here is the description of the {{ variable_name }} variable:
+      ```
+      {{ variable_description }}
+      ```
+      Write the yaml text to put in place of the variable in the result file.
+    out_id: variable_yaml

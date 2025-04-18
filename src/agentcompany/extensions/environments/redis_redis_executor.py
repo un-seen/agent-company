@@ -16,7 +16,7 @@ BASE_BUILTIN_MODULES = ["time", "unicodedata"]
 DEFAULT_MAX_LEN_OUTPUT = 50000
 
 
-class LocalRedisInterpreter(ExecutionEnvironment):
+class RedisRedisInterpreter(ExecutionEnvironment):
     
     language: str = "redis"
     
