@@ -1,5 +1,5 @@
 executor_environment: 
-  interface: LocalPythonInterpreter
+  interface: JupyterPythonInterpreter
   config:
     additional_authorized_imports: "*"  
 judge: |-
@@ -33,3 +33,38 @@ judge: |-
     3. #rethink: If the task can be rephrased for better outcome. Please provide guidance on how to rethink the task.
 
     Now begin!
+main: |-
+    Here is the task:
+    ```
+    {{ task }}
+    ```
+    
+    The sample data provided as input:
+    ```
+    {{ context_as_str }}
+    ```
+
+    The main input features for the function:
+    {%- for input in inputs %}
+
+        - {{ input }}
+    {%- endfor %}
+    
+
+    Main function choices:
+
+    {%- for choice in main_choice %}
+
+        - choice_id: {{ choice.choice_id }}
+
+          description: {{ choice.description }}
+
+          keyword:
+            {%- for keyword in choice.keyword %}
+                - {{ keyword }}
+
+            {%- endfor %}
+
+    {%- endfor %}
+
+    You have to return the choice_id of the main function choice that can take as input the preprocessing code output and solve the task.
