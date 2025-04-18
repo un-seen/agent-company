@@ -7,7 +7,6 @@ import math
 import json
 import sys
 import re
-import tensorflow as tf
 import logging
 from collections.abc import Mapping
 from importlib import import_module
@@ -688,8 +687,6 @@ def evaluate_subscript(
         if not (-len(value) <= index < len(value)):
             raise InterpreterError(f"Index {index} out of bounds for string of length {len(value)}")
         return value[index]
-    elif isinstance(value, tf.Tensor):
-        return value
     else:
         error_message = f"Could not index {value} with '{index}'."
         if isinstance(index, str) and isinstance(value, Mapping):
@@ -785,21 +782,9 @@ def evaluate_if(
     result = None
     test_result = evaluate_ast(if_statement.test, state, static_tools, custom_tools, authorized_imports)
     
-    # Handle TensorFlow tensors
-    if 'tensorflow' in sys.modules:
-        import tensorflow as tf
-        if isinstance(test_result, tf.Tensor):
-            if not test_result.shape.rank == 0:  # Must be scalar
-                raise InterpreterError(
-                    f"Condition must be a scalar boolean tensor, got shape {test_result.shape}. "
-                    f"Use tf.reduce_any() or tf.reduce_all() to reduce tensor dimensions."
-                )
-            test_result = test_result.numpy()  # Convert to Python boolean
-    
     if not isinstance(test_result, bool):
         raise InterpreterError(
             f"Condition must be a boolean, got {type(test_result)}. "
-            f"For TensorFlow operations, use tf.cond() instead of Python if statements."
         )
 
     if test_result:
@@ -1430,19 +1415,9 @@ class LocalPythonInterpreter(ExecutionEnvironment):
             **BASE_PYTHON_TOOLS.copy(),
         }
         # IMPROVE: assert self.authorized imports are all installed locally
-        self._register_tensorflow_helpers()
         super().__init__(session_id, mcp_servers)
     
-    def _register_tensorflow_helpers(self):
-        if 'tensorflow' in sys.modules:
-            import tensorflow as tf
-            self.static_tools.update({
-                'tf_cond': tf.cond,
-                'tf_logical_and': tf.logical_and,
-                'tf_logical_or': tf.logical_or,
-                'tf_print': tf.print,
-            })
-            
+    
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[Union[List[dict], str], str, bool]:
         self.state.update(additional_variables)
         output = evaluate_python_code(
