@@ -61,6 +61,29 @@ class PromptTemplates(TypedDict):
     
     
 
+def call_method(obj: Any, method_name: str, *args, **kwargs) -> Any:
+    """
+    Dynamically call `obj.method_name(*args, **kwargs)` and return its result.
+    
+    Raises:
+      AttributeError   – if `obj` has no attribute `method_name`
+      TypeError        – if the attribute isn’t callable
+      Any exception from the underlying method call will propagate.
+    """
+    # 1. Get the attribute
+    try:
+        method = getattr(obj, method_name)
+    except AttributeError:
+        raise AttributeError(f"'{type(obj).__name__}' object has no method '{method_name}'")
+    
+    # 2. Ensure it’s callable
+    if not callable(method):
+        raise TypeError(f"Attribute '{method_name}' of '{type(obj).__name__}' is not callable")
+    
+    # 3. Call with provided args/kwargs
+    return method(*args, **kwargs)
+
+
 class FlowPattern(ModelContextProtocolImpl):
     """
     Agent class that takes as input a prompt and calls if required one or more agents to execute a vision.
@@ -400,6 +423,11 @@ class FlowPattern(ModelContextProtocolImpl):
                 model_input_messages_with_errors.append(
                     {"role": "system", "content": [{"type": "text", "text": error_str}]}
                 )    
+            
+            # Check if it is a deterministic action because itself and it's output are both defined in the environment
+            if action_type == "environment":
+                return call_method(self.executor_environment, prompt, self.state["current"])
+            
             try:
                 code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
             except Exception as e:
@@ -418,10 +446,14 @@ class FlowPattern(ModelContextProtocolImpl):
                 code_action = code_output_message.content
             else:
                 raise ValueError(f"Unknown return type: {return_type}")
-            
+        
             self.logger.log(text=f"```{self.executor_environment.language} \n {code_action} \n```", title=f"Code Output ({self.interface_id}/{self.name}):")
-            
-            if action_type == "execute":
+        
+        
+            if action_type == "web_search":
+                # TODO implement web search
+                pass
+            elif action_type == "execute":
                 try:
                     observations, _, _ = self.executor_environment(
                         code_action=code_action,

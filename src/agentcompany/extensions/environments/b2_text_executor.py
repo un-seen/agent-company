@@ -182,7 +182,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         raise InterpreterError("Invalid code blobs for Python template string.")
 
     
-    def setup_file_content(self, code_action: str) -> str:
+    def get_file_text(self, code_action: str) -> str:
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
         content = []
         for index, file in enumerate(files, 1):
@@ -208,30 +208,26 @@ class B2TextInterpreter(ExecutionEnvironment):
         
         return response
     
-    def get_identifier_value(self, state: dict, context: Template, identifier: str, data: str) -> Optional[str]:
-        known_variable_text = "These are the known variables:\n"
-        for key, value in state.items():
-            known_variable_text += f"{key}: {value}\n"
-        return get_identifier_value(context, identifier, f"""\n\n{data}\n\n{known_variable_text}""")
+    def get_identifiers(self, code_action: str) -> List[str]:
+        """
+        Get identifiers from the code action.
+        """
+        code_action = escape_template_dollars(code_action)
+        template = Template(code_action)
+        identifiers = template.get_identifiers()
+        return identifiers
+    
+    def text_search(self, code_action: str) -> str:
+        file_data = self.get
+        web_data = get_web_text(code_action)
+        file_data = self.get_file_text(code_action)
+        return f"{file_data}\n\n{web_data}"
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
         code_action = escape_template_dollars(code_action)
         self.state.update(additional_variables)
         template = Template(code_action)
-        data = "\n\n" + self.setup_file_content(code_action)
-        while len(template.get_identifiers()) > 0:
-            identifier = template.get_identifiers().pop()
-            print(f"Identifier: {identifier}")
-            print(f"Data: {data}")
-            value = self.get_identifier_value(self.state, code_action, identifier, data)
-            print(f"Identifier: {identifier} | Value: {value}")
-            if value is None:
-                web_content = get_web_text(code_action, identifier)
-                data += f"\n\n{web_content}"
-                continue    
-            template = Template(template.safe_substitute({identifier: value}))
-        logs = self.state.get("logs", "")
-        return template.template, logs, False
+        return template.substitute(self.state), "", False        
         
     def attach_variables(self, variables: Dict):
         self.state.update(variables)

@@ -58,54 +58,45 @@ def generate_json_array_from_text(user_text: str, web_text: str) -> Row:
     response: List[Row] = response.parsed
     return response
 
-def get_web_text(context: str, identifier: str) -> str:
+def get_web_text(prompt: str) -> str:
     """
     Generate a JSON array for the user text using the Gemini API.
     """
-    client = genai.Client(api_key=GOOGLE_API_KEY)
-    response = client.models.generate_content(
-        model='gemini-2.0-flash-lite',
-        contents=f'Write a question which has the answer as the identifier: {identifier} \n\n in this text: \n\n {context}.',
-    )
-    question = response.text
-    url_list = brave_web_search(question)
+    url_list = brave_web_search(prompt)
     web_data: List[str] = []
     for url in url_list:
         web_text = get_url_as_text(url['url'])
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-lite',
-            contents=f'Decide whether this ground truth data has sufficient, necessary or no evidence to answer the queestion: \n\n {web_text}.',
-            config={
-                'response_mime_type': 'text/x.enum',
-                'response_schema': {
-                    "type": "STRING",
-                    "enum": [ "sufficient", "necessary", "insufficient", "none" ],
-                }
-            },
-        )
-        print(f"Response: {response.text} | URL: {url['url']} | Title: {url['title']} | Question: {question}")
-        if response.text == "sufficient":
-            web_data.append(f"\n\n{url['title']} ({url['url']}):\n{web_text}")
-            break
-        elif response.text == "necessary":
-            web_data.append(f"\n\n{url['title']} ({url['url']}):\n{web_text}")
-    return web_data
+        web_data.append(web_text)
+    return "\n\n".join(web_data)
 
 def get_identifier_value(context: str, identifier: str, data: str) -> Optional[str]:
     client = genai.Client(api_key=GOOGLE_API_KEY)
+    # Find the sentence which has the identifier 
+    pattern = r"([^.]*?\b" + re.escape(identifier) + r"\b[^.]*\.)"
+    sentences = re.findall(pattern, context)
+    prefix = ""
+    if sentences:
+        sentence = sentences[0]
+        # Find the prefix in the sentence
+        index = sentence.find(identifier)
+        if index != -1:
+            prefix = sentence[:index-2].strip()
+    prompt = f"""
+    You have to complete this sentence with a plain text value and not formatting\n\n
+    {prefix} _____ \n\n
+    
+    
+    You can only use the following data to compute the value for the blank: \n\n
+    {data} \n\n
+    """
+        
+    print(prompt)
     response = client.models.generate_content(
         model='gemini-2.0-flash-lite',
-        contents=f"""
-        Generate the value for the {identifier} in the context: {context} \n\n
-        
-        You can only use the following data to answer the question: \n\n
-        {data} \n\n
-        
-        Please prefix the value with "VALUE: " and suffix with ":END" \n\n
-        """
+        contents=prompt
     )
     value = response.text
-    pattern = r"VALUE: (.*?) :END"
+    pattern = r"VALUE:(.*?):END"
     match = re.search(pattern, value)
     if match:
         return match.group(1)

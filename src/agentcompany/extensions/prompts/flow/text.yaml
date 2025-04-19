@@ -24,3 +24,53 @@ plan:
       Do not include any text which is not to be read by the user.
 
       Write the plain text report with variables compatible with Python string template.
+    out_id: text_report
+    action: final_answer
+  - step: get_identifiers
+    out: one_to_many
+    out_id: variable_name
+    action: environment
+    return_type: list
+  - step: |-
+      Here is the task:
+      ```
+      {{task}}
+      ```
+      
+      You came up with the following report to complete the task:
+      ```
+      {{ text_report }}
+      ```
+
+      You have to formulate a question such that the answer to the question is the variable  {{ variable_name }} in the text report.
+    out_id: variable_question
+    action: skip
+  - step: text_search
+    action: environment
+    out_id: supporting_information
+  - step: |-
+      Here is the task:
+      ```
+      {{task}}
+      ```
+
+      You came up with the following report to complete the task:
+      ```
+      {{ text_report }}
+      ```
+
+      You came up with the following question to complete the task:
+      ```
+      {{ variable_question }}
+      ```
+
+      The reference information you found is:
+      ```
+      {{ supporting_information }}
+      ```
+      
+      You have to now give a value for the variable {{ variable_name }} in the text report based on the reference information.
+
+      {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
+      {{ filtered_hints_str }}
+      {% endif %}
