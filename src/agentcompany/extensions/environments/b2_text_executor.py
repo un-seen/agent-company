@@ -138,7 +138,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         self.state.update(additional_variables)
         template = Template(code_action)
         try:
-            text = template.safe_substitute(self.state)
+            text = template.substitute(self.state)
         except KeyError as e:
             logger.error(f"KeyError: {e}")
             raise e
