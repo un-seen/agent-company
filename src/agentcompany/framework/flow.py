@@ -340,16 +340,17 @@ class FlowPattern(ModelContextProtocolImpl):
                 hint for hint in hints
                 if any(keyword.lower() in template_lower for keyword in hint.get("keyword", []))
             ]
-            filtered_hints_str = f"""
-            ## Hints
-            
-            {list_of_dict_to_markdown_table(filtered_hints)}
-            """.strip()
-            self.state["filtered_hints_str"] = filtered_hints_str
+            if len(filtered_hints) > 0:
+                filtered_hints_str = f"""
+                ## Hints
+                
+                {list_of_dict_to_markdown_table(filtered_hints)}
+                """.strip()
+                self.state["filtered_hints_str"] = filtered_hints_str
             rendered_step = template.render(**self.state)
             self.logger.log(text=f"Out={out} | Out_id={out_id}", title=f"Step {i} ({self.interface_id}/{self.name}):")
             if out == "one_to_many":
-                output = self._run_step(rendered_step, action_type, return_type)
+                output = self._run_step(rendered_step, action_type, return_type, self.state)
 
                 if not isinstance(output, list):
                     raise ValueError(f"Expected list output for 'one_to_many', got {type(output)}")
@@ -373,7 +374,7 @@ class FlowPattern(ModelContextProtocolImpl):
                         # Render the step
                         rendered_next_step = template_next.render(**local_state)
                         # Run the next step
-                        next_output = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type)
+                        next_output = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state)
                         # Set output in local state out id
                         if next_step_out_id:
                             local_state[next_step_out_id] = next_output
@@ -382,14 +383,14 @@ class FlowPattern(ModelContextProtocolImpl):
                 break  # Exiting the loop as subsequent steps were processed already
 
             elif out == "one_to_one":
-                output = self._run_step(rendered_step, action_type, return_type)
+                output = self._run_step(rendered_step, action_type, return_type, self.state)
                 self.state["current"] = output
                 if out_id:
                     self.state[out_id] = output
             elif out == "many_to_one":
                 if not isinstance(self.state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
-                output = self._run_step(rendered_step, action_type, return_type)
+                output = self._run_step(rendered_step, action_type, return_type, self.state)
                 self.state["current"] = output
                 if out_id:
                     self.state[out_id] = output
@@ -400,7 +401,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 self.state["final_answer"] = self.state.get("current", None)
                 break
     
-    def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType) -> None:
+    def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType, state: dict) -> None:
         model_input_messages = [
             {"role": "system", "content": [{"type": "text", "text": self.description}]},
             {"role": "user", "content": [{"type": "text", "text": prompt}]}
@@ -424,9 +425,9 @@ class FlowPattern(ModelContextProtocolImpl):
             
             # Check if it is a deterministic action because itself and it's output are both defined in the environment
             if action_type == "environment":
-                print(f"State: {self.state}")
-                print(f"Current: {self.state['current']}")
-                observations = call_method(self.executor_environment, prompt, self.state["current"])
+                print(f"State: {state}")
+                print(f"Current: {state['current']}")
+                observations = call_method(self.executor_environment, prompt, state["current"])
                 break
             try:
                 code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
@@ -474,7 +475,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 observations = code_output_message.content
             elif action_type == "final_answer":
                 observations = code_output_message.content
-                self.state["final_answer"] = observations                
+                state["final_answer"] = observations                
             else:
                 raise ValueError(f"Unknown action type: {action_type}")
 
