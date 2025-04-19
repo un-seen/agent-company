@@ -311,6 +311,18 @@ class FlowPattern(ModelContextProtocolImpl):
             template: Template = Template(step)
             # TODO pass other variables to the template
             print(state)
+            hints = self.prompt_templates["hint"]
+            template_lower = step.lower()    
+            filtered_hints = [
+                hint for hint in hints
+                if any(keyword.lower() in template_lower for keyword in hint.get("keyword", []))
+            ]
+            filtered_hints_str = f"""
+            ## Hints
+            
+            {list_of_dict_to_markdown_table(filtered_hints)}
+            """.strip()
+            state["filtered_hints_str"] = filtered_hints_str
             rendered_step = template.render(**state)
             self.logger.log(text=f"Out={out} | Out_id={out_id}", title=f"Step {i} ({self.interface_id}/{self.name}):")
             if out == "one_to_many":
@@ -318,7 +330,6 @@ class FlowPattern(ModelContextProtocolImpl):
 
                 if not isinstance(output, list):
                     raise ValueError(f"Expected list output for 'one_to_many', got {type(output)}")
-
                 
                 next_steps = plan[i + 1:]
                 for item in output:
@@ -368,26 +379,10 @@ class FlowPattern(ModelContextProtocolImpl):
                 break
     
     def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType) -> None:
-        hints = self.prompt_templates["hint"]
-        prompt_lower = prompt.lower()    
-
-        filtered_hints = [
-            hint for hint in hints
-            if any(keyword.lower() in prompt_lower for keyword in hint.get("keyword", []))
-        ]
-        filtered_hints_str = f"""
-        ## Hints
-        
-        {list_of_dict_to_markdown_table(filtered_hints)}
-        """.strip()
-        system_prompt = self.description
-
         model_input_messages = [
-            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-            {"role": "user", "content": [{"type": "text", "text": prompt}]},
-            {"role": "user", "content": [{"type": "text", "text": filtered_hints_str}]}
+            {"role": "system", "content": [{"type": "text", "text": self.description}]},
+            {"role": "user", "content": [{"type": "text", "text": prompt}]}
         ]
-
         model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
         self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
 

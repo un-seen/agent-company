@@ -80,13 +80,13 @@ plan:
       {{ variable_description }}
       ```
 
-      Here are the text files in the datalake:
-      ````
+      {%- if files and files|length > 0 %}
+      Here are the text files in the datalake which can also be used to compute a variable value:
       {%- for file in files %}
-        - File: : {{ file.name }}
-          Description: {{ file.description }}
+
+        - {{ file.name }}: {{ file.description }}
       {%- endfor %}
-      ````
+      {% endif %}
 
       {%- if mcp_servers and mcp_servers.values()|length > 0 %}
       These functions are used to complete a step efficiently.

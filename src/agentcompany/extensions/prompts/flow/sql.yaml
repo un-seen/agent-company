@@ -43,6 +43,11 @@ plan:
       Just assume all the required views that can have transformed column values from existing table values are already created in the database.
 
       You have to write a select SQL statement to compute the result table using the available views.
+
+      {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
+      {{ filtered_hints_str }}
+      {% endif %}
+
     out_id: result_table
     action: final_answer
   - step: |-  
@@ -119,12 +124,16 @@ plan:
       {%- endif %}
 
       You came up with the following result table:
-
       ```
       {{ result_table }}
       ```
 
       Create a description for the {{ view_table }} view which has clear instructions on how to compute the view using existing table.
+
+      {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
+      {{ filtered_hints_str }}
+      {% endif %}
+
     out_id: view_table_description
     action: skip
   - step: |-
@@ -169,3 +178,7 @@ plan:
       {{ view_table_description }}
       ```
       Write the SQL statement to create the {{ view_table }} view.
+
+      {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
+      {{ filtered_hints_str }}
+      {% endif %}
