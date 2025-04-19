@@ -256,15 +256,12 @@ class B2TextInterpreter(ExecutionEnvironment):
         for index, file in enumerate(files, 1):
             if file.endswith("content.txt"):
                 task_file = file.replace("content.txt", "task.txt")
-                print(f"Checking {task_file} for task")
                 if not check_key_exists(self.b2_config["bucket_name"], task_file):
                     logger.warning(f"File {task_file} does not exist.")
                     continue
                 task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
-                print(f"Looking for task {task_text} in {file}")
                 if quick_word_match(task_text, code_action, case_insensitive=True):
                     content[file] = task_text
-                    print(f"Selected {file} with task {task_text}")
                     
         data = ""
         for file, task in content.items():
