@@ -1,4 +1,5 @@
 import os
+import copy
 import re
 import shlex
 from random import randint

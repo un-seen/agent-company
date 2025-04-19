@@ -466,9 +466,14 @@ class FlowPattern(ModelContextProtocolImpl):
                 pass
             elif action_type == "execute":
                 try:
+                    final_answer = self.state.get("final_answer", None)
+                    if final_answer is not None:
+                        final_answer = Template(final_answer).render(**self.state["known_variables"])
                     observations, _, _ = self.executor_environment(
                         code_action=code_action,
-                        additional_variables={},
+                        additional_variables={
+                            "final_answer": final_answer,
+                        },
                         return_type="string"
                     )
                     self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
