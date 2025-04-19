@@ -61,14 +61,10 @@ class B2JinjaInterpreter(ExecutionEnvironment):
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
 
     def _build_file_map(self) -> Dict[str, str]:
-        file_map = {}
-        try:
-            for obj in S3_RESOURCE.Bucket(self.b2_config["bucket_name"]).objects.filter(Prefix=self.b2_config["prefix"]):
-                base_name = os.path.splitext(os.path.basename(obj.key))[0]
-                file_map[base_name] = obj.key
-        except Exception as e:
-            logger.error(f"Error building file map: {e}")
-        return file_map
+        print(f"Listing files in bucket {self.b2_config['bucket_name']} with prefix {self.b2_config['prefix']}")
+        for obj in S3_RESOURCE.Bucket(self.b2_config["bucket_name"]).objects.filter(Prefix=self.b2_config["prefix"]):
+            base_name = os.path.splitext(os.path.basename(obj.key))[0]
+            self.file_map[base_name] = obj.key
 
     def _create_jinja_environment(self) -> Environment:
         env = Environment(
