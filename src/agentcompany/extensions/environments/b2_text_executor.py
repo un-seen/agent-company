@@ -96,19 +96,18 @@ def parse_function_call(call_str: str) -> Tuple[Optional[str], Optional[List[str
     
     return func_name, args
 
-def escape_template_dollars(text: str) -> str:
+def collapse_dollar_runs(text: str) -> str:
     """
-    Escape all dollar signs for use with string.Template:
-      - Literal $ → $$
-      - $${var} → $$${var}  (so $$ is literal $, then ${var} is a real placeholder)
-    
-    Placeholders of the form $name or ${name} are left intact.
+    Replace every occurrence of two or more consecutive '$' characters with a single '$'.
+
+    Args:
+        text: The input string potentially containing runs of '$'.
+
+    Returns:
+        A new string where any '$$...' sequence is collapsed to '$'.
     """
-    # 1) Escape every $ *not* followed by $, '{', letter or underscore
-    text = re.sub(r"\$(?![\${A-Za-z_])", r"$$", text)
-    # 2) Fix up any literal $$ right before a {…} so it becomes $$${…}
-    text = re.sub(r"\$\$\{", r"$$${", text)
-    return text
+    # \${2,} matches any run of 2 or more '$'
+    return re.sub(r"\${2,}", "$", text)
 
 
 def quick_word_match(s1: str, s2: str, 
@@ -225,7 +224,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         """
         Get identifiers from the code action.
         """
-        code_action = escape_template_dollars(code_action)
+        code_action = collapse_dollar_runs(code_action)
         template = Template(code_action)
         identifiers = template.get_identifiers()
         return identifiers
@@ -246,7 +245,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         return web_data
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
-        code_action = escape_template_dollars(code_action)
+        code_action = collapse_dollar_runs(code_action)
         self.state.update(additional_variables)
         template = Template(code_action)
         return template.substitute(self.state), "", False        

@@ -265,21 +265,16 @@ class FlowPattern(ModelContextProtocolImpl):
     
     
     def get_final_answer(self) -> Any:
-        code_output_message_content = self.state.get("final_answer", None)
-        if code_output_message_content is None:
+        code_action = self.state.get("final_answer", None)
+        if code_action is None:
             raise ValueError("No final answer found in the state.")
         try:
-            code_action = self.executor_environment.parse_code_blob(code_output_message_content)
-            self.logger.log(title="Code:", text=code_action)
-        except Exception as e:
-            error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-            error_msg = self.executor_environment.parse_error_logs(error_msg)
-            raise AgentExecutionError(error_msg, self.logger) from e
-        try:
+            self.logger.log(text=f"{code_action}", title="Final Answer:")
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
                 additional_variables=self.state["known_variables"],
             )
+            self.logger.log(text=observations, title="Final Answer Observations:")
         except Exception as e:
             error_msg = "Error in Code Execution: \n"
             if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
@@ -398,12 +393,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 output = self._run_step(rendered_step, action_type, return_type, self.state)
                 self.set_out_id(self.state, out_id, output)
             i += 1
-            
-            if i == len(plan):
-                # End of plan request final answer from environment
-                self.state["final_answer"] = self.state.get("current", None)
-                break
-    
+                
     def set_out_id(self, state: dict, out_id: str, output: Any) -> None:
         """
         Set the out_id in the state.
