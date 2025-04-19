@@ -330,8 +330,8 @@ class FlowPattern(ModelContextProtocolImpl):
         )
         self.executor_environment.attach_mcp_servers(self.mcp_servers)
     
-    def setup_hint(self, step: str):
-        step_lower = step.lower()    
+    def setup_hint(self):
+        step_lower = self.state["task"].lower()    
         self.logger.log(text=step_lower, title="Step (Lower):")
         prompt_hints = self.prompt_templates["hint"]
         prompt_hints = [
@@ -342,7 +342,7 @@ class FlowPattern(ModelContextProtocolImpl):
         if len(prompt_hints) > 0:
             self.logger.log(text=prompt_hints, title="Prompt Hints:")
         environment_hints = self.executor_environment.get_hint(step_lower)
-        if environment_hints > 0:
+        if len(environment_hints) > 0:
             self.logger.log(text=environment_hints, title="Environment Hints:")
         if len(environment_hints) > 0 or len(prompt_hints) > 0:
             self.state["hint"] = f"""
@@ -357,6 +357,7 @@ class FlowPattern(ModelContextProtocolImpl):
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
         i = 0
+        self.setup_hint()
         while i < len(plan):
             node = plan[i]
             step = node["step"]
@@ -366,7 +367,7 @@ class FlowPattern(ModelContextProtocolImpl):
             return_type = node.get("return_type", "string")
             # Replace placeholders in the step with values from state
             template: Template = Template(step)
-            self.setup_hint(template.render(**self.state))
+            
             rendered_step = template.render(**self.state)
             self.logger.log(text=f"Out={out} | Out_id={out_id}", title=f"Step {i} ({self.interface_id}/{self.name}):")
             if out == "one_to_many":
