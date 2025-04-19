@@ -36,13 +36,13 @@ plan:
       {{task}}
       ```
       
-      You came up with the following report to complete the task:
+      You came up with the following final answer to complete the task:
       ```
-      {{ text_report }}
+      {{ final_answer }}
       ```
        
       {%- if known_variables and known_variables.items()|length > 0 %}
-      The known variables in the report are:
+      The known variables in the final answer are:
       {%- for key, value in known_variables.items() %}
       - {{ key }}: {{ value }}
 
@@ -54,10 +54,10 @@ plan:
       {{ hint }}
       {% endif %}
 
-      You have to formulate a question such that the answer to the question is the variable  {{ variable_name }} in the text report.
+      You have to formulate a question such that the answer to the question is the variable  {{ variable_name }} in the final answer.
 
       If the answer or the variable {{ variable_name }} is stated above then the question should only fetch additional information which is unknown and 
-      it can be useful to reduce ambiguity in the value of variable {{ variable_name }} in the text report.
+      it can be useful to reduce ambiguity in the value of variable {{ variable_name }} in the final_answer.
     out_id: variable_question
     action: skip
   - step: text_search
@@ -69,12 +69,12 @@ plan:
       {{task}}
       ```
 
-      You came up with the following report to complete the task:
+      You came up with the following final answer to complete the task:
       ```
-      {{ text_report }}
+      {{ final_answer }}
       ```
 
-      You came up with the following question to find reference information to fill in the variable {{ variable_name }} in the text report:
+      You came up with the following question to find reference information to fill in the variable {{ variable_name }} in the final answer:
       ```
       {{ variable_question }}
       ```
@@ -84,12 +84,12 @@ plan:
       {{ hint }}
       {% endif %}
 
-      The new reference information you found specifically to fill in the variable {{ variable_name }} in the text report is:
+      The new reference information you found specifically to fill in the variable {{ variable_name }} in the final answer is:
       ```
       {{ supporting_information }}
       ```
 
-      Write only the value for the variable {{ variable_name }} in to fill in the text report. Do not include any other text or formatting.
+      Write only the value for the variable {{ variable_name }} in to fill in the final answer. Do not include any other text or formatting.
     out_id: $variable_name
     reset: true 
   # - step: substitute_variable
