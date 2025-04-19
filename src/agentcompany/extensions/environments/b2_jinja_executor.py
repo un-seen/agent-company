@@ -32,6 +32,16 @@ def get_file_from_key(bucket: str, key: str) -> str:
         logger.error(f"Error retrieving {key} from B2: {e}")
         return None
 
+def list_files(bucket_name: str, prefix: str) -> List[Dict[str, str]]:
+    print(f"Listing files in bucket {bucket_name} with prefix {prefix}")
+    file_list = []
+    for obj in S3_RESOURCE.Bucket(bucket_name).objects.filter(Prefix=prefix):
+        file_list.append({
+            "name": os.path.basename(obj.key),
+            "key": obj.key,
+        })
+    return file_list
+    
 class B2JinjaInterpreter(ExecutionEnvironment):
     language: str = "jinja"
     
@@ -45,7 +55,6 @@ class B2JinjaInterpreter(ExecutionEnvironment):
         secret_access_key: str,
         prefix: str
     ):
-        self.state = {}
         self.b2_config = {
             "bucket_name": bucket_name,
             "endpoint_url": endpoint_url,
@@ -54,18 +63,16 @@ class B2JinjaInterpreter(ExecutionEnvironment):
             "prefix": prefix
         }
         init_s3(endpoint_url, access_key_id, secret_access_key)
-        self.file_map = self._build_file_map()
+        self.state = {
+            "files": list_files(bucket_name, prefix)
+        }
         self.storage = {}
         self.session_id = session_id
         self.static_tools = mcp_servers
+        self.jinja_env: Environment = self._create_jinja_environment()
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
 
-    def _build_file_map(self) -> Dict[str, str]:
-        print(f"Listing files in bucket {self.b2_config['bucket_name']} with prefix {self.b2_config['prefix']}")
-        for obj in S3_RESOURCE.Bucket(self.b2_config["bucket_name"]).objects.filter(Prefix=self.b2_config["prefix"]):
-            base_name = os.path.splitext(os.path.basename(obj.key))[0]
-            self.file_map[base_name] = obj.key
-
+    
     def _create_jinja_environment(self) -> Environment:
         env = Environment(
             loader=BaseLoader(),
@@ -78,12 +85,6 @@ class B2JinjaInterpreter(ExecutionEnvironment):
         env.globals.update(self.static_tools)
         
         # Add B2 file loader function
-        def load_b2_file(name: str) -> str:
-            if file_key := self.file_map.get(name):
-                return get_file_from_key(self.b2_config["bucket_name"], file_key)
-            raise InterpreterError(f"File '{name}' not found in B2 storage")
-        env.globals['load_b2_file'] = load_b2_file
-        
         return env
 
     def parse_error_logs(self, execution_logs: str) -> str:
@@ -108,14 +109,13 @@ class B2JinjaInterpreter(ExecutionEnvironment):
 
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
         self.state.update(additional_variables)
-        jinja_env = self._create_jinja_environment()
+        
         
         try:
-            template = jinja_env.from_string(code_action)
+            template = self.jinja_env.from_string(code_action)
             template.globals.update(self.state)
             template.globals.update(additional_variables)
             template.globals.update(self.static_tools)
-            template.globals.update(self.file_map)
             rendered = template.render()
             return rendered, self.state.get("logs", ""), False
         except TemplateSyntaxError as e:

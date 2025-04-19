@@ -93,6 +93,7 @@ class FlowPattern(ModelContextProtocolImpl):
     ):
         # Identifiers
         self.name = name
+        self.description = description
         self.interface_id = interface_id
         self.session_id = session_id
         # LLM
@@ -101,14 +102,11 @@ class FlowPattern(ModelContextProtocolImpl):
         self.prompt_templates = prompt_templates
         # State
         self.state = {}
-        # Environment
-        self.executor_environment_config = self.prompt_templates["executor_environment"]
-        # Postgres Agent
-        # self.postgres_agent = postgres_agent
         # MCP Servers
         self.setup_mcp_servers(mcp_servers)
+        # Environment
+        self.executor_environment_config = self.prompt_templates["executor_environment"]
         self.setup_environment()
-        self.description = description
         # Logging
         verbosity_level: int = 1
         self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
