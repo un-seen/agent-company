@@ -40,7 +40,7 @@ plan:
       
       Please list the variables that are used in the jinja template.
     out: one_to_many
-    out_id: variable_list
+    out_id: variable_name
     action: skip
     return_type: list
   - step: |-
@@ -63,12 +63,13 @@ plan:
       {%- endfor %}
       {%- endif %}
 
+      {%- if files and files|length > 0 %}
       Here are the text files in the datalake which can also be used to compute a variable value:
-      ````
       {%- for file in files %}
+
         - {{ file.name }}: {{ file.description }}
       {%- endfor %}
-      ````
+      {% endif %}
       
       Please write a detailed description of the {{ variable_name }} variable with clear instructions on how to compute the value using a function or a file.
     out_id: variable_description
