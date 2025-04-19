@@ -202,7 +202,7 @@ class B2TextInterpreter(ExecutionEnvironment):
     
     def get_file_text(self, code_action: str) -> str:
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
-        content = []
+        content = {}
         for index, file in enumerate(files, 1):
             if file.endswith("content.txt"):
                 task_file = file.replace("content.txt", "task.txt")
@@ -210,9 +210,8 @@ class B2TextInterpreter(ExecutionEnvironment):
                     logger.warning(f"File {task_file} does not exist.")
                     continue
                 task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
-                content[file] = task_text
                 if quick_word_match(task_text, code_action, case_insensitive=True):
-                    content.append(file)   
+                    content[file] = task_text
                     
         response = []
         for file, task in content.items():
