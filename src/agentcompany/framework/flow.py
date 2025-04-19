@@ -376,7 +376,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 next_steps = plan[i + 1:]
                 for item in output:
                     local_state = copy.deepcopy(self.state)
-                    set_state_out_id(local_state, out_id, item)
+                    set_state_out_id(self.state, local_state, out_id, item)
                     next_step_index = 0
                     while next_step_index < len(next_steps):
                         next_step = next_steps[next_step_index]
@@ -394,23 +394,23 @@ class FlowPattern(ModelContextProtocolImpl):
                         next_output = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state, return_on_fail=True)
                         if next_output is None:
                             next_step_index = 0
-                            set_state_out_id(local_state, out_id, item)
+                            set_state_out_id(self.state, local_state, out_id, item)
                             continue
                         else:
                             # Set output in local state out id
-                            set_state_out_id(local_state, next_step_out_id, next_output)
+                            set_state_out_id(self.state, local_state, next_step_out_id, next_output)
                             next_step_index += 1
 
                 break  # Exiting the loop as subsequent steps were processed already
 
             elif out == "one_to_one":
                 output = self._run_step(rendered_step, action_type, return_type, self.state)
-                set_state_out_id(self.state, out_id, output)
+                set_state_out_id(self.state, self.state, out_id, output)
             elif out == "many_to_one":
                 if not isinstance(self.state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
                 output = self._run_step(rendered_step, action_type, return_type, self.state)
-                set_state_out_id(self.state, out_id, output)
+                set_state_out_id(self.state, self.state, out_id, output)
             i += 1
                 
         
