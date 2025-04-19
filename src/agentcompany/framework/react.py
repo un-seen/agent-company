@@ -168,7 +168,7 @@ class ReActPattern(ModelContextProtocolImpl):
         # Find all registered ExecutionEnvironment subclasses
         from agentcompany.extensions.environments.jupyter_python_executor import JupyterPythonInterpreter
         from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
-        from agentcompany.extensions.environments.b2_jinja_executor import B2JinjaInterpreter
+        from agentcompany.extensions.environments.b2_text_executor import B2TextInterpreter
         
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
         try:
