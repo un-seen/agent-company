@@ -7,6 +7,7 @@ from string import Template
 from typing import Any, Dict, List, Optional, Tuple, Callable
 import boto3
 from botocore.client import Config
+from botocore.exceptions import ClientError
 from agentcompany.driver.markdown import list_of_dict_to_markdown_table
 from agentcompany.extensions.environments.exceptions import InterpreterError
 from agentcompany.extensions.environments.base import ExecutionEnvironment
@@ -31,12 +32,24 @@ def init_s3(endpoint_url, access_key_id, secret_access_key):
             config=Config(signature_version="s3v4"),
         )
 
-def check_key_exists(bucket: str, key: str) -> bool:
+def check_key_exists(bucket_name: str, key: str) -> bool:
+    """
+    Return True if the given key exists in the specified S3 bucket,
+    False if it does not exist. Raises on other errors (e.g., permissions).
+    """
     global S3_RESOURCE
+    obj = S3_RESOURCE.Object(bucket_name, key)
     try:
-        return S3_RESOURCE.Bucket(bucket).Object(key).content_length > 0
-    except Exception:
-        return False
+        # .load() will issue a HEAD request under the hood
+        obj.load()
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        if error_code in ("404", "NoSuchKey"):
+            return False
+        # re-raise other unexpected exceptions (e.g., 403 Forbidden)
+        raise
+    return True    
+
 
 def delete_file(bucket, key):
     global S3_RESOURCE
@@ -206,12 +219,15 @@ class B2TextInterpreter(ExecutionEnvironment):
         for index, file in enumerate(files, 1):
             if file.endswith("content.txt"):
                 task_file = file.replace("content.txt", "task.txt")
+                print(f"Checking {task_file} for task")
                 if not check_key_exists(self.b2_config["bucket_name"], task_file):
                     logger.warning(f"File {task_file} does not exist.")
                     continue
                 task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
+                print(f"Matching {task_text} with {code_action}")
                 if quick_word_match(task_text, code_action, case_insensitive=True):
                     content[file] = task_text
+                    print(f"Selected {file} with task {task_text}")
                     
         response = []
         for file, task in content.items():
