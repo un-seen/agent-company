@@ -336,7 +336,6 @@ class FlowPattern(ModelContextProtocolImpl):
     
     def setup_hint(self):
         step_lower = self.state["task"].lower()    
-        self.logger.log(text=step_lower, title="Step (Lower):")
         prompt_hints = self.prompt_templates["hint"]
         prompt_hints = [
             hint for hint in prompt_hints
@@ -436,7 +435,7 @@ class FlowPattern(ModelContextProtocolImpl):
 
             if previous_environment_errors:
                 error_str = "\n\n".join([
-                    f"Error encountered:\n{err['error']}\nProblematic code:\n{err['code']}"
+                    f"Please avoid this error:\n\n{err['error']}"
                     for err in previous_environment_errors
                 ])
                 model_input_messages_with_errors.append(
