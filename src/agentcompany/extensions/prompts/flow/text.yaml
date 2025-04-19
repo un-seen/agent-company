@@ -57,11 +57,8 @@ plan:
 
       You have to formulate a question such that the answer to the question is the variable  {{ variable_name }} in the text report.
 
-      If the answer or the variable {{ variable_name }} is stated in the known variables and hint then the question should only fetch additional information
-      to reduce ambiguity in the value of variable {{ variable_name }} in the text report.
-
-      Please include relevant context for the {{ variable_name }} from the report in the question so that the question is clear and unambiguous.
-
+      If the answer or the variable {{ variable_name }} is stated above then the question should only fetch additional information which is unknown and 
+      it can be useful to reduce ambiguity in the value of variable {{ variable_name }} in the text report.
     out_id: variable_question
     action: skip
   - step: text_search
@@ -96,6 +93,7 @@ plan:
 
       Write only the value for the variable {{ variable_name }} in to fill in the text report. Do not include any other text or formatting.
     out_id: $variable_name
+    reset: true 
   # - step: substitute_variable
   #   action: environment
   #   out_id: variable_name

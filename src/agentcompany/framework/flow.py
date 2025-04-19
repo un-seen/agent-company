@@ -363,7 +363,9 @@ class FlowPattern(ModelContextProtocolImpl):
                 for item in output:
                     local_state = copy.deepcopy(self.state)
                     self.set_out_id(local_state, out_id, item)
-                    for next_step in next_steps:
+                    next_step_index = 0
+                    while next_step_index < next_steps:
+                        next_step = next_steps[next_step_index]
                         next_step_out = next_step.get("out", "one_to_one")
                         if next_step_out != "one_to_one":
                             # TODO support other node outs like many_to_one and one_to_many
@@ -375,9 +377,15 @@ class FlowPattern(ModelContextProtocolImpl):
                         # Render the step
                         rendered_next_step = template_next.render(**local_state)
                         # Run the next step
-                        next_output = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state)
-                        # Set output in local state out id
-                        self.set_out_id(local_state, next_step_out_id, next_output)
+                        next_output = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state, return_on_fail=True)
+                        if next_output is None:
+                            next_step_index = 0
+                            self.set_out_id(local_state, out_id, item)
+                            continue
+                        else:
+                            # Set output in local state out id
+                            self.set_out_id(local_state, next_step_out_id, next_output)
+                            next_step_index += 1
 
                 break  # Exiting the loop as subsequent steps were processed already
 
@@ -409,7 +417,7 @@ class FlowPattern(ModelContextProtocolImpl):
         state[out_id] = output
         state["current"] = output
         
-    def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType, state: dict) -> None:
+    def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType, state: dict, return_on_fail = False) -> Optional[str]:
         model_input_messages = [
             {"role": "system", "content": [{"type": "text", "text": self.description}]},
             {"role": "user", "content": [{"type": "text", "text": prompt}]}
@@ -518,6 +526,8 @@ class FlowPattern(ModelContextProtocolImpl):
 
             if decision == "approve":
                 break
+            elif return_on_fail:
+                return None
             else:
                 previous_environment_errors = [{"code": code_action, "error": feedback}]
 
