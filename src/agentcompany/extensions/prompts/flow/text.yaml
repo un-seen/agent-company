@@ -78,16 +78,20 @@ plan:
       {{ variable_question }}
       ```
       
-      The reference information you found is:
+      
+      {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
+      
+      Previously referenced data:
+      
+      {{ filtered_hints_str }}
+      {% endif %}
+
+      The new reference information you found specifically to fill in the variable {{ variable_name }} in the text report is:
       ```
       {{ supporting_information }}
       ```
-      
-      Write only the answer to the question in plain text. Do not include any additional text, markdown or any other formatting.
 
-      {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
-      {{ filtered_hints_str }}
-      {% endif %}
+      Write only the value for the variable {{ variable_name }} in to fill in the text report. Do not include any other text or formatting.
     out_id: $variable_name
   # - step: substitute_variable
   #   action: environment
