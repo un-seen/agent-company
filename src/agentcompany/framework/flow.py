@@ -406,6 +406,8 @@ class FlowPattern(ModelContextProtocolImpl):
             if not 'known_variables' in self.state:
                 self.state["known_variables"] = {}
             self.state["known_variables"][out_id] = output
+        if "final_answer" in state:
+            state["final_answer"] = Template(state["final_answer"]).render(**self.state["known_variables"])
         state[out_id] = output
         state["current"] = output
         
@@ -466,13 +468,10 @@ class FlowPattern(ModelContextProtocolImpl):
                 pass
             elif action_type == "execute":
                 try:
-                    final_answer = self.state.get("final_answer", None)
-                    if final_answer is not None:
-                        final_answer = Template(final_answer).render(**self.state["known_variables"])
                     observations, _, _ = self.executor_environment(
                         code_action=code_action,
                         additional_variables={
-                            "final_answer": final_answer,
+                            
                         },
                         return_type="string"
                     )
