@@ -9,7 +9,6 @@ from botocore.client import Config
 from agentcompany.extensions.environments.exceptions import InterpreterError
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.mcp.base import ModelContextProtocolImpl
-from agentcompany.extensions.tools.gemini import get_web_text, get_identifier_value
 from typing import Optional, Set
 
 
@@ -144,6 +143,24 @@ def quick_word_match(s1: str, s2: str,
             return True
     return False
 
+
+def get_web_text(prompt: str) -> str:
+    """
+    Generate a JSON array for the user text using the Gemini API.
+    """
+    from openai import OpenAI
+
+    client = OpenAI(
+        base_url="https://api.exa.ai",
+        api_key=os.environ["EXA_API_KEY"],
+    )
+
+    completion = client.chat.completions.create(
+        model="exa",
+        messages=[{"role":"user","content": prompt}],
+    )
+    response = completion.choices[0].message.content
+    return response
 
 class B2TextInterpreter(ExecutionEnvironment):
     

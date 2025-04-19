@@ -58,19 +58,7 @@ def generate_json_array_from_text(user_text: str, web_text: str) -> Row:
     response: List[Row] = response.parsed
     return response
 
-def get_web_text(prompt: str) -> str:
-    """
-    Generate a JSON array for the user text using the Gemini API.
-    """
-    url_list = brave_web_search(prompt)
-    web_data: List[str] = []
-    limit = 1
-    for index, url in enumerate(url_list):
-        if index >= limit:
-            break
-        web_text = get_url_as_text(url['url'])
-        web_data.append(web_text)
-    return "\n\n".join(web_data)
+
 
 def get_identifier_value(context: str, identifier: str, data: str) -> Optional[str]:
     client = genai.Client(api_key=GOOGLE_API_KEY)
