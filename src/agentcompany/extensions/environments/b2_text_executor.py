@@ -9,10 +9,15 @@ from botocore.client import Config
 from agentcompany.extensions.environments.exceptions import InterpreterError
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.mcp.base import ModelContextProtocolImpl
+from agentcompany.extensions.tools.gemini import get_web_text, get_identifier_value
+from typing import Optional, Set
+
 
 logger = logging.getLogger(__name__)
 
 S3_RESOURCE = None
+# Precompile once at import-time
+_WORD_RE = re.compile(r"\b\w+\b", flags=re.UNICODE)
 
 def init_s3(endpoint_url, access_key_id, secret_access_key):
     global S3_RESOURCE
@@ -91,6 +96,41 @@ def parse_function_call(call_str: str) -> Tuple[Optional[str], Optional[List[str
     return func_name, args
 
 
+def quick_word_match(s1: str, s2: str, 
+                     *, 
+                     case_insensitive: bool = True,
+                     word_pattern: Optional[re.Pattern] = None
+                    ) -> bool:
+    """
+    Return True if any “word” in s1 also appears in s2.
+    
+    - Runs in O(len(s1) + len(s2)) time.
+    - Uses a set for O(1) lookups.
+    - Short‑circuits on first match for s2.
+    
+    Params:
+      s1, s2            : input strings
+      case_insensitive  : if True, lower‑cases before matching
+      word_pattern      : custom regex for “words” (default = \\b\\w+\\b)
+    """
+    pat = word_pattern or _WORD_RE
+    
+    if case_insensitive:
+        s1 = s1.lower()
+        s2 = s2.lower()
+    
+    # build set of words from s1
+    words1: Set[str] = {m.group() for m in pat.finditer(s1)}
+    if not words1:
+        return False
+    
+    # scan s2, stop at first hit
+    for m in pat.finditer(s2):
+        if m.group() in words1:
+            return True
+    return False
+
+
 class B2TextInterpreter(ExecutionEnvironment):
     
     language: str = "python_template_string"
@@ -114,8 +154,7 @@ class B2TextInterpreter(ExecutionEnvironment):
             "prefix": prefix
         }
         init_s3(endpoint_url, access_key_id, secret_access_key)
-        files = [f for f in list_files(bucket_name, prefix) if f.endswith(".txt")]
-        self.state = { "files": files }
+        self.state = {}
         self.storage = {}
         self.session_id = session_id
         self.static_tools = mcp_servers
@@ -129,21 +168,52 @@ class B2TextInterpreter(ExecutionEnvironment):
         raise InterpreterError("Invalid code blobs for Python template string.")
 
     
+    def setup_file_content(self, code_action: str) -> str:
+        files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
+        content = []
+        for index, file in enumerate(files, 1):
+            if file.endswith("content.txt"):
+                summary_file = file.replace("content.txt", "summary.txt")
+                keyword_file = file.replace("content.txt", "keyword.txt")
+                if not check_key_exists(self.b2_config["bucket_name"], summary_file) or not check_key_exists(self.b2_config["bucket_name"], keyword_file):
+                    logger.warning(f"File {summary_file} or {keyword_file} does not exist.")
+                    continue
+                summary_data = get_text_from_key(self.b2_config["bucket_name"], summary_file)
+                keyword_data = get_text_from_key(self.b2_config["bucket_name"], keyword_file)
+                content[file] = {
+                    "summary": summary_data,
+                    "keyword": keyword_data
+                }
+                if quick_word_match(f"{summary_data} \n {keyword_data}", code_action, case_insensitive=True):
+                    content.append(file)   
+                    
+        response = "" 
+        for file in content:
+            file_content = get_text_from_key(self.b2_config["bucket_name"], file)
+            response += f"\n\n{file}:\n{file_content}"
+        
+        return file_content
+    
+    def get_identifier_value(self, state: dict, context: Template, identifier: str, data: str) -> Optional[str]:
+        known_variable_text = "These are the known variables:\n"
+        for key, value in state.items():
+            known_variable_text += f"{key}: {value}\n"
+        return get_identifier_value(context, identifier, f"""\n\n{data}\n\n{known_variable_text}""")
+    
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
-        # TODO the code action will have variables with dollar sign prefix
-        # list the variables and then find on b2 any related files to the text
-        # after that call the gemini api to get data on the text
-        # then assign a format to the variable name
-        # then using data from file + gemini set the value for the variable name
         self.state.update(additional_variables)
         template = Template(code_action)
-        try:
-            text = template.substitute(self.state)
-        except KeyError as e:
-            logger.error(f"KeyError: {e}")
-            raise e
+        data = "\n\n" + self.setup_file_content(code_action)
+        while len(template.get_identifiers()) > 0:
+            identifier = template.get_identifiers().pop()
+            value = self.get_identifier_value(self.state, code_action, identifier, data)
+            if value is None:
+                web_content = get_web_text(context=code_action, query=identifier)
+                data += f"\n\n{web_content}"
+                continue    
+            template = Template(template.substitute({identifier: value}))
         logs = self.state.get("logs", "")
-        return text, logs, False
+        return template.template, logs, False
         
     def attach_variables(self, variables: Dict):
         self.state.update(variables)
