@@ -15,12 +15,11 @@ plan:
 
       You have to complete the task by writing a text report.
       
-      You can use use curly braces to place variables in the text report like in a jinja template. 
-
-      You must use variables to present information that is not known at the time of writing the report and it requires grounding in external data sources.
+      You must use variables to present information that requires grounding in external data sources or it is not known at the time of writing the report.
+      Do not use variables to present information that is known at the time of writing the report.
+      The variables must be compatible with jinja template engine.
       
       The report must have a structure that is easy to read and understand.
-
       Write the text report with variables compatible with jinja template engine.
     out_id: result_file
     action: final_answer
