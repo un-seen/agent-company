@@ -1,6 +1,6 @@
 import requests
 from typing import TypedDict
-
+import os
 
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 
