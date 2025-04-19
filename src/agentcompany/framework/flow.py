@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from agentcompany.llms.monitoring import (
     AgentLogger,
 )
+import json
 import copy
 from typing_extensions import Literal
 from agentcompany.llms.base import (
@@ -310,7 +311,7 @@ class FlowPattern(ModelContextProtocolImpl):
             from jinja2 import Template
             template: Template = Template(step)
             # TODO pass other variables to the template
-            self.logger.log(title=f"Step {i} ({self.interface_id}/{self.name}) In-> {state}, In_id-> {out_id}:", text={state})
+            self.logger.log(title=f"Step {i} ({self.interface_id}/{self.name}) Out-> {out}, out_id-> {out_id}:", text={json.dumps(state)})
             rendered_step = template.render(**state)
             if out == "one_to_many":
                 output = self._run_step(rendered_step, action_type, return_type)
