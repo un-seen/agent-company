@@ -424,6 +424,8 @@ class FlowPattern(ModelContextProtocolImpl):
             
             # Check if it is a deterministic action because itself and it's output are both defined in the environment
             if action_type == "environment":
+                print(f"State: {self.state}")
+                print(f"Current: {self.state['current']}")
                 observations = call_method(self.executor_environment, prompt, self.state["current"])
                 break
             try:
