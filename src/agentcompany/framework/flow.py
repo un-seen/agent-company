@@ -364,7 +364,7 @@ class FlowPattern(ModelContextProtocolImpl):
                     local_state = copy.deepcopy(self.state)
                     self.set_out_id(local_state, out_id, item)
                     next_step_index = 0
-                    while next_step_index < next_steps:
+                    while next_step_index < len(next_steps):
                         next_step = next_steps[next_step_index]
                         next_step_out = next_step.get("out", "one_to_one")
                         if next_step_out != "one_to_one":
