@@ -215,7 +215,7 @@ def get_file_text(data: str, prompt: str) -> Optional[str]:
 
 class B2TextInterpreter(ExecutionEnvironment):
     
-    language: str = "python_template_string"
+    language: str = "string"
     
     def __init__(
         self,

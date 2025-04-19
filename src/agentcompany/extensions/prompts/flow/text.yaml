@@ -90,7 +90,7 @@ plan:
 
       Write only the value for the variable {{ variable_name }} in to fill in the final answer. Do not include any other text or formatting.
     out_id: $variable_name
-    reset: true 
+    action: skip
   # - step: substitute_variable
   #   action: environment
   #   out_id: variable_name

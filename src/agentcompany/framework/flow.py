@@ -35,7 +35,7 @@ from agentcompany.llms.utils import (
 
 logger = getLogger(__name__)
 
-type ActionType = Literal["final_answer", "skip", "execute"]
+type ActionType = Literal["final_answer", "skip", "execute", "environment"]
 
 class Node(TypedDict):
     """
@@ -86,23 +86,23 @@ def call_method(obj: Any, method_name: str, *args, **kwargs) -> Any:
 
 
 def set_state_out_id(global_state: dict, state: dict, out_id: str, output: Any) -> None:
-        """
-        Set the out_id in the state.
-        """
-        if out_id.startswith("$"):
-            out_id = out_id[1:]
-            out_id = state[out_id]
-            if not 'known_variables' in state:
-                state["known_variables"] = {}
-            if not 'known_variables' in global_state:
-                global_state["known_variables"] = {}
-                
-            state["known_variables"][out_id] = output
-            global_state["known_variables"][out_id] = output
-            if "final_answer" in state:
-                state["final_answer"] = Template(state["final_answer"]).render(**state["known_variables"])
-        state[out_id] = output
-        state["current"] = output
+    """
+    Set the out_id in the state.
+    """
+    if out_id.startswith("$"):
+        out_id = out_id[1:]
+        out_id = state[out_id]
+        if not 'known_variables' in state:
+            state["known_variables"] = {}
+        if not 'known_variables' in global_state:
+            global_state["known_variables"] = {}
+            
+        state["known_variables"][out_id] = output
+        global_state["known_variables"][out_id] = output
+        if "final_answer" in state:
+            state["final_answer"] = Template(state["final_answer"]).render(**state["known_variables"])
+    state[out_id] = output
+    state["current"] = output
         
 
 class FlowPattern(ModelContextProtocolImpl):
@@ -465,11 +465,7 @@ class FlowPattern(ModelContextProtocolImpl):
         
             self.logger.log(text=f"```{self.executor_environment.language} \n {code_action} \n```", title=f"Code Output ({self.interface_id}/{self.name}):")
         
-        
-            if action_type == "web_search":
-                # TODO implement web search
-                pass
-            elif action_type == "execute":
+            if action_type == "execute":
                 try:
                     observations, _, _ = self.executor_environment(
                         code_action=code_action,
