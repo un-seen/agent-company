@@ -83,6 +83,7 @@ def get_web_text(context: str, identifier: str) -> str:
                 }
             },
         )
+        print(f"Response: {response.text} | URL: {url['url']} | Title: {url['title']} | Question: {question}")
         if response.text == "sufficient":
             web_data.append(f"\n\n{url['title']} ({url['url']}):\n{web_text}")
             break
@@ -108,18 +109,4 @@ def get_identifier_value(context: str, identifier: str, data: str) -> Optional[s
     match = re.search(pattern, value)
     if match:
         return match.group(1)
-    return None
-    
-if __name__ == "__main__":
-    
-    from dotenv import load_dotenv
-    load_dotenv()
-    from src.python.dwight.tools.brave import brave_web_search
-    from src.python.dwight.tools.jina import get_url_as_text
-    user_text = "top sensex 100 stocks by market capitalization"
-    url_list = brave_web_search(os.getenv("BRAVE_API_KEY"), "top sensex 100 stocks by market capitalization")
-    web_text = get_url_as_text(os.getenv("JINA_API_KEY"), url_list[0]['url'])
-    output = generate_json_array_from_text(GOOGLE_API_KEY, user_text, web_text)
-    df = convert_list_row_to_dataframe(output)
-    print(df.head())
-    
+    return None    
