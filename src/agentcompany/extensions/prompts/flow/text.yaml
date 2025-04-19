@@ -79,11 +79,11 @@ plan:
       ```
       
       
-      {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
+      {%- if hint and hint|length > 0 %}
       
       Previously referenced data:
       
-      {{ filtered_hints_str }}
+      {{ hint }}
       {% endif %}
 
       The new reference information you found specifically to fill in the variable {{ variable_name }} in the text report is:

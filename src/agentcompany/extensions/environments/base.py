@@ -39,7 +39,11 @@ class ExecutionEnvironment(abc.ABC):
     
     def parse_error_logs(self, execution_logs: str) -> str:
         return execution_logs
-        
+    
+    @abc.abstractmethod
+    def get_hint(self, task: str) -> str:
+        raise NotImplementedError("get_hint not implemented.")
+    
     @abc.abstractmethod
     def attach_variables(self, variables: dict):
         raise NotImplementedError("attach_variables not implemented.")

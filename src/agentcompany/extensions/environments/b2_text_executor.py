@@ -216,7 +216,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         response = []
         for file, task in content.items():
             file_content = get_text_from_key(self.b2_config["bucket_name"], file)
-            response.append({"task": task, "content": file_content})
+            response.append({"task": task, "solution": file_content})
         
         return list_of_dict_to_markdown_table(response)
     
@@ -229,15 +229,18 @@ class B2TextInterpreter(ExecutionEnvironment):
         identifiers = template.get_identifiers()
         return identifiers
     
+    def get_hint(self, code_action: str) -> str:
+        file_data = self.get_file_text(code_action)
+        return file_data
+    
     def text_search(self, code_action: str) -> str:
         web_data = get_web_text(code_action)
-        file_data = self.get_file_text(code_action)
         random_uuid = os.urandom(16).hex
         file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
         task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
         store_file(self.b2_config["bucket_name"], file_key, web_data.encode("utf-8"))
         store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))
-        return f"{file_data}\n\n{web_data}"
+        return web_data
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
         code_action = escape_template_dollars(code_action)

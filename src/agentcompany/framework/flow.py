@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from agentcompany.llms.monitoring import (
     AgentLogger,
 )
+from jinja2 import Template
 import json
 import copy
 from typing_extensions import Literal
@@ -317,7 +318,23 @@ class FlowPattern(ModelContextProtocolImpl):
             **self.executor_environment_config["config"]
         )
         self.executor_environment.attach_mcp_servers(self.mcp_servers)
+    
+    def setup_hint(self, step: str):
+        hints = self.prompt_templates["hint"]
+        template_lower = step.lower()    
+        filtered_hints = [
+            hint for hint in hints
+            if any(keyword.lower() in template_lower for keyword in hint.get("keyword", []))
+        ]
         
+        hint = f"""
+        ## Hints
+        
+        {list_of_dict_to_markdown_table(filtered_hints) if len(filtered_hints) > 0 else ""}
+        {self.executor_environment.get_hint(step)}
+        """.strip()
+        self.state["hint"] = hint
+            
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
         i = 0
@@ -329,23 +346,8 @@ class FlowPattern(ModelContextProtocolImpl):
             action_type = node.get("action", "execute")
             return_type = node.get("return_type", "string")
             # Replace placeholders in the step with values from state
-            from jinja2 import Template
             template: Template = Template(step)
-            # TODO pass other variables to the template
-            print(self.state)
-            hints = self.prompt_templates["hint"]
-            template_lower = step.lower()    
-            filtered_hints = [
-                hint for hint in hints
-                if any(keyword.lower() in template_lower for keyword in hint.get("keyword", []))
-            ]
-            if len(filtered_hints) > 0:
-                filtered_hints_str = f"""
-                ## Hints
-                
-                {list_of_dict_to_markdown_table(filtered_hints)}
-                """.strip()
-                self.state["filtered_hints_str"] = filtered_hints_str
+            self.setup_hint(template.render(**self.state))
             rendered_step = template.render(**self.state)
             self.logger.log(text=f"Out={out} | Out_id={out_id}", title=f"Step {i} ({self.interface_id}/{self.name}):")
             if out == "one_to_many":
