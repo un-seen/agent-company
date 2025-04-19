@@ -41,8 +41,22 @@ plan:
       ```
       {{ text_report }}
       ```
+       
+      {%- if state and state.items()|length > 0 %}
+      The known variables in the report are:
+      {%- for key, value in state.items() %}
+      - {{ key  }}: {{ value }}
+
+      {%- endfor %}
+      {%- endif %}
 
       You have to formulate a question such that the answer to the question is the variable  {{ variable_name }} in the text report.
+
+      Take into consideration the known variables and only ask a question that only answers the unknown information to fill in 
+      the variable {{ variable_name }} in the text report.
+
+      Please include relevant context for the {{ variable_name }} from the report in the question so that the question is clear and unambiguous.
+
     out_id: variable_question
     action: skip
   - step: text_search
