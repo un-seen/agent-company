@@ -79,7 +79,6 @@ plan:
       {{ variable_question }}
       ```
       
-      
       {%- if hint and hint|length > 0 %}
       
       {{ hint }}

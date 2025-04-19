@@ -51,7 +51,7 @@ def store_file(bucket: str, key: str, file_content: bytes):
     try:
         S3_RESOURCE.Bucket(bucket).put_object(Key=key, Body=file_content)
     except Exception as e:
-        logger.error(f"Error storing file {key}: {e}")
+        print(f"Error storing file {key}: {e}")
 
 def list_files(bucket: str, path: str) -> List[str]:
     global S3_RESOURCE
@@ -239,6 +239,8 @@ class B2TextInterpreter(ExecutionEnvironment):
         random_uuid = randint(0, 1000000)
         file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
         task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
+        print(f"Storing {file_key} with data {web_data}")
+        print(f"Storing {task_key} with data {code_action}")
         store_file(self.b2_config["bucket_name"], file_key, web_data.encode("utf-8"))
         store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))
         return web_data
