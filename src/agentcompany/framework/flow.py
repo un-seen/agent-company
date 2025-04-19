@@ -101,7 +101,6 @@ def set_state_out_id(global_state: dict, state: dict, out_id: str, output: Any) 
             global_state["known_variables"][out_id] = output
             if "final_answer" in state:
                 state["final_answer"] = Template(state["final_answer"]).render(**state["known_variables"])
-                global_state["final_answer"] = Template(global_state["final_answer"]).render(**state["known_variables"])
         state[out_id] = output
         state["current"] = output
         
