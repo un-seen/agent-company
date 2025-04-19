@@ -6,6 +6,7 @@ from string import Template
 from typing import Any, Dict, List, Optional, Tuple, Callable
 import boto3
 from botocore.client import Config
+from agentcompany.driver.markdown import list_of_dict_to_markdown_table
 from agentcompany.extensions.environments.exceptions import InterpreterError
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.mcp.base import ModelContextProtocolImpl
@@ -204,26 +205,21 @@ class B2TextInterpreter(ExecutionEnvironment):
         content = []
         for index, file in enumerate(files, 1):
             if file.endswith("content.txt"):
-                summary_file = file.replace("content.txt", "summary.txt")
-                keyword_file = file.replace("content.txt", "keyword.txt")
-                if not check_key_exists(self.b2_config["bucket_name"], summary_file) or not check_key_exists(self.b2_config["bucket_name"], keyword_file):
-                    logger.warning(f"File {summary_file} or {keyword_file} does not exist.")
+                task_file = file.replace("content.txt", "task.txt")
+                if not check_key_exists(self.b2_config["bucket_name"], task_file):
+                    logger.warning(f"File {task_file} does not exist.")
                     continue
-                summary_data = get_text_from_key(self.b2_config["bucket_name"], summary_file)
-                keyword_data = get_text_from_key(self.b2_config["bucket_name"], keyword_file)
-                content[file] = {
-                    "summary": summary_data,
-                    "keyword": keyword_data
-                }
-                if quick_word_match(f"{summary_data} \n {keyword_data}", code_action, case_insensitive=True):
+                task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
+                content[file] = task_text
+                if quick_word_match(task_text, code_action, case_insensitive=True):
                     content.append(file)   
                     
-        response = "" 
-        for file in content:
+        response = []
+        for file, task in content.items():
             file_content = get_text_from_key(self.b2_config["bucket_name"], file)
-            response += f"\n\n{file}:\n{file_content}"
+            response.append({"task": task, "content": file_content})
         
-        return response
+        return list_of_dict_to_markdown_table(response)
     
     def get_identifiers(self, code_action: str) -> List[str]:
         """
@@ -237,6 +233,11 @@ class B2TextInterpreter(ExecutionEnvironment):
     def text_search(self, code_action: str) -> str:
         web_data = get_web_text(code_action)
         file_data = self.get_file_text(code_action)
+        random_uuid = os.urandom(16).hex
+        file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
+        task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
+        store_file(self.b2_config["bucket_name"], file_key, web_data.encode("utf-8"))
+        store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))
         return f"{file_data}\n\n{web_data}"
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
