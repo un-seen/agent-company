@@ -50,10 +50,15 @@ plan:
       {%- endfor %}
       {%- endif %}
 
+      {%- if hint and hint|length > 0 %}
+      
+      {{ hint }}
+      {% endif %}
+
       You have to formulate a question such that the answer to the question is the variable  {{ variable_name }} in the text report.
 
-      Take into consideration the known variables and only ask a question that only answers the unknown information to fill in 
-      the variable {{ variable_name }} in the text report.
+      If the answer or the variable {{ variable_name }} is stated in the known variables and hint then the question should only fetch additional information
+      to reduce ambiguity in the value of variable {{ variable_name }} in the text report.
 
       Please include relevant context for the {{ variable_name }} from the report in the question so that the question is clear and unambiguous.
 
