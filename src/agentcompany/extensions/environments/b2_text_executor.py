@@ -2,7 +2,7 @@ import os
 import re
 import shlex
 import logging
-import yaml
+from string import Template 
 from typing import Any, Dict, List, Optional, Tuple, Callable
 import boto3
 from botocore.client import Config
@@ -90,80 +90,6 @@ def parse_function_call(call_str: str) -> Tuple[Optional[str], Optional[List[str
     
     return func_name, args
 
-def evaluate_yaml(
-    code_action: str,
-    state: Dict,
-    static_tools: Dict[str, Callable],
-    file_map: Dict[str, str],
-    bucket_name: str,
-) -> str:
-    try:
-        parsed_yaml = yaml.safe_load(code_action)
-    except yaml.YAMLError as e:
-        error_msg = f"YAML parsing error: {str(e)}"
-        if hasattr(e, 'problem_mark'):
-            mark = e.problem_mark
-            error_msg += f" at line {mark.line + 1}, column {mark.column + 1}"
-        raise InterpreterError(error_msg)
-
-    def process_node(node):
-        if isinstance(node, dict):
-            processed = {}
-            for k, v in node.items():
-                processed_key = process_node(k)
-                processed_value = process_node(v)
-                processed[processed_key] = processed_value
-            return processed
-        elif isinstance(node, list):
-            return [process_node(item) for item in node]
-        elif isinstance(node, str):
-            func_name, args = parse_function_call(node)
-            if func_name:
-                if func_name not in static_tools:
-                    raise InterpreterError(f"Function '{func_name}' not found")
-                resolved_args = []
-                for arg_str in args:
-                    try:
-                        arg = yaml.safe_load(arg_str)
-                    except yaml.YAMLError as e:
-                        raise InterpreterError(f"Invalid YAML in argument '{arg_str}': {e}")
-                    resolved_arg = process_node(arg)
-                    resolved_args.append(resolved_arg)
-                try:
-                    result = static_tools[func_name](*resolved_args)
-                except Exception as e:
-                    raise InterpreterError(f"Error executing '{func_name}': {str(e)}")
-                return result
-            else:
-                if node in state:
-                    return state[node]
-                base_name = os.path.splitext(node)[0]
-                if base_name in file_map:
-                    file_key = file_map[base_name]
-                    content_str = get_text_from_key(bucket_name, file_key)
-                    if content_str is None:
-                        raise InterpreterError(f"File '{file_key}' not found")
-                    try:
-                        content = yaml.safe_load(content_str)
-                    except yaml.YAMLError as e:
-                        raise InterpreterError(f"Error parsing '{file_key}': {e}")
-                    return process_node(content)
-                else:
-                    return node
-        else:
-            return node
-
-    try:
-        processed_yaml = process_node(parsed_yaml)
-    except InterpreterError as e:
-        raise e
-    except Exception as e:
-        raise InterpreterError(f"Processing error: {str(e)}")
-
-    try:
-        return yaml.dump(processed_yaml, default_flow_style=False)
-    except yaml.YAMLError as e:
-        raise InterpreterError(f"YAML serialization error: {str(e)}")
 
 class B2TextInterpreter(ExecutionEnvironment):
     
@@ -195,15 +121,12 @@ class B2TextInterpreter(ExecutionEnvironment):
         self.static_tools = mcp_servers
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
     
-    def parse_code_blobs(self, code_blobs: str):
-        # TODO parse the code blobs to make sure it can be formatted with python template string
-        from string import Template 
+    def parse_code_blobs(self, code_blobs: str) -> Template:
         code_blobs = code_blobs.strip()
         t = Template(code_blobs)
         if t.is_valid():
-            return True
-        else:
-            raise InterpreterError("Invalid code blobs for Python template string.")
+            return t
+        raise InterpreterError("Invalid code blobs for Python template string.")
 
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
@@ -213,16 +136,11 @@ class B2TextInterpreter(ExecutionEnvironment):
         # then assign a format to the variable name
         # then using data from file + gemini set the value for the variable name
         self.state.update(additional_variables)
-        code_action = self.inject_yaml_file_list(code_action.strip())
+        template = self.parse_code_blobs(code_action)
         try:
-            text = evaluate_yaml(
-                code_action=code_action,
-                state=self.state,
-                static_tools=self.static_tools,
-                file_map=self.file_map,
-                bucket_name=self.b2_config["bucket_name"]
-            )
-        except InterpreterError as e:
+            text = template.safe_substitute(self.state)
+        except KeyError as e:
+            logger.error(f"KeyError: {e}")
             raise e
         logs = self.state.get("logs", "")
         return text, logs, False
@@ -237,22 +155,15 @@ class B2TextInterpreter(ExecutionEnvironment):
         raise NotImplementedError("Function parsing is not implemented in this environment.")
     
     def get_storage_id(self, next_step_id: int) -> str:
-        return f"{self.b2_config['prefix']}/session/{self.session_id}/step_{next_step_id}.yaml"
+        return f"{self.b2_config['prefix']}/session/{self.session_id}/step_{next_step_id}.txt"
 
-    def set_storage(self, next_step_id: int, code_action: str, observations: List[Dict[str, Any]] = None):
+    def set_storage(self, next_step_id: int, code_action: str, observations: str = None):
         temp_key = self.get_storage_id(next_step_id)
         if observations:
-            content = yaml.dump(observations, default_flow_style=False)
-            store_file(self.b2_config["bucket_name"], temp_key, content.encode("utf-8"))
+            store_file(self.b2_config["bucket_name"], temp_key, observations.encode("utf-8"))
         else:
-            yaml_text = evaluate_yaml(
-                code_action=code_action,
-                state=self.state,
-                static_tools=self.static_tools,
-                file_map=self.file_map,
-                bucket_name=self.b2_config["bucket_name"]
-            )
-            store_file(self.b2_config["bucket_name"], temp_key, yaml_text.encode("utf-8"))
+            text = self.__call__(code_action, self.state)[0]
+            store_file(self.b2_config["bucket_name"], temp_key, text.encode("utf-8"))
         self.storage[next_step_id] = temp_key
 
     def reset_storage(self):
