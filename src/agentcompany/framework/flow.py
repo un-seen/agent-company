@@ -412,6 +412,15 @@ class FlowPattern(ModelContextProtocolImpl):
         previous_environment_errors: List[Dict[str, Any]] = []
 
         while True:
+            
+            # Check if it is a deterministic action because itself and it's output are both defined in the environment
+            if action_type == "environment":
+                print(f"State: {state}")
+                print(f"Current: {state['current']}")
+                observations = call_method(self.executor_environment, prompt, state["current"])
+                print(f"Observations: {observations}")
+                break
+            
             model_input_messages_with_errors = copy.deepcopy(model_input_messages)
 
             if previous_environment_errors:
@@ -421,15 +430,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 ])
                 model_input_messages_with_errors.append(
                     {"role": "system", "content": [{"type": "text", "text": error_str}]}
-                )    
-            
-            # Check if it is a deterministic action because itself and it's output are both defined in the environment
-            if action_type == "environment":
-                print(f"State: {state}")
-                print(f"Current: {state['current']}")
-                observations = call_method(self.executor_environment, prompt, state["current"])
-                print(f"Observations: {observations}")
-                break
+                )                
             try:
                 code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
             except Exception as e:

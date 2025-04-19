@@ -19,11 +19,11 @@ plan:
       
       You must use variables to present information that requires grounding in external data sources or it is not known at the time of writing the report.
       Do not use variables to present information that is known at the time of writing the report.
-      The variables must be compatible with Python String Template which supports $-based variable substitution.
+      The variables must have a prefix "$" and camelcase naming convention.
       The variables will be used to fill in the report with data from external data sources.
       Do not include any text which is not to be read by the user.
 
-      Write the plain text report with variables compatible with Python string template.
+      Write the plain text report with variables.
     out_id: text_report
     action: final_answer
   - step: get_identifiers
