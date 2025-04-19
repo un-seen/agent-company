@@ -1,9 +1,9 @@
 import json
+import os
 from agentcompany.llms.base import AugmentedLLM
 from typing import Dict, List, Optional, Type, Union
-from agentcompany.llms.utils import ChatMessage, parse_function_args_if_needed
+from agentcompany.llms.utils import ChatMessage
 from agentcompany.llms.base import ReturnType
-from agentcompany.mcp.base import ModelContextProtocolImpl
 import logging
 from pydantic import BaseModel
 
@@ -52,6 +52,9 @@ class OpenAIServerLLM(AugmentedLLM):
 
         super().__init__(**kwargs)
         self.model_id = model_id
+        if self.model_id == "gemini-2.0-flash":
+            api_key = os.environ.get("GOOGLE_API_KEY")
+            api_base = "https://generativelanguage.googleapis.com/v1beta/openai/"
         self.client = openai.OpenAI(
             base_url=api_base,
             api_key=api_key,

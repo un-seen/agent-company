@@ -14,7 +14,8 @@ def FlowAgent(name: str,
               description: str, 
               mod_yaml_path: str = None,
               custom_yaml_path: str = None,
-              mcp_servers: List[ModelContextProtocolImpl] = []) -> FlowPattern:
+              mcp_servers: List[ModelContextProtocolImpl] = [],
+              model_id: str = "gpt-4o-mini") -> FlowPattern:
     """
     Create a Python code agent.
     """
@@ -41,7 +42,7 @@ def FlowAgent(name: str,
         session_id=session_id,
         interface_id=interface_id, 
         description=description, 
-        model=OpenAIServerLLM("gpt-4o-mini"),
+        model=OpenAIServerLLM(model_id=model_id),
         prompt_templates=prompt_templates,
         mcp_servers=mcp_servers,
     )
