@@ -195,6 +195,9 @@ class B2TextInterpreter(ExecutionEnvironment):
         self.static_tools = mcp_servers
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
     
+    def parse_code_blobs(self, code_blobs):
+        raise NotImplementedError("Code blob parsing is not implemented in this environment.")
+    
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
         # TODO the code action will have variables with dollar sign prefix
         # list the variables and then find on b2 any related files to the text
