@@ -218,7 +218,6 @@ class B2TextInterpreter(ExecutionEnvironment):
         return identifiers
     
     def text_search(self, code_action: str) -> str:
-        file_data = self.get
         web_data = get_web_text(code_action)
         file_data = self.get_file_text(code_action)
         return f"{file_data}\n\n{web_data}"
