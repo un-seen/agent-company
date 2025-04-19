@@ -320,7 +320,6 @@ class FlowPattern(ModelContextProtocolImpl):
         
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
-        state = copy.deepcopy(self.state)
         self.logger.log(text=f"Plan: {plan}", title=f"Plan ({self.interface_id}/{self.name}):")
         i = 0
         while i < len(plan):
@@ -334,7 +333,7 @@ class FlowPattern(ModelContextProtocolImpl):
             from jinja2 import Template
             template: Template = Template(step)
             # TODO pass other variables to the template
-            print(state)
+            print(self.state)
             hints = self.prompt_templates["hint"]
             template_lower = step.lower()    
             filtered_hints = [
@@ -346,8 +345,8 @@ class FlowPattern(ModelContextProtocolImpl):
             
             {list_of_dict_to_markdown_table(filtered_hints)}
             """.strip()
-            state["filtered_hints_str"] = filtered_hints_str
-            rendered_step = template.render(**state)
+            self.state["filtered_hints_str"] = filtered_hints_str
+            rendered_step = template.render(**self.state)
             self.logger.log(text=f"Out={out} | Out_id={out_id}", title=f"Step {i} ({self.interface_id}/{self.name}):")
             if out == "one_to_many":
                 output = self._run_step(rendered_step, action_type, return_type)
@@ -357,7 +356,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 
                 next_steps = plan[i + 1:]
                 for item in output:
-                    local_state = copy.deepcopy(state)
+                    local_state = copy.deepcopy(self.state)
                     local_state["current"] = item
                     if out_id:
                         local_state[out_id] = item
@@ -384,22 +383,21 @@ class FlowPattern(ModelContextProtocolImpl):
 
             elif out == "one_to_one":
                 output = self._run_step(rendered_step, action_type, return_type)
-                state["current"] = output
+                self.state["current"] = output
                 if out_id:
-                    state[out_id] = output
+                    self.state[out_id] = output
             elif out == "many_to_one":
-                if not isinstance(state["current"], list):
+                if not isinstance(self.state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
                 output = self._run_step(rendered_step, action_type, return_type)
-                state["current"] = output
+                self.state["current"] = output
                 if out_id:
-                    state[out_id] = output
+                    self.state[out_id] = output
             i += 1
             
             if i == len(plan):
                 # End of plan request final answer from environment
-                state["final_answer"] = state.get("current", None)
-                self.state.update(state)
+                self.state["final_answer"] = self.state.get("current", None)
                 break
     
     def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType) -> None:
@@ -426,8 +424,8 @@ class FlowPattern(ModelContextProtocolImpl):
             
             # Check if it is a deterministic action because itself and it's output are both defined in the environment
             if action_type == "environment":
-                return call_method(self.executor_environment, prompt, self.state["current"])
-            
+                observations = call_method(self.executor_environment, prompt, self.state["current"])
+                break
             try:
                 code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
             except Exception as e:
