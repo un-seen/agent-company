@@ -192,7 +192,7 @@ class B2TextInterpreter(ExecutionEnvironment):
             file_content = get_text_from_key(self.b2_config["bucket_name"], file)
             response += f"\n\n{file}:\n{file_content}"
         
-        return file_content
+        return response
     
     def get_identifier_value(self, state: dict, context: Template, identifier: str, data: str) -> Optional[str]:
         known_variable_text = "These are the known variables:\n"
