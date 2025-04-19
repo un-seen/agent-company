@@ -95,6 +95,20 @@ def parse_function_call(call_str: str) -> Tuple[Optional[str], Optional[List[str
     
     return func_name, args
 
+def escape_template_dollars(text: str) -> str:
+    """
+    Escape all dollar signs for use with string.Template:
+      - Literal $ → $$
+      - $${var} → $$${var}  (so $$ is literal $, then ${var} is a real placeholder)
+    
+    Placeholders of the form $name or ${name} are left intact.
+    """
+    # 1) Escape every $ *not* followed by $, '{', letter or underscore
+    text = re.sub(r"\$(?![\${A-Za-z_])", r"$$", text)
+    # 2) Fix up any literal $$ right before a {…} so it becomes $$${…}
+    text = re.sub(r"\$\$\{", r"$$${", text)
+    return text
+
 
 def quick_word_match(s1: str, s2: str, 
                      *, 
@@ -201,6 +215,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         return get_identifier_value(context, identifier, f"""\n\n{data}\n\n{known_variable_text}""")
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
+        code_action = escape_template_dollars(code_action)
         self.state.update(additional_variables)
         template = Template(code_action)
         data = "\n\n" + self.setup_file_content(code_action)
@@ -208,7 +223,7 @@ class B2TextInterpreter(ExecutionEnvironment):
             identifier = template.get_identifiers().pop()
             value = self.get_identifier_value(self.state, code_action, identifier, data)
             if value is None:
-                web_content = get_web_text(context=code_action, query=identifier)
+                web_content = get_web_text(code_action, identifier)
                 data += f"\n\n{web_content}"
                 continue    
             template = Template(template.substitute({identifier: value}))
