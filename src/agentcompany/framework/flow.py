@@ -367,7 +367,6 @@ class FlowPattern(ModelContextProtocolImpl):
             return_type = node.get("return_type", "string")
             # Replace placeholders in the step with values from state
             template: Template = Template(step)
-            
             rendered_step = template.render(**self.state)
             self.logger.log(text=f"Out={out} | Out_id={out_id}", title=f"Step {i} ({self.interface_id}/{self.name}):")
             if out == "one_to_many":
