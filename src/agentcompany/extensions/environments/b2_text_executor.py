@@ -221,12 +221,14 @@ class B2TextInterpreter(ExecutionEnvironment):
         data = "\n\n" + self.setup_file_content(code_action)
         while len(template.get_identifiers()) > 0:
             identifier = template.get_identifiers().pop()
+            logger.info(f"Identifier: {identifier} | Data: {data}")
             value = self.get_identifier_value(self.state, code_action, identifier, data)
+            logger.info(f"Identifier: {identifier} | Value: {value}")
             if value is None:
                 web_content = get_web_text(code_action, identifier)
                 data += f"\n\n{web_content}"
                 continue    
-            template = Template(template.substitute({identifier: value}))
+            template = Template(template.safe_substitute({identifier: value}))
         logs = self.state.get("logs", "")
         return template.template, logs, False
         
