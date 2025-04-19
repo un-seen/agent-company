@@ -64,7 +64,10 @@ def get_web_text(prompt: str) -> str:
     """
     url_list = brave_web_search(prompt)
     web_data: List[str] = []
-    for url in url_list:
+    limit = 1
+    for index, url in enumerate(url_list):
+        if index >= limit:
+            break
         web_text = get_url_as_text(url['url'])
         web_data.append(web_text)
     return "\n\n".join(web_data)

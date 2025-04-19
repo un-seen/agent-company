@@ -320,7 +320,6 @@ class FlowPattern(ModelContextProtocolImpl):
         
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
-        self.logger.log(text=f"Plan: {plan}", title=f"Plan ({self.interface_id}/{self.name}):")
         i = 0
         while i < len(plan):
             node = plan[i]
