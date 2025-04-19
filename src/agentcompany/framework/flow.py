@@ -336,7 +336,7 @@ class FlowPattern(ModelContextProtocolImpl):
     
     def setup_hint(self):
         step_lower = self.state["task"].lower()    
-        prompt_hints = self.prompt_templates["hint"]
+        prompt_hints = self.prompt_templates.get("hint", [])
         prompt_hints = [
             hint for hint in prompt_hints
             if any(keyword.lower() in step_lower for keyword in hint.get("keyword", []))
