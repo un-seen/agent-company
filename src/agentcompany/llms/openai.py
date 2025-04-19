@@ -52,9 +52,9 @@ class OpenAIServerLLM(AugmentedLLM):
 
         super().__init__(**kwargs)
         self.model_id = model_id
-        if self.model_id == "gemini-2.0-flash":
-            api_key = os.environ.get("GOOGLE_API_KEY")
-            api_base = "https://generativelanguage.googleapis.com/v1beta/openai/"
+        if self.model_id == "deepseek-chat":
+            api_key = os.environ.get("DEEPSEEK_API_KEY")
+            api_base = "https://api.deepseek.com"
         self.client = openai.OpenAI(
             base_url=api_base,
             api_key=api_key,
