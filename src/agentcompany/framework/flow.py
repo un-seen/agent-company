@@ -85,7 +85,7 @@ def call_method(obj: Any, method_name: str, *args, **kwargs) -> Any:
     return method(*args, **kwargs)
 
 
-def set_state_out_id(state: dict, out_id: str, output: Any) -> None:
+def set_state_out_id(global_state: dict, state: dict, out_id: str, output: Any) -> None:
         """
         Set the out_id in the state.
         """
@@ -94,9 +94,14 @@ def set_state_out_id(state: dict, out_id: str, output: Any) -> None:
             out_id = state[out_id]
             if not 'known_variables' in state:
                 state["known_variables"] = {}
+            if not 'known_variables' in global_state:
+                global_state["known_variables"] = {}
+                
             state["known_variables"][out_id] = output
+            global_state["known_variables"][out_id] = output
             if "final_answer" in state:
                 state["final_answer"] = Template(state["final_answer"]).render(**state["known_variables"])
+                global_state["final_answer"] = Template(global_state["final_answer"]).render(**state["known_variables"])
         state[out_id] = output
         state["current"] = output
         

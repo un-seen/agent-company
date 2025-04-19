@@ -56,8 +56,7 @@ plan:
 
       You have to formulate a question such that the answer to the question is the variable  {{ variable_name }} in the final answer.
 
-      If the answer or the variable {{ variable_name }} is stated above then the question should only fetch additional information which is unknown and 
-      it can be useful to reduce ambiguity in the value of variable {{ variable_name }} in the final_answer.
+      The question should only fetch additional information which is unknown to reduce ambiguity in the value of variable {{ variable_name }} in the final_answer.
     out_id: variable_question
     action: skip
   - step: text_search
