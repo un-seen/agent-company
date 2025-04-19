@@ -98,4 +98,4 @@ plan:
       {%- endif %}
 
       You have to write a jinja template file making use of function calls and file names stated as yaml variables to compute the value of the {{ variable_name }} variable.
-    out_id: variable_yaml
+    out_id: variable_code
