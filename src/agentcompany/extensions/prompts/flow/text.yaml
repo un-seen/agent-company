@@ -42,10 +42,10 @@ plan:
       {{ text_report }}
       ```
        
-      {%- if state and state.items()|length > 0 %}
+      {%- if known_variables and known_variables.items()|length > 0 %}
       The known variables in the report are:
-      {%- for key, value in state.items() %}
-      - {{ key  }}: {{ value }}
+      {%- for key, value in known_variables.items() %}
+      - {{ key }}: {{ value }}
 
       {%- endfor %}
       {%- endif %}
