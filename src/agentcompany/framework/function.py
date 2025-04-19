@@ -190,7 +190,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         code_content = main_choice[self.executor_environment.language]
         self.logger.log(text=code_content, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
         try:
-            code_action = self.executor_environment.parse_code_blobs(code_content)
+            code_action = self.executor_environment.parse_code_blob(code_content)
         except Exception as e:
             error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
             error_msg = self.executor_environment.parse_error_logs(error_msg)

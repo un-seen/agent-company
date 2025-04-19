@@ -376,7 +376,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         return functions_dict
     
     
-    def parse_code_blobs(self, code_blob: str) -> str:
+    def parse_code_blob(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
         pattern = r"```(?:python)?\n(.*?)\n```"
         matches = re.findall(pattern, code_blob, re.DOTALL)

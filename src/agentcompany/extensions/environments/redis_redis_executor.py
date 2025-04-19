@@ -110,7 +110,7 @@ class RedisRedisInterpreter(ExecutionEnvironment):
     def attach_variables(self, variables: dict):
         self.state.update(variables)
 
-    def parse_code_blobs(self, code_blob: str) -> str:
+    def parse_code_blob(self, code_blob: str) -> str:
         if re.match(r'^[A-Z]+\b', code_blob.strip(), re.IGNORECASE):
             return code_blob.strip()
         else:

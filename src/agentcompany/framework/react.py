@@ -581,7 +581,7 @@ class ReActPattern(ModelContextProtocolImpl):
             
             # Parse code as per exection environment
             try:
-                code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
+                code_action = self.executor_environment.parse_code_blob(code_output_message.content)
                 self.logger.log(title="Code:", text=code_action)
             except Exception as e:
                 error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."

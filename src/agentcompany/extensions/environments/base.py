@@ -30,7 +30,7 @@ class ExecutionEnvironment(abc.ABC):
         self.mcp_servers = mcp_servers
     
     @abc.abstractmethod
-    def parse_code_blobs(self, code_blobs: str) -> str:
+    def parse_code_blob(self, code_blob: str) -> str:
         raise NotImplementedError("parse_code_blobs not implemented.")
     
     @abc.abstractmethod

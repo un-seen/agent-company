@@ -121,11 +121,11 @@ class B2TextInterpreter(ExecutionEnvironment):
         self.static_tools = mcp_servers
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
     
-    def parse_code_blobs(self, code_blobs: str) -> Template:
-        code_blobs = code_blobs.strip()
-        t = Template(code_blobs)
+    def parse_code_blob(self, code_blob: str) -> Template:
+        code_blob = code_blob.strip()
+        t = Template(code_blob)
         if t.is_valid():
-            return t
+            return code_blob
         raise InterpreterError("Invalid code blobs for Python template string.")
 
     
@@ -136,7 +136,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         # then assign a format to the variable name
         # then using data from file + gemini set the value for the variable name
         self.state.update(additional_variables)
-        template = self.parse_code_blobs(code_action)
+        template = Template(code_action)
         try:
             text = template.safe_substitute(self.state)
         except KeyError as e:

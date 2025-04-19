@@ -290,7 +290,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
     def parse_function(self, code_blob: str) -> Dict[str, Callable]:
         raise NotImplementedError("parse_function not implemented")
                                   
-    def parse_code_blobs(self, code_blob: str) -> str:
+    def parse_code_blob(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
         pattern = r"```(?:sql)?\n(.*?)\n```"
         matches = re.findall(pattern, code_blob, re.DOTALL)
