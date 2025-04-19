@@ -177,6 +177,42 @@ def get_web_text(prompt: str) -> str:
     response = completion.choices[0].message.content
     return response
 
+from pydantic import BaseModel
+
+class QuestionAnswer(BaseModel):
+    question: str
+    answer: str
+    success: bool
+    
+    
+def get_file_text(data: str, prompt: str) -> Optional[str]:
+    """
+    Generate a JSON array for the user text using the Gemini API.
+    """
+    from openai import OpenAI
+
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    prompt = f"""
+    You have to answer the question with a plain text value and not formatting based on the below data:\n\n
+    
+    {data} \n\n
+    
+    Question:
+    {prompt}
+    """
+    completion = client.beta.chat.completions.parse(
+        model="gpt-4o-mini",
+        messages=[{"role":"user","content": prompt}],
+        response_format=QuestionAnswer
+    )
+    response: QuestionAnswer = completion.choices[0].message.parsed
+    
+    if response.success:
+        return response.answer
+    else:
+        return None
+
+
 class B2TextInterpreter(ExecutionEnvironment):
     
     language: str = "python_template_string"
@@ -214,7 +250,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         raise InterpreterError("Invalid code blobs for Python template string.")
 
     
-    def get_file_text(self, code_action: str) -> str:
+    def get_file_text(self, code_action: str) -> Optional[str]:
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
         content = {}
         for index, file in enumerate(files, 1):
@@ -230,12 +266,16 @@ class B2TextInterpreter(ExecutionEnvironment):
                     content[file] = task_text
                     print(f"Selected {file} with task {task_text}")
                     
-        response = []
+        data = ""
         for file, task in content.items():
             file_content = get_text_from_key(self.b2_config["bucket_name"], file)
-            response.append({"task": task, "solution": file_content})
+            data += f"File: {file}\n"
+            data += f"Task: {task}\n"
+            data += f"Content: {file_content}\n"
+            data += "-" * 80 + "\n"
+            
+        return get_file_text(data, code_action)
         
-        return list_of_dict_to_markdown_table(response)
     
     def get_identifiers(self, code_action: str) -> List[str]:
         """
@@ -246,17 +286,15 @@ class B2TextInterpreter(ExecutionEnvironment):
         identifiers = template.get_identifiers()
         return identifiers
     
-    def get_hint(self, code_action: str) -> str:
-        file_data = self.get_file_text(code_action)
-        return file_data
-    
     def text_search(self, code_action: str) -> str:
+        
+        file_data = self.get_file_text(code_action)
+        if file_data and len(file_data) > 0:
+            return file_data
         web_data = get_web_text(code_action)
         random_uuid = randint(0, 1000000)
         file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
         task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
-        print(f"Storing {file_key} with data {web_data}")
-        print(f"Storing {task_key} with data {code_action}")
         store_file(self.b2_config["bucket_name"], file_key, web_data.encode("utf-8"))
         store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))
         return web_data
