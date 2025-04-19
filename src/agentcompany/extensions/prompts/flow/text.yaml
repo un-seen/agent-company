@@ -59,18 +59,22 @@ plan:
       {{ text_report }}
       ```
 
-      You came up with the following question to complete the task:
+      You came up with the following question to find reference information to fill in the variable {{ variable_name }} in the text report:
       ```
       {{ variable_question }}
       ```
-
+      
       The reference information you found is:
       ```
       {{ supporting_information }}
       ```
       
-      You have to now give a value for the variable {{ variable_name }} in the text report based on the reference information.
+      Write only the answer to the question. Do not include any other text, markdown or any other formatting.
 
       {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
       {{ filtered_hints_str }}
       {% endif %}
+  # - step: substitute_variable
+  #   action: environment
+  #   out_id: variable_name
+  #   return_type: str

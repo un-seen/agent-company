@@ -427,6 +427,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 print(f"State: {state}")
                 print(f"Current: {state['current']}")
                 observations = call_method(self.executor_environment, prompt, state["current"])
+                print(f"Observations: {observations}")
                 break
             try:
                 code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
