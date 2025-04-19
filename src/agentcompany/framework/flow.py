@@ -85,6 +85,22 @@ def call_method(obj: Any, method_name: str, *args, **kwargs) -> Any:
     return method(*args, **kwargs)
 
 
+def set_state_out_id(state: dict, out_id: str, output: Any) -> None:
+        """
+        Set the out_id in the state.
+        """
+        if out_id.startswith("$"):
+            out_id = out_id[1:]
+            out_id = state[out_id]
+            if not 'known_variables' in state:
+                state["known_variables"] = {}
+            state["known_variables"][out_id] = output
+            if "final_answer" in state:
+                state["final_answer"] = Template(state["final_answer"]).render(**state["known_variables"])
+        state[out_id] = output
+        state["current"] = output
+        
+
 class FlowPattern(ModelContextProtocolImpl):
     """
     Agent class that takes as input a prompt and calls if required one or more agents to execute a vision.
@@ -359,7 +375,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 next_steps = plan[i + 1:]
                 for item in output:
                     local_state = copy.deepcopy(self.state)
-                    self.set_out_id(local_state, out_id, item)
+                    set_state_out_id(local_state, out_id, item)
                     next_step_index = 0
                     while next_step_index < len(next_steps):
                         next_step = next_steps[next_step_index]
@@ -377,39 +393,25 @@ class FlowPattern(ModelContextProtocolImpl):
                         next_output = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state, return_on_fail=True)
                         if next_output is None:
                             next_step_index = 0
-                            self.set_out_id(local_state, out_id, item)
+                            set_state_out_id(local_state, out_id, item)
                             continue
                         else:
                             # Set output in local state out id
-                            self.set_out_id(local_state, next_step_out_id, next_output)
+                            set_state_out_id(local_state, next_step_out_id, next_output)
                             next_step_index += 1
 
                 break  # Exiting the loop as subsequent steps were processed already
 
             elif out == "one_to_one":
                 output = self._run_step(rendered_step, action_type, return_type, self.state)
-                self.set_out_id(self.state, out_id, output)
+                set_state_out_id(self.state, out_id, output)
             elif out == "many_to_one":
                 if not isinstance(self.state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
                 output = self._run_step(rendered_step, action_type, return_type, self.state)
-                self.set_out_id(self.state, out_id, output)
+                set_state_out_id(self.state, out_id, output)
             i += 1
                 
-    def set_out_id(self, state: dict, out_id: str, output: Any) -> None:
-        """
-        Set the out_id in the state.
-        """
-        if out_id.startswith("$"):
-            out_id = out_id[1:]
-            out_id = state[out_id]
-            if not 'known_variables' in self.state:
-                self.state["known_variables"] = {}
-            self.state["known_variables"][out_id] = output
-        if "final_answer" in state:
-            state["final_answer"] = Template(state["final_answer"]).render(**self.state["known_variables"])
-        state[out_id] = output
-        state["current"] = output
         
     def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType, state: dict, return_on_fail = False) -> Optional[str]:
         model_input_messages = [
