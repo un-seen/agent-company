@@ -195,8 +195,16 @@ class B2TextInterpreter(ExecutionEnvironment):
         self.static_tools = mcp_servers
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
     
-    def parse_code_blobs(self, code_blobs):
-        raise NotImplementedError("Code blob parsing is not implemented in this environment.")
+    def parse_code_blobs(self, code_blobs: str):
+        # TODO parse the code blobs to make sure it can be formatted with python template string
+        from string import Template 
+        code_blobs = code_blobs.strip()
+        t = Template(code_blobs)
+        if t.is_valid():
+            return True
+        else:
+            raise InterpreterError("Invalid code blobs for Python template string.")
+
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
         # TODO the code action will have variables with dollar sign prefix

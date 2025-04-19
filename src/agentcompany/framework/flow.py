@@ -409,6 +409,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 try:
                     code_action = self.executor_environment.parse_code_blobs(code_output_message.content)
                 except Exception as e:
+                    self.logger.log(text=f"Code: {code_output_message.content}\n\nError: {e}", title="Error in code parsing:")
                     error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
                     error_msg = self.executor_environment.parse_error_logs(error_msg)
                     previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
