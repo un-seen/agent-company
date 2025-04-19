@@ -63,14 +63,14 @@ plan:
       {%- endfor %}
       {%- endif %}
 
-      Here text files in the datalake which can also be used to compute a variable value:
+      Here are the text files in the datalake which can also be used to compute a variable value:
       ````
       {%- for file in files %}
         - {{ file.name }}: {{ file.description }}
       {%- endfor %}
       ````
       
-      Please write a detailed description of the {{ variable_name }} variable with clear instructions on how to leverage functions and files in the datalake to compute the value of the variable.
+      Please write a detailed description of the {{ variable_name }} variable with clear instructions on how to compute the value using a function or a file.
     out_id: variable_description
     action: skip
   - step: |-
