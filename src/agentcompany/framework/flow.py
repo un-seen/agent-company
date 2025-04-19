@@ -357,10 +357,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 next_steps = plan[i + 1:]
                 for item in output:
                     local_state = copy.deepcopy(self.state)
-                    local_state["current"] = item
-                    if out_id:
-                        local_state[out_id] = item
-
+                    self.set_out_id(local_state, out_id, item)
                     for next_step in next_steps:
                         next_step_out = next_step.get("out", "one_to_one")
                         if next_step_out != "one_to_one":
@@ -375,24 +372,18 @@ class FlowPattern(ModelContextProtocolImpl):
                         # Run the next step
                         next_output = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state)
                         # Set output in local state out id
-                        if next_step_out_id:
-                            local_state[next_step_out_id] = next_output
-                        local_state["current"] = next_output                           
+                        self.set_out_id(local_state, next_step_out_id, next_output)
 
                 break  # Exiting the loop as subsequent steps were processed already
 
             elif out == "one_to_one":
                 output = self._run_step(rendered_step, action_type, return_type, self.state)
-                self.state["current"] = output
-                if out_id:
-                    self.state[out_id] = output
+                self.set_out_id(self.state, out_id, output)
             elif out == "many_to_one":
                 if not isinstance(self.state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
                 output = self._run_step(rendered_step, action_type, return_type, self.state)
-                self.state["current"] = output
-                if out_id:
-                    self.state[out_id] = output
+                self.set_out_id(self.state, out_id, output)
             i += 1
             
             if i == len(plan):
@@ -400,6 +391,16 @@ class FlowPattern(ModelContextProtocolImpl):
                 self.state["final_answer"] = self.state.get("current", None)
                 break
     
+    def set_out_id(self, state: dict, out_id: str, output: Any) -> None:
+        """
+        Set the out_id in the state.
+        """
+        if out_id.startswith("$"):
+            out_id = out_id[1:]
+            out_id = state[out_id]
+        state[out_id] = output
+        state["current"] = output
+        
     def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType, state: dict) -> None:
         model_input_messages = [
             {"role": "system", "content": [{"type": "text", "text": self.description}]},

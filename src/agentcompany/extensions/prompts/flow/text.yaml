@@ -74,6 +74,7 @@ plan:
       {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
       {{ filtered_hints_str }}
       {% endif %}
+    out_id: $variable_name
   # - step: substitute_variable
   #   action: environment
   #   out_id: variable_name
