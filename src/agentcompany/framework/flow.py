@@ -320,20 +320,23 @@ class FlowPattern(ModelContextProtocolImpl):
         self.executor_environment.attach_mcp_servers(self.mcp_servers)
     
     def setup_hint(self, step: str):
-        hints = self.prompt_templates["hint"]
+        prompt_hints = self.prompt_templates["hint"]
         template_lower = step.lower()    
         filtered_hints = [
-            hint for hint in hints
+            hint for hint in prompt_hints
             if any(keyword.lower() in template_lower for keyword in hint.get("keyword", []))
         ]
-        
-        hint = f"""
-        ## Hints
-        
-        {list_of_dict_to_markdown_table(filtered_hints) if len(filtered_hints) > 0 else ""}
-        {self.executor_environment.get_hint(step)}
-        """.strip()
-        self.state["hint"] = hint
+        environment_hints = self.executor_environment.get_hint(step)
+        if len(environment_hints) > 0 or len(filtered_hints) > 0:
+            hint = f"""
+            ## Hints
+            
+            {list_of_dict_to_markdown_table(filtered_hints) if len(filtered_hints) > 0 else ""}
+            {self.executor_environment.get_hint(step)}
+            """.strip()
+            self.state["hint"] = hint
+        else:
+            self.state["hint"] = ""
             
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]

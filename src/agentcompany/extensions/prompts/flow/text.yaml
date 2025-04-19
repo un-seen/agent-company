@@ -81,8 +81,6 @@ plan:
       
       {%- if hint and hint|length > 0 %}
       
-      Previously referenced data:
-      
       {{ hint }}
       {% endif %}
 
