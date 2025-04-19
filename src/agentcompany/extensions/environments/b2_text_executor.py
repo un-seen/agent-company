@@ -1,6 +1,7 @@
 import os
 import re
 import shlex
+from random import randint
 import logging
 from string import Template 
 from typing import Any, Dict, List, Optional, Tuple, Callable
@@ -235,7 +236,7 @@ class B2TextInterpreter(ExecutionEnvironment):
     
     def text_search(self, code_action: str) -> str:
         web_data = get_web_text(code_action)
-        random_uuid = os.urandom(16).hex
+        random_uuid = randint(0, 1000000)
         file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
         task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
         store_file(self.b2_config["bucket_name"], file_key, web_data.encode("utf-8"))
