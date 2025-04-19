@@ -407,9 +407,6 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
                     ```<end_code>""".strip())
         return "\n\n".join(match.strip() for match in matches)
     
-    def get_hint(self, code_action: str) -> str:
-        return ""
-    
     def attach_variables(self, variables: dict):
         """Inject variables into kernel"""
         for name, value in variables.items():

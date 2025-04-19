@@ -310,9 +310,6 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                         ```<end_code>""".strip())
         return "\n".join(match.strip() for match in matches)
 
-    def get_hint(self, code_action: str) -> str:
-        return ""
-    
     def get_storage_id(self, next_step_id: int) -> str:
         return f"{self.session_id}_temp_storage_{next_step_id}"
     

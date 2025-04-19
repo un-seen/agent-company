@@ -1553,9 +1553,6 @@ class LocalPythonInterpreter(ExecutionEnvironment):
         }
         return functions_dict
     
-    def get_hint(self, code_action: str) -> str:
-        return ""
-    
     def parse_code_blob(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
         pattern = r"```(?:python)?\n(.*?)\n```"

@@ -62,9 +62,6 @@ class RedisRedisInterpreter(ExecutionEnvironment):
         redis_url += f"{self.redis_config['host']}:{self.redis_config['port']}/{self.redis_config['dbname']}"
         self.redis_client = redis.Redis.from_url(redis_url)
 
-    def get_hint(self, code_action: str) -> str:
-        return ""
-    
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
         self.state.update(additional_variables)
         self.reset_connection()
