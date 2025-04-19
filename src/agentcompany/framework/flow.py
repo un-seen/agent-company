@@ -205,6 +205,7 @@ class FlowPattern(ModelContextProtocolImpl):
         self.state.pop("judge", None)
         self.state.pop("plan", None)
         self.state.pop("hint", None)
+        self.state.update(self.executor_environment.state)
         self.state["task"] = task
         
         # Add Environment Variables
