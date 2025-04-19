@@ -409,9 +409,7 @@ class FlowPattern(ModelContextProtocolImpl):
             {"role": "system", "content": [{"type": "text", "text": self.description}]},
             {"role": "user", "content": [{"type": "text", "text": prompt}]}
         ]
-        model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
-        self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
-
+        
         previous_environment_errors: List[Dict[str, Any]] = []
 
         while True:
@@ -432,8 +430,10 @@ class FlowPattern(ModelContextProtocolImpl):
                     for err in previous_environment_errors
                 ])
                 model_input_messages_with_errors.append(
-                    {"role": "system", "content": [{"type": "text", "text": error_str}]}
-                )                
+                    {"role": "user", "content": [{"type": "text", "text": error_str}]}
+                )        
+            model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages_with_errors])
+            self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
             try:
                 code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
             except Exception as e:
