@@ -311,6 +311,10 @@ class B2TextInterpreter(ExecutionEnvironment):
     def parse_function(self, code_blob):
         raise NotImplementedError("Function parsing is not implemented in this environment.")
     
+    def parse_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse context to extract relevant information"""
+        return context
+    
     def get_storage_id(self, next_step_id: int) -> str:
         return f"{self.b2_config['prefix']}/session/{self.session_id}/step_{next_step_id}.txt"
 
