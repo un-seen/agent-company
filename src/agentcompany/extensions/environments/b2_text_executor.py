@@ -14,6 +14,7 @@ from agentcompany.extensions.environments.exceptions import InterpreterError
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from typing import Optional, Set
+from pydantic import BaseModel
 
 
 logger = logging.getLogger(__name__)
@@ -159,7 +160,13 @@ def quick_word_match(s1: str, s2: str,
     return False
 
 
-def get_web_text(prompt: str) -> str:
+class QuestionAnswer(BaseModel):
+    question: str
+    answer: str
+    success: bool
+    
+    
+def get_exa_web_text(prompt: str) -> str:
     """
     Generate a JSON array for the user text using the Gemini API.
     """
@@ -178,12 +185,27 @@ def get_web_text(prompt: str) -> str:
     response = completion.choices[0].message.content
     return response
 
-from pydantic import BaseModel
-
-class QuestionAnswer(BaseModel):
-    question: str
-    answer: str
-    success: bool
+    
+def get_deepseek_web_text(prompt: str) -> str:
+    from openai import OpenAI
+    
+    
+    from agentcompany.extensions.tools.jina import get_url_as_text
+    
+    text = []
+    client = OpenAI(api_key=os.environ.get("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
+    for result in brave_web_search(prompt):
+        url = result["url"]
+        text.append(get_url_as_text(url))
+        prompt = "\n\n".join(text)
+        completion = client.chat.completions.create(
+            model="deepseek-reasoner",
+            messages=[
+                {"role":"user","content": prompt},
+                {"role":"assistant","content": "Please filte"}
+            ],
+        )
+        content = completion.choices[0].message.content
     
     
 def get_file_text(data: str, prompt: str) -> Optional[str]:
@@ -192,31 +214,50 @@ def get_file_text(data: str, prompt: str) -> Optional[str]:
     """
     from openai import OpenAI
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    # TODO fix the prompt by switching to flow agent here
-    prompt = f"""
-    You have to answer the question with a plain text value and not formatting based on the below data:
+    client = OpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
+    attempts = 0
+    max_attempts = 3
+    response = None
     
-    {data} \n\n
-    
-    Question:
-    {prompt}
-    
-    You can extrapolate the answer from the data even if sufficient information is not provided.
-    """
-    print("get_file_text")
-    print(prompt)
-    completion = client.beta.chat.completions.parse(
-        model="gpt-4o-mini",
-        messages=[{"role":"user","content": prompt}],
-        response_format=QuestionAnswer
-    )
-    response: QuestionAnswer = completion.choices[0].message.parsed
-    
-    if response.success:
-        return response.answer
-    else:
-        return None
+    while not response.success and attempts < max_attempts:
+        
+        # TODO fix the prompt by switching to flow agent here
+        prompt = f"""
+        You have to answer the question with a plain text value and not formatting based on the below data:
+        
+        {data} \n\n
+        
+        Question:
+        {prompt}
+        
+        You can extrapolate the answer from the data even if sufficient information is not provided.
+        """
+        print("get_file_text")
+        print(prompt)
+        
+        completion = client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[{"role":"user","content": prompt}],
+            response_format=QuestionAnswer
+        )
+        response: QuestionAnswer = completion.choices[0].message.parsed
+        print("Answer")
+        print(response.answer)
+        
+        if not response.success:
+            from agentcompany.extensions.tools.brave import brave_web_search
+            from agentcompany.extensions.tools.jina import get_url_as_text
+            if attempts >= max_attempts:
+                return None
+            if search_urls is None:    
+                search_urls = brave_web_search(prompt)
+            elif len(search_urls) > 0:
+                url = search_urls.pop(0)["url"]
+                text = get_url_as_text(url)
+                data = f"{data}\n\n{url}\n\n{text}"
+            attempts += 1
+        else:
+            return response.answer
 
 
 class B2TextInterpreter(ExecutionEnvironment):
@@ -256,8 +297,13 @@ class B2TextInterpreter(ExecutionEnvironment):
         raise InterpreterError("Invalid code blobs for Python template string.")
 
     
-    def get_file_text(self, code_action: str) -> Optional[str]:
+    def call_web(self, code_action: str) -> Optional[str]:
+        # Get Files from Memory
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
+        # Default to EXA Web if no files found
+        if len(files) == 0:
+            return get_exa_web_text(code_action)
+        # Create Context
         content = {}
         for index, file in enumerate(files, 1):
             if file.endswith("content.txt"):
@@ -267,8 +313,10 @@ class B2TextInterpreter(ExecutionEnvironment):
                     continue
                 task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
                 if quick_word_match(task_text, code_action, case_insensitive=True):
-                    content[file] = task_text
-                    
+                    content[file] = task_text   
+        # Default to EXA Web if no context found
+        if len(content) == 0:
+            return get_exa_web_text(code_action)
         data = ""
         for file, task in content.items():
             file_content = get_text_from_key(self.b2_config["bucket_name"], file)
@@ -276,11 +324,7 @@ class B2TextInterpreter(ExecutionEnvironment):
             data += f"Task: {task}\n"
             data += f"Content: {file_content}\n"
             data += "-" * 80 + "\n"
-        
-        if len(content) > 0:
-            return get_file_text(data, code_action)
-        else:
-            return None
+        return get_file_text(data, code_action)
         
     
     def get_identifiers(self, code_action: str) -> List[str]:
@@ -293,18 +337,14 @@ class B2TextInterpreter(ExecutionEnvironment):
         return identifiers
     
     def text_search(self, code_action: str) -> str:
-        
-        file_data = self.get_file_text(code_action)
-        if file_data and len(file_data) > 0:
-            return file_data
-        web_data = get_web_text(code_action)
+        response = self.call_web(code_action)
         random_uuid = randint(0, 1000000)
         file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
         task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
-        if not web_data.startswith("I am sorry"):
-            store_file(self.b2_config["bucket_name"], file_key, web_data.encode("utf-8"))
+        if not response.startswith("I am sorry"):
+            store_file(self.b2_config["bucket_name"], file_key, response.encode("utf-8"))
             store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))
-        return web_data
+        return response
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
         code_action = collapse_dollar_runs(code_action)
