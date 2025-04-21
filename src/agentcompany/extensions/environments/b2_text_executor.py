@@ -212,7 +212,7 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
         messages=[{"role":"user","content": prompt}],
     )
     code_action = completion.choices[0].message.content
-    print(code_action)
+    print(f"Prompt: {prompt} Code Action: {code_action}")
     # Judge Answer
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -223,6 +223,7 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
         """}],
     )
     judge = completion.choices[0].message.content
+    print(f"Judge: {judge}")
     if judge.lower() == "true":
         response.success = True
         response.answer = code_action
