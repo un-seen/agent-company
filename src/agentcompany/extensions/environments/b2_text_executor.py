@@ -266,7 +266,7 @@ def answer_from_data(data: str, question: str) -> Optional[str]:
             }
         )
         response = completion.choices[0].message.content
-        response: QuestionAnswer = QuestionAnswer.model_va(response)
+        response: QuestionAnswer = QuestionAnswer.model_validate_json(response)
         print("Answer")
         print(response.answer)
         
