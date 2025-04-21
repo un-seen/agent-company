@@ -201,8 +201,7 @@ class FunctionPattern(ModelContextProtocolImpl):
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
                 additional_variables={
-                    # TODO remove 512
-                    "df": pd.DataFrame(context)[:512]
+                    "context": context
                 },
                 return_type="pandas.DataFrame"
             )
@@ -248,9 +247,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         if reset:
             self.memory.reset()
         self.memory.append_step(TaskStep(task=self.task))
-        # TODO Setup task
-        # TODO Setup inputs
-        # TODO Setup context
         task: str = task
         inputs: List[str] = inputs
         context: List[Dict[str, Any]] = context
