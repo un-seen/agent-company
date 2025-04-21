@@ -397,6 +397,7 @@ class FlowPattern(ModelContextProtocolImpl):
                         # Run the next step
                         next_output, previous_environment_errors = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state, return_on_fail=True, previous_environment_errors=previous_environment_errors)
                         if next_output is None:
+                            print(f"Step {i} failed with error: {previous_environment_errors}")
                             failures += 1
                             if failures > 3:
                                 next_step_index += 1
