@@ -96,7 +96,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
     # (sqlglot returns expressions from the sqlglot.exp module;
     # adjust the type check if needed.)
     function_call_list = []
-    if isinstance(node, sqlglot.exp.Select) or isinstance(node, sqlglot.exp.Insert) or isinstance(node, sqlglot.exp.Update) or isinstance(node, sqlglot.exp.Delete) or isinstance(node, sqlglot.exp.Create) or isinstance(node, sqlglot.exp.Drop):
+    if isinstance(node, sqlglot.exp.Select) or isinstance(node, sqlglot.exp.Insert) or isinstance(node, sqlglot.exp.Update) or isinstance(node, sqlglot.exp.Delete) or isinstance(node, sqlglot.exp.Create) or isinstance(node, sqlglot.exp.TruncateTable) or isinstance(node, sqlglot.exp.Drop):
         # Convert the AST to a Postgres-compatible SQL string.
         # Check if NODE uses an MCP server. if yes then call the server and replace the node subtree with the result.
         for idx, statement in enumerate(node.expressions):
