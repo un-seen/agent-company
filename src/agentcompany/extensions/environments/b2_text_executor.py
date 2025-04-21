@@ -191,7 +191,7 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
     Generate a JSON array for the user text using the Gemini API.
     """
     from openai import OpenAI
-    client = OpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
+    client = OpenAI(api_key=os.environ["OPEN_AI_API_KEY"])
     response = QuestionAnswer(question=question, answer=None, success=False)
     # TODO fix the prompt by switching to flow agent here
     prompt = f"""
@@ -208,17 +208,17 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
     print(prompt)
     # Generate Answer
     completion = client.chat.completions.create(
-        model="deepseek-reasoner",
+        model="o4-mini",
         messages=[{"role":"user","content": prompt}],
     )
     code_action = completion.choices[0].message.content
     print(code_action)
     # Judge Answer
     completion = client.chat.completions.create(
-        model="deepseek-chat",
+        model="gpt4o-mini",
         messages=[{"role":"user","content": f"""
         Question: {question}
-        Answer: {code_action.choices[0].message.content}
+        Answer: {code_action}
         Is the answer correct? Answer with True or False only.
         """}],
     )
