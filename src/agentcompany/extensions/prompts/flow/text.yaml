@@ -27,7 +27,7 @@ plan:
       
       The variable must be compatible with Python String Template substition.
       
-      Write the plain text report with variables.
+      Now begin!
     out_id: text_report
     action: final_answer
   - step: get_identifiers
