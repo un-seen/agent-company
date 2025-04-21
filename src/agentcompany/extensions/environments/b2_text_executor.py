@@ -186,7 +186,7 @@ def get_exa_web_text(prompt: str) -> str:
     return response
     
     
-def answer_from_data(data: str, prompt: str) -> Optional[str]:
+def answer_from_data(data: str, question: str) -> Optional[str]:
     """
     Generate a JSON array for the user text using the Gemini API.
     """
@@ -195,7 +195,7 @@ def answer_from_data(data: str, prompt: str) -> Optional[str]:
     client = OpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
     attempts = 0
     max_attempts = 3
-    response = QuestionAnswer(question=prompt, answer=None, success=False)
+    response = QuestionAnswer(question=question, answer=None, success=False)
     
     while not response.success and attempts < max_attempts:
         
@@ -206,8 +206,10 @@ def answer_from_data(data: str, prompt: str) -> Optional[str]:
         {data} \n\n
         
         Question:
-        {prompt}
+        {question}
+        """
         
+        hint = """
         You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
         
         EXAMPLE INPUT: 
@@ -250,6 +252,10 @@ def answer_from_data(data: str, prompt: str) -> Optional[str]:
         }
         """
         print("get_file_text")
+        prompt = f"""
+        {prompt}
+        {hint}
+        """.strip()
         print(prompt)
         
         completion = client.chat.completions.create(
@@ -260,7 +266,7 @@ def answer_from_data(data: str, prompt: str) -> Optional[str]:
             }
         )
         response = completion.choices[0].message.content
-        response: QuestionAnswer = QuestionAnswer.model_validate_json(response)
+        response: QuestionAnswer = QuestionAnswer.model_va(response)
         print("Answer")
         print(response.answer)
         
