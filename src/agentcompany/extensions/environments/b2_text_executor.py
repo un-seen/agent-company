@@ -169,14 +169,11 @@ def get_web_text(prompt: str) -> str:
         base_url="https://api.exa.ai",
         api_key=os.environ["EXA_API_KEY"],
     )
-    prompt = f"""
-    {prompt}
-    You can extrapolate the answer from the data even if sufficient information is not provided.
-    """.strip()
-    
     completion = client.chat.completions.create(
         model="exa",
-        messages=[{"role":"user","content": prompt}],
+        messages=[
+            {"role":"user","content": prompt}    
+        ],
     )
     response = completion.choices[0].message.content
     return response
@@ -207,6 +204,8 @@ def get_file_text(data: str, prompt: str) -> Optional[str]:
     
     You can extrapolate the answer from the data even if sufficient information is not provided.
     """
+    print("get_file_text")
+    print(prompt)
     completion = client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[{"role":"user","content": prompt}],
@@ -278,7 +277,6 @@ class B2TextInterpreter(ExecutionEnvironment):
             data += f"Content: {file_content}\n"
             data += "-" * 80 + "\n"
         
-        print(f"get_file_text:\n\n {data}")
         return get_file_text(data, code_action)
         
     
