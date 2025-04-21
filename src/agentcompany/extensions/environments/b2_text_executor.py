@@ -184,28 +184,6 @@ def get_exa_web_text(prompt: str) -> str:
     )
     response = completion.choices[0].message.content
     return response
-
-    
-def get_deepseek_web_text(prompt: str) -> str:
-    from openai import OpenAI
-    
-    
-    from agentcompany.extensions.tools.jina import get_url_as_text
-    
-    text = []
-    client = OpenAI(api_key=os.environ.get("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
-    for result in brave_web_search(prompt):
-        url = result["url"]
-        text.append(get_url_as_text(url))
-        prompt = "\n\n".join(text)
-        completion = client.chat.completions.create(
-            model="deepseek-reasoner",
-            messages=[
-                {"role":"user","content": prompt},
-                {"role":"assistant","content": "Please filte"}
-            ],
-        )
-        content = completion.choices[0].message.content
     
     
 def answer_from_data(data: str, prompt: str) -> Optional[str]:
@@ -230,17 +208,59 @@ def answer_from_data(data: str, prompt: str) -> Optional[str]:
         Question:
         {prompt}
         
-        You can extrapolate the answer from the data even if sufficient information is not provided.
+        You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
+        
+        EXAMPLE INPUT: 
+        You have to answer the question with a plain text value and not formatting based on the below data:
+        
+        Which is the highest mountain in the world?
+        
+        Mount Everest is the highest mountain in the world, with a height of 8,848 meters above sea level.
+        
+        Question:
+        Which is the highest mountain in the world? 
+        
+        You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
+        
+        EXAMPLE JSON OUTPUT:
+        {
+            "question": "Which is the highest mountain in the world and its height in feet?",
+            "answer": "Mount Everest is the highest mountain with a height of 29,029 feet",
+            "success": True
+        }
+        
+        
+        EXAMPLE INPUT: 
+        You have to answer the question with a plain text value and not formatting based on the below data:
+        
+        Which is the highest mountain in the world?
+        
+        Mount K2 is the second highest mountain in the world, with a height of 8,611 meters above sea level.
+        
+        Question:
+        Which is the highest mountain in the world? 
+        
+        You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
+        
+        EXAMPLE JSON OUTPUT:
+        {
+            "question": "Which is the highest mountain in the world and its height in feet?",
+            "answer": "I am sorry, I cannot find the answer to this question",
+            "success": False
+        }
         """
         print("get_file_text")
         print(prompt)
         
-        completion = client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+        completion = client.chat.completions.create(
+            model="deepseek-reasoner",
             messages=[{"role":"user","content": prompt}],
-            response_format=QuestionAnswer
+            response_format={
+                "type": "json_object",
+            }
         )
-        response: QuestionAnswer = completion.choices[0].message.parsed
+        response = completion.choices[0].message.content
+        response: QuestionAnswer = QuestionAnswer.model_validate_json(response)
         print("Answer")
         print(response.answer)
         
