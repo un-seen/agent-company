@@ -297,7 +297,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         raise InterpreterError("Invalid code blobs for Python template string.")
 
     
-    def call_web(self, code_action: str) -> Optional[str]:
+    def web_call(self, code_action: str) -> Optional[str]:
         # Get Files from Memory
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
         answer = None
