@@ -195,7 +195,7 @@ def get_file_text(data: str, prompt: str) -> Optional[str]:
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     # TODO fix the prompt by switching to flow agent here
     prompt = f"""
-    You have to answer the question with a plain text value and not formatting based on the below data:\n\n
+    You have to answer the question with a plain text value and not formatting based on the below data:
     
     {data} \n\n
     
@@ -277,7 +277,10 @@ class B2TextInterpreter(ExecutionEnvironment):
             data += f"Content: {file_content}\n"
             data += "-" * 80 + "\n"
         
-        return get_file_text(data, code_action)
+        if len(content) > 0:
+            return get_file_text(data, code_action)
+        else:
+            return None
         
     
     def get_identifiers(self, code_action: str) -> List[str]:
