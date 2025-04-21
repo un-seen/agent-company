@@ -298,8 +298,9 @@ class B2TextInterpreter(ExecutionEnvironment):
         random_uuid = randint(0, 1000000)
         file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
         task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
-        store_file(self.b2_config["bucket_name"], file_key, web_data.encode("utf-8"))
-        store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))
+        if not web_data.startswith("I am sorry"):
+            store_file(self.b2_config["bucket_name"], file_key, web_data.encode("utf-8"))
+            store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))
         return web_data
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
