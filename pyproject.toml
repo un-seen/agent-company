@@ -16,7 +16,7 @@
         "redis",
         "jinja2>=3.1.6",
         "duckdb",
-        "yaml",
+        "pyyaml",
         "google-genai",
         "sqlglot",
         "boto3==1.35.99",
