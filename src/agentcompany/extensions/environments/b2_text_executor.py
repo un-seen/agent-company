@@ -215,7 +215,7 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
     print(code_action)
     # Judge Answer
     completion = client.chat.completions.create(
-        model="gpt4o-mini",
+        model="gpt-4o-mini",
         messages=[{"role":"user","content": f"""
         Question: {question}
         Answer: {code_action}
