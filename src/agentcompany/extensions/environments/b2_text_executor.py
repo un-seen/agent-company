@@ -212,13 +212,15 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
     code_action = completion.choices[0].message.content
     print(f"AnswerFromData -> Prompt: {prompt} Code Action: {code_action}")
     # Judge Answer
+    judge_prompt = f"""
+    Question: {question}
+    Answer: {code_action}
+    Is any answer given in the answer? Answer with True or False.
+    """.strip()
+    print(f"Judge Prompt: {judge_prompt}")
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role":"user","content": f"""
-        Question: {question}
-        Answer: {code_action}
-        Is no answer given in the answer? Answer with True or False.
-        """}],
+        messages=[{"role":"user","content": judge_prompt}],
     )
     judge = completion.choices[0].message.content
     print(f"Judge: {judge}")
