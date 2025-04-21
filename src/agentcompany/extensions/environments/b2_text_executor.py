@@ -208,7 +208,7 @@ def get_deepseek_web_text(prompt: str) -> str:
         content = completion.choices[0].message.content
     
     
-def get_file_text(data: str, prompt: str) -> Optional[str]:
+def answer_from_data(data: str, prompt: str) -> Optional[str]:
     """
     Generate a JSON array for the user text using the Gemini API.
     """
@@ -324,7 +324,7 @@ class B2TextInterpreter(ExecutionEnvironment):
             data += f"Task: {task}\n"
             data += f"Content: {file_content}\n"
             data += "-" * 80 + "\n"
-        return get_file_text(data, code_action)
+        return answer_from_data(data, code_action)
         
     
     def get_identifiers(self, code_action: str) -> List[str]:
