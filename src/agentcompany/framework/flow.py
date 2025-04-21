@@ -367,7 +367,7 @@ class FlowPattern(ModelContextProtocolImpl):
             rendered_step = template.render(**self.state)
             self.logger.log(text=f"Out={out} | Out_id={out_id}", title=f"Step {i} ({self.interface_id}/{self.name}):")
             if out == "one_to_many":
-                output = self._run_step(rendered_step, action_type, return_type, self.state)
+                output, _ = self._run_step(rendered_step, action_type, return_type, self.state)
 
                 if not isinstance(output, list):
                     raise ValueError(f"Expected list output for 'one_to_many', got {type(output)}")
@@ -380,6 +380,7 @@ class FlowPattern(ModelContextProtocolImpl):
                     local_state = copy.deepcopy(self.state)
                     set_state_out_id(self.state, local_state, out_id, item)
                     next_step_index = 0
+                    previous_environment_errors = None
                     while next_step_index < len(next_steps):
                         next_step = next_steps[next_step_index]
                         next_step_out = next_step.get("out", "one_to_one")
@@ -393,12 +394,14 @@ class FlowPattern(ModelContextProtocolImpl):
                         # Render the step
                         rendered_next_step = template_next.render(**local_state)
                         # Run the next step
-                        next_output = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state, return_on_fail=True)
+                        next_output, previous_environment_errors = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state, return_on_fail=True, previous_environment_errors=previous_environment_errors)
                         if next_output is None:
+                            # Keep previous_environment_errors
                             next_step_index = 0
                             set_state_out_id(self.state, local_state, out_id, item)
                             continue
                         else:
+                            previous_environment_errors = None
                             # Set output in local state out id
                             set_state_out_id(self.state, local_state, next_step_out_id, next_output)
                             next_step_index += 1
@@ -406,23 +409,23 @@ class FlowPattern(ModelContextProtocolImpl):
                 break  # Exiting the loop as subsequent steps were processed already
 
             elif out == "one_to_one":
-                output = self._run_step(rendered_step, action_type, return_type, self.state)
+                output, _ = self._run_step(rendered_step, action_type, return_type, self.state)
                 set_state_out_id(self.state, self.state, out_id, output)
             elif out == "many_to_one":
                 if not isinstance(self.state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
-                output = self._run_step(rendered_step, action_type, return_type, self.state)
+                output, _ = self._run_step(rendered_step, action_type, return_type, self.state)
                 set_state_out_id(self.state, self.state, out_id, output)
             i += 1
                 
         
-    def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType, state: dict, return_on_fail = False) -> Optional[str]:
+    def _run_step(self, prompt: str, action_type: ActionType, return_type: ReturnType, state: dict, return_on_fail = False, previous_environment_errors = None) -> Optional[Tuple[Any, List[Dict[str, Any]]]]:
         model_input_messages = [
             {"role": "system", "content": [{"type": "text", "text": self.description}]},
             {"role": "user", "content": [{"type": "text", "text": prompt}]}
         ]
         
-        previous_environment_errors: List[Dict[str, Any]] = []
+        previous_environment_errors: List[Dict[str, Any]] = previous_environment_errors or []
 
         while True:
             
@@ -524,11 +527,12 @@ class FlowPattern(ModelContextProtocolImpl):
             if decision == "approve":
                 break
             elif return_on_fail:
-                return None
+                previous_environment_errors = [{"code": code_action, "error": feedback}]
+                return None, previous_environment_errors
             else:
                 previous_environment_errors = [{"code": code_action, "error": feedback}]
 
-        return observations
+        return observations, previous_environment_errors
     
     def forward(self, task: str) -> Any:
         """
