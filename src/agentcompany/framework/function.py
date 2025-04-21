@@ -202,7 +202,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         if len(context) == 1:
             code_action = populate_template(
                 code_action,
-                variables=context
+                variables=context[0]
             )
             
         self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
