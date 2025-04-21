@@ -196,6 +196,11 @@ class FunctionPattern(ModelContextProtocolImpl):
             error_msg = self.executor_environment.parse_error_logs(error_msg)
             raise AgentError(f"Error in code parsing:\n{e}", self.logger) from e
         
+        if isinstance(context, dict):
+            code_action = populate_template(
+                code_action,
+                variables=context
+            )
         self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
         try:
             observations, _, _ = self.executor_environment(
