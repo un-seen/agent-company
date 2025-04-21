@@ -1553,6 +1553,10 @@ class LocalPythonInterpreter(ExecutionEnvironment):
         }
         return functions_dict
     
+    def parse_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse context to extract relevant information"""
+        return context
+    
     def parse_code_blob(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""
         pattern = r"```(?:python)?\n(.*?)\n```"

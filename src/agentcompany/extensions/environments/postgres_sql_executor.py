@@ -1,4 +1,3 @@
-
 import re
 import copy
 import sqlglot
@@ -90,7 +89,6 @@ def parse_function_call(call_str, state: dict) -> Tuple[List[str], str]:
         return func_name.lower(), resolved_args, args_str
     else:
         return None, None, None
-
 
 
 def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProtocolImpl]) -> Tuple[List[dict], List[Any]]:
@@ -310,6 +308,48 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                         ```<end_code>""".strip())
         return "\n".join(match.strip() for match in matches)
 
+    def parse_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Escape a Python value for safe inclusion as a SQL string literal in an INSERT statement.
+        
+        - None → NULL
+        - single quotes ' → ''
+        - backslashes \ → \\
+        - null bytes removed
+        - newlines \n → \\n, tabs \t → \\t, carriage returns removed
+        
+        Transforms value in context into a string ready to drop into SQL, including the surrounding single quotes
+        (except for NULL, which is unquoted).
+        
+        Args:
+            context (Dict[str, Any]): The context dictionary.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the transformed context.
+        """
+        # Extract relevant information from the context
+        parsed_context = {}
+        for key, value in context.items():
+            if value is None:
+                parsed_context[key] = "NULL"
+            elif isinstance(value, str):
+                # Convert to string
+                s = str(value)
+                # Remove null bytes
+                s = s.replace('\x00', '')
+                # Escape backslashes
+                s = s.replace('\\', '\\\\')
+                # Escape single quotes by doubling them
+                s = s.replace("'", "''")
+                # Normalize whitespace
+                s = s.replace('\r', '')
+                s = s.replace('\n', '\\n')
+                s = s.replace('\t', '\\t')
+                parsed_context[key] = s
+            else:
+                parsed_context[key] = value
+        return parsed_context
+    
     def get_storage_id(self, next_step_id: int) -> str:
         return f"{self.session_id}_temp_storage_{next_step_id}"
     

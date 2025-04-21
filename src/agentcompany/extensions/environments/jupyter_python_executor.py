@@ -407,6 +407,10 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
                     ```<end_code>""".strip())
         return "\n\n".join(match.strip() for match in matches)
     
+    def parse_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse context to extract relevant information"""
+        return context
+    
     def attach_variables(self, variables: dict):
         """Inject variables into kernel"""
         for name, value in variables.items():

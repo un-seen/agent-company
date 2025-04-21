@@ -34,6 +34,10 @@ class ExecutionEnvironment(abc.ABC):
         raise NotImplementedError("parse_code_blobs not implemented.")
     
     @abc.abstractmethod
+    def parse_context(self, context: Dict[str, Any]) -> str:
+        raise NotImplementedError("parse_context not implemented.")
+    
+    @abc.abstractmethod
     def parse_function(self, code_blob: str) -> Dict[str, Callable]:
         raise NotImplementedError("parse_function not implemented.")
     
