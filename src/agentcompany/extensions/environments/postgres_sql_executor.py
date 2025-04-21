@@ -147,6 +147,7 @@ def evaluate_sql_code(
     
     if code.lower().startswith("select") and max_count != None:
         code += f" LIMIT {max_count};"
+    print(f"Executing SQL code: {code}")
     try:
         expression = sqlglot.parse(code)
     except SyntaxError as e:
