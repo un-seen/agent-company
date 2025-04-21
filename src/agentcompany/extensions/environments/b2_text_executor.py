@@ -204,15 +204,13 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
     
     You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
     """
-    print("answer_from_data")
-    print(prompt)
     # Generate Answer
     completion = client.chat.completions.create(
         model="o4-mini",
         messages=[{"role":"user","content": prompt}],
     )
     code_action = completion.choices[0].message.content
-    print(f"Prompt: {prompt} Code Action: {code_action}")
+    print(f"AnswerFromData -> Prompt: {prompt} Code Action: {code_action}")
     # Judge Answer
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
