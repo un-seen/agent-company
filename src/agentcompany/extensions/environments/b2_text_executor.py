@@ -169,7 +169,11 @@ def get_web_text(prompt: str) -> str:
         base_url="https://api.exa.ai",
         api_key=os.environ["EXA_API_KEY"],
     )
-
+    prompt = f"""
+    {prompt}
+    You can extrapolate the answer from the data even if sufficient information is not provided.
+    """.strip()
+    
     completion = client.chat.completions.create(
         model="exa",
         messages=[{"role":"user","content": prompt}],
@@ -192,6 +196,7 @@ def get_file_text(data: str, prompt: str) -> Optional[str]:
     from openai import OpenAI
 
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    # TODO fix the prompt by switching to flow agent here
     prompt = f"""
     You have to answer the question with a plain text value and not formatting based on the below data:\n\n
     
@@ -199,6 +204,8 @@ def get_file_text(data: str, prompt: str) -> Optional[str]:
     
     Question:
     {prompt}
+    
+    You can extrapolate the answer from the data even if sufficient information is not provided.
     """
     completion = client.beta.chat.completions.parse(
         model="gpt-4o-mini",
