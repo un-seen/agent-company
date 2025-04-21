@@ -191,7 +191,7 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
     Generate a JSON array for the user text using the Gemini API.
     """
     from openai import OpenAI
-    client = OpenAI(api_key=os.environ["OPEN_AI_API_KEY"])
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     response = QuestionAnswer(question=question, answer=None, success=False)
     # TODO fix the prompt by switching to flow agent here
     prompt = f"""
@@ -217,7 +217,7 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role":"user","content": f"""
-        Question: {question}
+        QuestiPn: {question}
         Answer: {code_action}
         Is the answer correct? Answer with True or False only.
         """}],
