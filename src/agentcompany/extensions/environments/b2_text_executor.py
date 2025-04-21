@@ -162,7 +162,7 @@ def quick_word_match(s1: str, s2: str,
 
 class QuestionAnswer(BaseModel):
     question: str
-    answer: str
+    answer: Optional[str]
     success: bool
     
     
