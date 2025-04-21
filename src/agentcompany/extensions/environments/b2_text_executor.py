@@ -215,9 +215,9 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role":"user","content": f"""
-        QuestiPn: {question}
+        Question: {question}
         Answer: {code_action}
-        Is the answer approximately correct? Answer with True or False only.
+        Is no answer given in the answer? Answer with True or False.
         """}],
     )
     judge = completion.choices[0].message.content
