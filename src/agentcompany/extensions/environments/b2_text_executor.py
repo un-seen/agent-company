@@ -185,106 +185,49 @@ def get_exa_web_text(prompt: str) -> str:
     response = completion.choices[0].message.content
     return response
     
-    
-def answer_from_data(data: str, question: str) -> Optional[str]:
+
+def answer_from_data(data: str, question: str) -> QuestionAnswer:
     """
     Generate a JSON array for the user text using the Gemini API.
     """
     from openai import OpenAI
-
     client = OpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
-    attempts = 0
-    max_attempts = 3
     response = QuestionAnswer(question=question, answer=None, success=False)
+    # TODO fix the prompt by switching to flow agent here
+    prompt = f"""
+    You have to answer the question with a plain text value and not formatting based on the below data:
     
-    while not response.success and attempts < max_attempts:
-        
-        # TODO fix the prompt by switching to flow agent here
-        prompt = f"""
-        You have to answer the question with a plain text value and not formatting based on the below data:
-        
-        {data} \n\n
-        
-        Question:
-        {question}
-        """
-        
-        hint = """
-        You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
-        
-        EXAMPLE INPUT: 
-        You have to answer the question with a plain text value and not formatting based on the below data:
-        
-        Which is the highest mountain in the world?
-        
-        Mount Everest is the highest mountain in the world, with a height of 8,848 meters above sea level.
-        
-        Question:
-        Which is the highest mountain in the world? 
-        
-        You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
-        
-        EXAMPLE JSON OUTPUT:
-        {
-            "question": "Which is the highest mountain in the world and its height in feet?",
-            "answer": "Mount Everest is the highest mountain with a height of 29,029 feet",
-            "success": True
-        }
-        
-        
-        EXAMPLE INPUT: 
-        You have to answer the question with a plain text value and not formatting based on the below data:
-        
-        Which is the highest mountain in the world?
-        
-        Mount K2 is the second highest mountain in the world, with a height of 8,611 meters above sea level.
-        
-        Question:
-        Which is the highest mountain in the world? 
-        
-        You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
-        
-        EXAMPLE JSON OUTPUT:
-        {
-            "question": "Which is the highest mountain in the world and its height in feet?",
-            "answer": "I am sorry, I cannot find the answer to this question",
-            "success": False
-        }
-        """
-        print("get_file_text")
-        prompt = f"""
-        {prompt}
-        {hint}
-        """.strip()
-        print(prompt)
-        
-        completion = client.chat.completions.create(
-            model="deepseek-reasoner",
-            messages=[{"role":"user","content": prompt}],
-            response_format={
-                "type": "json_object",
-            }
-        )
-        response = completion.choices[0].message.content
-        response: QuestionAnswer = QuestionAnswer.model_validate_json(response)
-        print("Answer")
-        print(response.answer)
-        
-        if not response.success:
-            from agentcompany.extensions.tools.brave import brave_web_search
-            from agentcompany.extensions.tools.jina import get_url_as_text
-            if attempts >= max_attempts:
-                break
-            if search_urls is None:    
-                search_urls = brave_web_search(prompt)
-            elif len(search_urls) > 0:
-                url = search_urls.pop(0)["url"]
-                text = get_url_as_text(url)
-                data = f"{data}\n\n{url}\n\n{text}"
-            attempts += 1
-        else:
-            break 
-    return response.answer
+    {data} \n\n
+    
+    Question:
+    {question}
+    
+    You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
+    """
+    print("answer_from_data")
+    print(prompt)
+    # Generate Answer
+    completion = client.chat.completions.create(
+        model="deepseek-reasoner",
+        messages=[{"role":"user","content": prompt}],
+    )
+    code_action = completion.choices[0].message.content
+    print(code_action)
+    # Judge Answer
+    completion = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[{"role":"user","content": f"""
+        Question: {question}
+        Answer: {code_action.choices[0].message.content}
+        Is the answer correct? Answer with True or False only.
+        """}],
+    )
+    judge = completion.choices[0].message.content
+    if judge.lower() == "true":
+        response.success = True
+        response.answer = code_action
+    return response
+
 
 class B2TextInterpreter(ExecutionEnvironment):
     
@@ -322,11 +265,10 @@ class B2TextInterpreter(ExecutionEnvironment):
             return code_blob
         raise InterpreterError("Invalid code blobs for Python template string.")
 
-    
-    def web_call(self, code_action: str) -> Optional[str]:
+    def get_file_data(self, code_action: str) -> Optional[str]:
         # Get Files from Memory
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
-        answer = None
+        data = None
         # Default to EXA Web if no files found
         if len(files) > 0:
             # Create Context
@@ -348,17 +290,47 @@ class B2TextInterpreter(ExecutionEnvironment):
                     data += f"Task: {task}\n"
                     data += f"Content: {file_content}\n"
                     data += "-" * 80 + "\n"
-                answer = answer_from_data(data, code_action)
-        # Default to EXA Web if no context found
-        if answer is None:
-            answer = get_exa_web_text(code_action)
+        return data
+    
+    
+    def save_data(self, code_action: str, answer: str) -> None:
         random_uuid = randint(0, 1000000)
         file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
         task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
-        if not answer.startswith("I am sorry"):
-            store_file(self.b2_config["bucket_name"], file_key, answer.encode("utf-8"))
-            store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))    
-        return answer
+        store_file(self.b2_config["bucket_name"], file_key, answer.encode("utf-8"))
+        store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))    
+        
+    def web_call(self, code_action: str) -> Optional[str]:
+        # Get Files from Memory
+        response: QuestionAnswer = QuestionAnswer(question=code_action, answer=None, success=False)
+        # Look in memory
+        file_data = self.get_file_data(code_action)
+        if file_data is not None:
+            response = answer_from_data(file_data, code_action)
+        # Look in EXA Web
+        if not response.success:
+            exa_answer = get_exa_web_text(code_action)
+            if not exa_answer.startswith("I am sorry"):
+                response.answer = exa_answer
+                response.success = True
+                self.save_data(code_action, exa_answer)
+            else:
+                response.answer = exa_answer
+                response.success = False
+        # Look in Web with Reasoning
+        if not response.success:
+            from agentcompany.extensions.tools.brave import brave_web_search
+            from agentcompany.extensions.tools.jina import get_url_as_text
+            search_urls = brave_web_search(code_action)
+            for url in search_urls:
+                text = get_url_as_text(url)
+                data = f"{file_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
+                response = answer_from_data(data, code_action)
+                if response.success:
+                    self.save_data(code_action, response.answer)
+                    break
+        
+        return response.answer
     
     def get_identifiers(self, code_action: str) -> List[str]:
         """
