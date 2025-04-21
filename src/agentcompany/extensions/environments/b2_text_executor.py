@@ -217,7 +217,7 @@ def answer_from_data(data: str, prompt: str) -> Optional[str]:
     client = OpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
     attempts = 0
     max_attempts = 3
-    response = None
+    response = QuestionAnswer(question=prompt, answer=None, success=False)
     
     while not response.success and attempts < max_attempts:
         
@@ -248,7 +248,7 @@ def answer_from_data(data: str, prompt: str) -> Optional[str]:
             from agentcompany.extensions.tools.brave import brave_web_search
             from agentcompany.extensions.tools.jina import get_url_as_text
             if attempts >= max_attempts:
-                return None
+                break
             if search_urls is None:    
                 search_urls = brave_web_search(prompt)
             elif len(search_urls) > 0:
@@ -257,8 +257,8 @@ def answer_from_data(data: str, prompt: str) -> Optional[str]:
                 data = f"{data}\n\n{url}\n\n{text}"
             attempts += 1
         else:
-            return response.answer
-
+            break 
+    return response.answer
 
 class B2TextInterpreter(ExecutionEnvironment):
     
