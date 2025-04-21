@@ -300,32 +300,39 @@ class B2TextInterpreter(ExecutionEnvironment):
     def call_web(self, code_action: str) -> Optional[str]:
         # Get Files from Memory
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
+        answer = None
         # Default to EXA Web if no files found
-        if len(files) == 0:
-            return get_exa_web_text(code_action)
-        # Create Context
-        content = {}
-        for index, file in enumerate(files, 1):
-            if file.endswith("content.txt"):
-                task_file = file.replace("content.txt", "task.txt")
-                if not check_key_exists(self.b2_config["bucket_name"], task_file):
-                    logger.warning(f"File {task_file} does not exist.")
-                    continue
-                task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
-                if quick_word_match(task_text, code_action, case_insensitive=True):
-                    content[file] = task_text   
+        if len(files) > 0:
+            # Create Context
+            content = {}
+            for index, file in enumerate(files, 1):
+                if file.endswith("content.txt"):
+                    task_file = file.replace("content.txt", "task.txt")
+                    if not check_key_exists(self.b2_config["bucket_name"], task_file):
+                        logger.warning(f"File {task_file} does not exist.")
+                        continue
+                    task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
+                    if quick_word_match(task_text, code_action, case_insensitive=True):
+                        content[file] = task_text   
+            if len(content) > 0:
+                data = ""
+                for file, task in content.items():
+                    file_content = get_text_from_key(self.b2_config["bucket_name"], file)
+                    data += f"File: {file}\n"
+                    data += f"Task: {task}\n"
+                    data += f"Content: {file_content}\n"
+                    data += "-" * 80 + "\n"
+                answer = answer_from_data(data, code_action)
         # Default to EXA Web if no context found
-        if len(content) == 0:
-            return get_exa_web_text(code_action)
-        data = ""
-        for file, task in content.items():
-            file_content = get_text_from_key(self.b2_config["bucket_name"], file)
-            data += f"File: {file}\n"
-            data += f"Task: {task}\n"
-            data += f"Content: {file_content}\n"
-            data += "-" * 80 + "\n"
-        return answer_from_data(data, code_action)
-        
+        if answer is None:
+            answer = get_exa_web_text(code_action)
+        random_uuid = randint(0, 1000000)
+        file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
+        task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
+        if not answer.startswith("I am sorry"):
+            store_file(self.b2_config["bucket_name"], file_key, answer.encode("utf-8"))
+            store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))    
+        return answer
     
     def get_identifiers(self, code_action: str) -> List[str]:
         """
@@ -335,16 +342,6 @@ class B2TextInterpreter(ExecutionEnvironment):
         template = Template(code_action)
         identifiers = template.get_identifiers()
         return identifiers
-    
-    def text_search(self, code_action: str) -> str:
-        response = self.call_web(code_action)
-        random_uuid = randint(0, 1000000)
-        file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
-        task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
-        if not response.startswith("I am sorry"):
-            store_file(self.b2_config["bucket_name"], file_key, response.encode("utf-8"))
-            store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))
-        return response
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
         code_action = collapse_dollar_runs(code_action)
