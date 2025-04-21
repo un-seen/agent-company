@@ -321,14 +321,13 @@ class B2TextInterpreter(ExecutionEnvironment):
             from agentcompany.extensions.tools.brave import brave_web_search
             from agentcompany.extensions.tools.jina import get_url_as_text
             search_urls = brave_web_search(code_action)
-            for search_result in search_urls:
-                url = search_result["url"]
+            if len(search_urls) > 0:
+                url = search_urls[0]["url"]
                 text = get_url_as_text(url)
                 data = f"{file_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
                 response = answer_from_data(data, code_action)
                 if response.success:
                     self.save_data(code_action, response.answer)
-                    break
         
         return response.answer
     
