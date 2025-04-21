@@ -217,7 +217,7 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
         messages=[{"role":"user","content": f"""
         QuestiPn: {question}
         Answer: {code_action}
-        Is the answer correct? Answer with True or False only.
+        Is the answer approximately correct? Answer with True or False only.
         """}],
     )
     judge = completion.choices[0].message.content
