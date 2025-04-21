@@ -257,6 +257,9 @@ class B2TextInterpreter(ExecutionEnvironment):
         self.storage = {}
         self.session_id = session_id
         self.static_tools = mcp_servers
+        self.task_memory: Dict[str, str] = {}
+        self.file_memory: Dict[str, str] = {}
+        self.setup_file_content()
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
     
     def parse_code_blob(self, code_blob: str) -> Template:
@@ -266,6 +269,20 @@ class B2TextInterpreter(ExecutionEnvironment):
             return code_blob
         raise InterpreterError("Invalid code blobs for Python template string.")
 
+    def setup_file_content(self) -> None:
+        files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
+        if len(files) > 0:
+            for index, file_key in enumerate(files, 1):
+                if file_key.endswith("content.txt"):
+                    task_file = file_key.replace("content.txt", "task.txt")
+                    if not check_key_exists(self.b2_config["bucket_name"], task_file):
+                        logger.warning(f"File {task_file} does not exist.")
+                        continue
+                    task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
+                    self.task_memory[file_key] = task_text   
+                    file_text = get_text_from_key(self.b2_config["bucket_name"], file_key)
+                    self.file_memory[file_key] = file_text
+                        
     def get_file_data(self, code_action: str) -> Optional[str]:
         # Get Files from Memory
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
@@ -273,23 +290,14 @@ class B2TextInterpreter(ExecutionEnvironment):
         # Default to EXA Web if no files found
         if len(files) > 0:
             # Create Context
-            content = {}
-            for index, file in enumerate(files, 1):
-                if file.endswith("content.txt"):
-                    task_file = file.replace("content.txt", "task.txt")
-                    if not check_key_exists(self.b2_config["bucket_name"], task_file):
-                        logger.warning(f"File {task_file} does not exist.")
-                        continue
-                    task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
-                    if quick_word_match(task_text, code_action, case_insensitive=True):
-                        content[file] = task_text   
-            if len(content) > 0:
-                data = ""
-                for file, task in content.items():
-                    file_content = get_text_from_key(self.b2_config["bucket_name"], file)
-                    data += f"File: {file}\n"
-                    data += f"Task: {task}\n"
-                    data += f"Content: {file_content}\n"
+            data = ""
+            for index, file_key in enumerate(self.file_memory, 1):
+                task_text = self.task_memory[file_key]
+                file_text = self.file_memory[file_key]
+                if len(task_text) > 0 and len(file_text) > 0 and quick_word_match(task_text, code_action, case_insensitive=True):
+                    data += f"File: {file_key}\n"
+                    data += f"Task: {task_text}\n"
+                    data += f"Content: {file_text}\n"
                     data += "-" * 80 + "\n"
         return data
     
