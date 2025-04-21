@@ -25,7 +25,7 @@ plan:
       
       Do not include any text which is not to be read by the user.
       
-      The variable must be compatible with Python String Template substition.
+      The variables must be compatible with Python String Template substition, which means thateach variable name must be presented in the format of $variable_name.
       
       Write the plain text report with variables.
     out_id: text_report
