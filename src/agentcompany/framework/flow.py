@@ -381,6 +381,7 @@ class FlowPattern(ModelContextProtocolImpl):
                     set_state_out_id(self.state, local_state, out_id, item)
                     next_step_index = 0
                     previous_environment_errors = None
+                    failures = 0
                     while next_step_index < len(next_steps):
                         next_step = next_steps[next_step_index]
                         next_step_out = next_step.get("out", "one_to_one")
@@ -396,9 +397,13 @@ class FlowPattern(ModelContextProtocolImpl):
                         # Run the next step
                         next_output, previous_environment_errors = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state, return_on_fail=True, previous_environment_errors=previous_environment_errors)
                         if next_output is None:
-                            # Keep previous_environment_errors
-                            next_step_index = 0
-                            set_state_out_id(self.state, local_state, out_id, item)
+                            failures += 1
+                            if failures > 3:
+                                next_step_index += 1
+                            else:
+                                # Keep previous_environment_errors
+                                next_step_index = 0
+                                set_state_out_id(self.state, local_state, out_id, item)
                             continue
                         else:
                             previous_environment_errors = None
