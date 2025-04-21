@@ -277,7 +277,8 @@ class B2TextInterpreter(ExecutionEnvironment):
             data += f"Task: {task}\n"
             data += f"Content: {file_content}\n"
             data += "-" * 80 + "\n"
-            
+        
+        print(f"get_file_text:\n\n {data}")
         return get_file_text(data, code_action)
         
     
