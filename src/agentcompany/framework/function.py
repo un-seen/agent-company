@@ -196,11 +196,15 @@ class FunctionPattern(ModelContextProtocolImpl):
             error_msg = self.executor_environment.parse_error_logs(error_msg)
             raise AgentError(f"Error in code parsing:\n{e}", self.logger) from e
         
-        if isinstance(context, dict):
+        # Case when context is singular then render the task with i
+        # TODO handle case when context has to render for multiple items individually
+        # in a single run call
+        if len(context) == 1:
             code_action = populate_template(
                 code_action,
                 variables=context
             )
+            
         self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
         try:
             observations, _, _ = self.executor_environment(
@@ -254,6 +258,8 @@ class FunctionPattern(ModelContextProtocolImpl):
         self.memory.append_step(TaskStep(task=self.task))
         task: str = task
         inputs: List[str] = inputs
+        if isinstance(context, dict):
+            context = [context]
         context: List[Dict[str, Any]] = context
         context_as_str = list_of_dict_to_markdown_table(context[:5])
         if not isinstance(task, str) or not isinstance(inputs, (list, str)) or not isinstance(context, (list, dict)):
