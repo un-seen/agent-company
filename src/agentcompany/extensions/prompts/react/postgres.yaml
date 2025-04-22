@@ -38,7 +38,7 @@ planning:
       Resolution: Select 'user' column
     
 executor_environment: 
-  interface: LocalPostgresInterpreter
+  interface: PostgresSqlInterpreter
   initial_facts_variables:
     - sql_schema
   config:

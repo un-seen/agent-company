@@ -45,7 +45,7 @@ FunctionUpdate: |-
   If the user has not provided any intent to change it or if changes are not allowed as per system rules, return `None`.  
 Series:
   - Source: SELECT * FROM project
-    SourceEnvironment: LocalPostgresInterpreter
+    SourceEnvironment: PostgresSqlInterpreter
     SourceEnvironmentConfig: 
       host: 127.0.0.1
       port: 5432
@@ -118,7 +118,7 @@ Series:
           DO UPDATE SET category = EXCLUDED.category,
                         set = EXCLUDED.set,
                         value = EXCLUDED.value;
-        Environment: LocalPostgresInterpreter
+        Environment: PostgresSqlInterpreter
         EnvironmentConfig: 
           host: 127.0.0.1
           port: 5432
