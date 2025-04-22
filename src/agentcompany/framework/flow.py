@@ -194,32 +194,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 "All managed agents need both a name and a description!"
             )
             self.mcp_servers = {server.name: server for server in mcp_servers}
-    
-    def _validate_observations(self, step: str, previous_observations: List[Observations]) -> PlanningStepStatus:
-        # Validate if next step is complete
-        variables = {
-            "role": self.description,
-            "task": step,
-            "observations": previous_observations,
-        }
-        message_prompt_plan = {
-            "role": MessageRole.USER,
-            "content": [
-                {
-                    "type": "text",
-                    "text": populate_template(
-                        self.prompt_templates["planning"]["validate_observations"],
-                        variables=variables,
-                    ),
-                }
-            ],
-        }
-        self.logger.log(text=message_prompt_plan["content"][0]["text"], title="Validate Observations Input:")
-        validate_answer_message: ChatMessage = self.model([message_prompt_plan])
-        self.validate_step = ValidateStep([message_prompt_plan], validate_answer_message)
-        self.logger.log(text=validate_answer_message.content, title="Validate Observations Output:")
-        return self.validate_step.to_decision()
-        
+            
     def run(
         self,
         task: str,
@@ -265,13 +240,9 @@ class FlowPattern(ModelContextProtocolImpl):
             # Execute vision
             self.executor_environment.state.update(self.state)
             self._execute_plan()
-            # TODO add a status table in markdown
-            status_table = self.get_status_table()
-            self.logger.log(text=status_table, title=f"Final Status ({self.interface_id}/{self.name}) :")
-            # Return final answer
             observations = self.get_final_answer()
         except AgentError as e:
-            self.logger.log(text=e.message, title="Error in Agent:")
+            self.logger.log(text=e.message, title="AgentError:")
             observations = pd.DataFrame([{"error": e.message}])
         
         return observations        
@@ -292,7 +263,7 @@ class FlowPattern(ModelContextProtocolImpl):
         if code_action is None:
             raise ValueError("No final answer found in the state.")
         try:
-            self.logger.log(text=f"{code_action}", title="Final Answer:")
+            self.logger.log(text=code_action, title="CodeAction:")
             known_variables = self.state.get("known_variables", {})
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
@@ -304,7 +275,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
             error_msg += str(e)
             error_msg = self.executor_environment.parse_error_logs(error_msg)
-            self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in code execution (get_final_answer):")
+            self.logger.log(text=error_msg, title="CodeActionError:")
             raise AgentExecutionError(error_msg, self.logger) from e
         
         self.state["current"] = observations
@@ -458,7 +429,7 @@ class FlowPattern(ModelContextProtocolImpl):
                     {"role": "user", "content": [{"type": "text", "text": error_str}]}
                 )        
             model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages_with_errors])
-            self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
+            self.logger.log(text=model_input_messages_str, title=f"LLM_Input({self.interface_id}/{self.name}):")
             try:
                 code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
             except Exception as e:
@@ -468,7 +439,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 try:
                     code_action = self.executor_environment.parse_code_blob(code_output_message.content)
                 except Exception as e:
-                    self.logger.log(text=f"Code: {code_output_message.content}\n\nError: {e}", title="Error in code parsing:")
+                    self.logger.log(text=f"Code: {code_output_message.content}\n\nError: {e}", title="Error in Code Parsing:")
                     error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
                     error_msg = self.executor_environment.parse_error_logs(error_msg)
                     previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
@@ -478,7 +449,7 @@ class FlowPattern(ModelContextProtocolImpl):
             else:
                 raise ValueError(f"Unknown return type: {return_type}")
         
-            self.logger.log(text=f"```{self.executor_environment.language} \n {code_action} \n```", title=f"Code Output ({self.interface_id}/{self.name}):")
+            self.logger.log(text=code_action, title=f"LLM_Output({self.interface_id}/{self.name}):")
         
             if action_type == "execute":
                 try:
@@ -489,14 +460,13 @@ class FlowPattern(ModelContextProtocolImpl):
                         },
                         return_type="string"
                     )
-                    self.logger.log(text=observations, title=f"Output from code execution: {len(observations)} characters")
                 except Exception as e:
                     error_msg = "Error in Code Execution: \n"
                     if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
                         error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
                     error_msg += str(e)
                     error_msg = self.executor_environment.parse_error_logs(error_msg)
-                    self.logger.log(text=f"Code: {code_action}\n\nError: {error_msg}", title="Error in Code Execution:")
+                    self.logger.log(text=error_msg, title="CodeActionError:")
                     previous_environment_errors.append({"code": code_action, "error": error_msg})
                     continue
             elif action_type == "skip":
@@ -531,8 +501,7 @@ class FlowPattern(ModelContextProtocolImpl):
             decision = self.judge_step.to_decision()
             feedback = self.judge_step.get_feedback_content()
 
-            self.logger.log(text=self.judge_step.model_output_message.content, title=f"Judge Output ({self.interface_id}/{self.name}):")
-            self.logger.log(text=decision, title=f"Judge Decision ({self.interface_id}/{self.name}):")
+            self.logger.log(text=self.judge_step.model_output_message.content, title=f"Judge Output ({self.interface_id}/{self.name}): {decision}")
 
             if decision == "approve":
                 break
