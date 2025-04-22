@@ -89,7 +89,7 @@ def set_state_out_id(global_state: dict, state: dict, out_id: str, output: Any) 
     """
     Set the out_id in the state.
     """
-    if out_id.startswith("$"):
+    if out_id and out_id.startswith("$"):
         out_id = out_id[1:]
         out_id = state[out_id]
         if not 'known_variables' in state:
@@ -101,8 +101,10 @@ def set_state_out_id(global_state: dict, state: dict, out_id: str, output: Any) 
         global_state["known_variables"][out_id] = output
         if "final_answer" in state:
             state["final_answer"] = Template(state["final_answer"]).render(**state["known_variables"])
-    state[out_id] = output
-    state["current"] = output
+    if out_id:
+        state[out_id] = output
+    if output:
+        state["current"] = output
         
 
 class FlowPattern(ModelContextProtocolImpl):
