@@ -441,7 +441,6 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                     sql.SQL("{} JSONB").format(col) for col in columns
                 )
                 data = json.dumps(observations, default=json_serial)
-                print(f"Storage Data: {data}")
                 # Create view with dynamic columns
                 create_view = sql.SQL("""
                     CREATE VIEW {table} AS
