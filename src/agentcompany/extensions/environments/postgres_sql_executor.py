@@ -440,19 +440,21 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                 column_defs = sql.SQL(', ').join(
                     sql.SQL("{} JSONB").format(col) for col in columns
                 )
-                
+                data = json.dumps(observations, default=json_serial)
+                print(f"Storage Data: {data}")
                 # Create view with dynamic columns
                 create_view = sql.SQL("""
                     CREATE VIEW {table} AS
                     SELECT *
-                    FROM jsonb_to_recordset(%s::JSONB) AS t({columns})
+                    FROM jsonb_to_recordset({data}::JSONB) AS t({columns})
                 """).format(
                     table=sql.Identifier(temp_table_name),
-                    columns=column_defs
+                    columns=column_defs,
+                    date=sql.SQL(data)
                 )
                 
                 # Execute with observations JSON
-                cur.execute(create_view, (json.dumps(observations, default=json_serial)))
+                cur.execute(create_view, ())
             else:
                 # Create the temp table with the result of the code_action query
                 code_action = code_action.strip(';')
