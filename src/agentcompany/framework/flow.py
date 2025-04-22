@@ -341,8 +341,8 @@ class FlowPattern(ModelContextProtocolImpl):
             hint for hint in prompt_hints
             if any(keyword.lower() in step_lower for keyword in hint.get("keyword", []))
         ]
-        prompt_hints = list_of_dict_to_markdown_table(prompt_hints)
         if len(prompt_hints) > 0:
+            prompt_hints = list_of_dict_to_markdown_table(prompt_hints)
             self.state["hint"] = f"""
             ## Hints
             

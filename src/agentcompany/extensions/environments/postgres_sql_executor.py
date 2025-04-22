@@ -240,6 +240,9 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         self.pg_conn.close()
         self.pg_conn = psycopg2.connect(**self.pg_config)
 
+    def get_view_list(self, code_action: str):
+        
+        
     def parse_error_logs(self, execution_logs: str) -> str:
         # Regex pattern to capture the full InterpreterError including multiline messages
         lines = execution_logs.split('\n')
