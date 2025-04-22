@@ -355,7 +355,6 @@ class FlowPattern(ModelContextProtocolImpl):
         plan: List[Node] = self.prompt_templates["plan"]
         i = 0
         self.setup_hint()
-        self.state["mcp_servers"] = self.mcp_servers
         while i < len(plan):
             node = plan[i]
             step = node["step"]
@@ -364,7 +363,9 @@ class FlowPattern(ModelContextProtocolImpl):
             action_type = node.get("action", "execute")
             return_type = node.get("return_type", "string")
             # Replace placeholders in the step with values from state
-            prompt = populate_template(step, variables=self.state)
+            variables = copy.deepcopy(self.state)
+            variables["mcp_servers"] = self.mcp_servers
+            prompt = populate_template(step, variables=variables)
             self.logger.log(text=f"Out={out} | Out_id={out_id}", title=f"Step {i} ({self.interface_id}/{self.name}):")
             if out == "one_to_many":
                 output, _ = self._run_step(prompt, action_type, return_type, self.state)
@@ -378,6 +379,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 next_steps = plan[i + 1:]
                 for item in output:
                     local_state = copy.deepcopy(self.state)
+                    local_state["mcp_servers"] = self.mcp_servers
                     set_state_out_id(self.state, local_state, out_id, item)
                     next_step_index = 0
                     previous_environment_errors = None
