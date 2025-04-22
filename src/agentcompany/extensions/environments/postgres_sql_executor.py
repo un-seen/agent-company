@@ -275,7 +275,10 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         self.pg_conn = psycopg2.connect(**self.pg_config)
 
     def get_view_list(self, code_action: str):
+        code_action = self.parse_code_blob(code_action)
+        logger.info(f"Input Code Action: {code_action}")
         table_list: List[str] = list_sql_tables(code_action)
+        logger.info(f"Table list: {table_list}")
         view_list = []
         for table in table_list:
             if table.lower().endswith("_view"):
