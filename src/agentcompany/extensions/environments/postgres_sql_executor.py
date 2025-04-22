@@ -450,7 +450,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                 """).format(
                     table=sql.Identifier(temp_table_name),
                     columns=column_defs,
-                    date=sql.SQL(data)
+                    data=sql.SQL(data)
                 )
                 
                 # Execute with observations JSON
