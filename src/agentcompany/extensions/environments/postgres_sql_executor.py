@@ -189,7 +189,66 @@ def evaluate_sql_code(
         error_trace = traceback.format_exc()
         error_msg = f"Code execution failed at node '{node}' in code '{code}' due to exception:\n{error_trace}"
         raise InterpreterError(error_msg)
-    
+
+
+def extract_table_names(sql):
+    # Remove SQL comments to avoid false matches
+    sql = re.sub(r'--.*', '', sql)  # Single-line comments
+    sql = re.sub(r'/\*.*?\*/', '', sql, flags=re.DOTALL)  # Multi-line comments
+
+    # Regular expression pattern to match table names (including quoted and schema-qualified)
+    table_pattern = r'''
+        (?:                             # Non-capturing group for the entire table name
+            \[ [^\]]* \]               | # Square brackets quoted
+            " [^"]* "                  | # Double quotes quoted
+            ` [^`]* `                  | # Backticks quoted
+            [^\s,)(]+                    # Unquoted identifier (no spaces, commas, parentheses)
+        )
+        (?:                             # Optional schema qualifier
+            \.                          # Dot separator
+            (?:
+                \[ [^\]]* \]           |
+                " [^"]* "              |
+                ` [^`]* `              |
+                [^\s,)(]+
+            )
+        )*
+    '''
+
+    # Regular expression to find relevant clauses and capture the table list
+    clause_regex = re.compile(
+        fr'''(?i)\b(?:FROM|JOIN|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+ 
+        (({table_pattern}\s*(?:\s*,\s*{table_pattern}\s*)*)+)''',
+        re.VERBOSE
+    )
+
+    table_names = []
+
+    # Find all clauses that contain tables
+    for match in clause_regex.finditer(sql):
+        tables_str = match.group(1)
+
+        # Split tables by commas, handling possible whitespace
+        tables = re.split(r'\s*,\s*', tables_str)
+
+        for table in tables:
+            # Remove any alias (split on whitespace or 'AS' and take the first part)
+            table_name = re.split(r'\s+(?:AS\s+)?', table, maxsplit=1)[0]
+
+            # Remove surrounding quotes or brackets
+            if table_name.startswith(('"', '[', '`')):
+                table_name = table_name[1:-1]
+            table_names.append(table_name)
+
+    # Remove duplicates while preserving order (Python 3.7+)
+    seen = set()
+    unique_tables = []
+    for name in table_names:
+        if name.lower() not in seen:
+            seen.add(name.lower())
+            unique_tables.append(name)
+
+    return unique_tables
     
 class PostgresSqlInterpreter(ExecutionEnvironment):
     
@@ -241,8 +300,14 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         self.pg_conn = psycopg2.connect(**self.pg_config)
 
     def get_view_list(self, code_action: str):
-        
-        
+        table_list: List[str] = extract_table_names(code_action)
+        view_list = []
+        for table in table_list:
+            if table.lower().endswith("_view"):
+                view_list.append(table)
+        logger.info(f"View list: {view_list}")
+        return view_list
+    
     def parse_error_logs(self, execution_logs: str) -> str:
         # Regex pattern to capture the full InterpreterError including multiline messages
         lines = execution_logs.split('\n')
