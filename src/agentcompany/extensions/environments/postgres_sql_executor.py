@@ -191,64 +191,39 @@ def evaluate_sql_code(
         raise InterpreterError(error_msg)
 
 
-def extract_table_names(sql):
-    # Remove SQL comments to avoid false matches
-    sql = re.sub(r'--.*', '', sql)  # Single-line comments
-    sql = re.sub(r'/\*.*?\*/', '', sql, flags=re.DOTALL)  # Multi-line comments
+def list_sql_tables(sql: str) -> list[str]:
+    """
+    Return every table referenced in an SQL string using sqlglot's parser.
 
-    # Regular expression pattern to match table names (including quoted and schema-qualified)
-    table_pattern = r'''
-        (?:                             # Non-capturing group for the entire table name
-            \[ [^\]]* \]               | # Square brackets quoted
-            " [^"]* "                  | # Double quotes quoted
-            ` [^`]* `                  | # Backticks quoted
-            [^\s,)(]+                    # Unquoted identifier (no spaces, commas, parentheses)
-        )
-        (?:                             # Optional schema qualifier
-            \.                          # Dot separator
-            (?:
-                \[ [^\]]* \]           |
-                " [^"]* "              |
-                ` [^`]* `              |
-                [^\s,)(]+
+    Parameters
+    ----------
+    sql : str
+        One or more SQL statements (any dialect that sqlglot supports).
+
+    Returns
+    -------
+    list[str]
+        Table names (schema‑qualified when present) in the order they appear,
+        duplicates removed case‑insensitively.
+    """
+    # sqlglot.parse returns a list in case the string contains ≥1 statement
+    statements = sqlglot.parse(sql, error_level="ignore")
+
+    seen, ordered = set(), []
+    for stmt in statements:
+        # Walk the AST: every Table node = physical table reference
+        for tbl in stmt.find_all(sqlglot.exp.Table):
+            # Build fully‑qualified name: [catalog].[db].[table] (skip Nones)
+            full_name = ".".join(
+                part for part in (tbl.catalog, tbl.db, tbl.name) if part
             )
-        )*
-    '''
+            key = full_name.lower()
+            if key not in seen:
+                seen.add(key)
+                ordered.append(full_name)
 
-    # Regular expression to find relevant clauses and capture the table list
-    clause_regex = re.compile(
-        fr'''(?i)\b(?:FROM|JOIN|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+ 
-        (({table_pattern}\s*(?:\s*,\s*{table_pattern}\s*)*)+)''',
-        re.VERBOSE
-    )
+    return ordered
 
-    table_names = []
-
-    # Find all clauses that contain tables
-    for match in clause_regex.finditer(sql):
-        tables_str = match.group(1)
-
-        # Split tables by commas, handling possible whitespace
-        tables = re.split(r'\s*,\s*', tables_str)
-
-        for table in tables:
-            # Remove any alias (split on whitespace or 'AS' and take the first part)
-            table_name = re.split(r'\s+(?:AS\s+)?', table, maxsplit=1)[0]
-
-            # Remove surrounding quotes or brackets
-            if table_name.startswith(('"', '[', '`')):
-                table_name = table_name[1:-1]
-            table_names.append(table_name)
-
-    # Remove duplicates while preserving order (Python 3.7+)
-    seen = set()
-    unique_tables = []
-    for name in table_names:
-        if name.lower() not in seen:
-            seen.add(name.lower())
-            unique_tables.append(name)
-
-    return unique_tables
     
 class PostgresSqlInterpreter(ExecutionEnvironment):
     
@@ -300,7 +275,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         self.pg_conn = psycopg2.connect(**self.pg_config)
 
     def get_view_list(self, code_action: str):
-        table_list: List[str] = extract_table_names(code_action)
+        table_list: List[str] = list_sql_tables(code_action)
         view_list = []
         for table in table_list:
             if table.lower().endswith("_view"):
