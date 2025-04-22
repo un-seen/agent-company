@@ -120,7 +120,7 @@ def evaluate_ast(pg_conn, node, state, static_tools: Dict[str, ModelContextProto
             raise InterpreterError(f"Error executing SQL: {error_msg}")
     else:
         raise InterpreterError(f"Unsupported AST node type: {type(node)}")
-    
+        
         
 def evaluate_sql_code(
     pg_conn,

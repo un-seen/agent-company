@@ -38,59 +38,21 @@ plan:
       {%- endfor %}
       {%- endif %}
 
-      You have to solve the task by computing a result table created using existing tables in the database.
-
-      Just assume all the required views that can have transformed column values from existing table values are already created in the database.
-
-      You have to write a select SQL statement to compute the result table using the available views.
-
       {%- if filtered_hints_str and filtered_hints_str|length > 0 %}
       {{ filtered_hints_str }}
       {% endif %}
 
+      You have to solve the task by writing a SQL Select Statement for a result table created using existing tables in the database.
+
+      You can use existence of required views that allows you compute the result table in a single select statement.
+
+      The views are created using existing tables in the database. You can use the views to compute the result table.      
     out_id: result_table
     action: final_answer
-  - step: |-  
-      Here is the task:
-      ```
-      {{task}}
-      ```
-
-      Here is the database description:
-      ```
-      {{ database.description }}
-      ```
-
-      Here are the tables in the database:
-      ````
-      {%- for table in database.tables %}
-        - Table: {{ table.name }}
-          Columns:
-            {%- for column in table.columns %}
-            - {{ column.name }}: {{ column.description }}
-            {%- endfor %}
-      {%- endfor %}
-      ````
-
-      {%- if mcp_servers and mcp_servers.values()|length > 0 %}
-      These functions are used to complete a step efficiently.
-      {%- for server in mcp_servers.values() %}
-      - {{ server.name }}: {{ server.description }}
-          Takes inputs: {{server.inputs}}
-          Returns an output of type: {{server.output_type}}
-      {%- endfor %}
-      {%- endif %}
-
-      You came up with the following result table:
-
-      ```
-      {{ result_table }}
-      ```
-
-      Please list the views that are assumed to be created in the database to compute the result table.
+  - step: get_view_list
     out: one_to_many
     out_id: view_table
-    action: skip
+    action: environment
     return_type: list
   - step: |-
       Here is the task:
