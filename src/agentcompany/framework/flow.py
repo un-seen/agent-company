@@ -263,7 +263,7 @@ class FlowPattern(ModelContextProtocolImpl):
         if code_action is None:
             raise ValueError("No final answer found in the state.")
         try:
-            self.logger.log(text=code_action, title="CodeAction:")
+            self.logger.log(code=code_action, title="CodeAction:")
             known_variables = self.state.get("known_variables", {})
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
@@ -449,7 +449,7 @@ class FlowPattern(ModelContextProtocolImpl):
             else:
                 raise ValueError(f"Unknown return type: {return_type}")
         
-            self.logger.log(text=code_action, title=f"LLM_Output({self.interface_id}/{self.name}):")
+            self.logger.log(code=code_action, title=f"LLM_Output({self.interface_id}/{self.name}):")
         
             if action_type == "execute":
                 try:
