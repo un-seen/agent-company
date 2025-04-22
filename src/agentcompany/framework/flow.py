@@ -293,9 +293,10 @@ class FlowPattern(ModelContextProtocolImpl):
             raise ValueError("No final answer found in the state.")
         try:
             self.logger.log(text=f"{code_action}", title="Final Answer:")
+            known_variables = self.state.get("known_variables", {})
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
-                additional_variables=self.state["known_variables"],
+                additional_variables=known_variables,
             )
             self.logger.log(text=observations, title="Final Answer Observations:")
         except Exception as e:
