@@ -298,7 +298,6 @@ class FlowPattern(ModelContextProtocolImpl):
                 code_action=code_action,
                 additional_variables=known_variables,
             )
-            self.logger.log(text=observations, title="Final Answer Observations:")
         except Exception as e:
             error_msg = "Error in Code Execution: \n"
             if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
