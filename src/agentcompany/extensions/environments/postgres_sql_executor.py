@@ -1,6 +1,7 @@
 import re
 import copy
 import sqlglot
+from datetime import datetime, date
 from psycopg2 import sql
 import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -224,7 +225,14 @@ def list_sql_tables(sql: str) -> list[str]:
 
     return ordered
 
-    
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
 class PostgresSqlInterpreter(ExecutionEnvironment):
     
     language: str = "sql"
@@ -443,7 +451,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                 )
                 
                 # Execute with observations JSON
-                cur.execute(create_view, (json.dumps(observations)))
+                cur.execute(create_view, (json.dumps(observations, default=json_serial)))
             else:
                 # Create the temp table with the result of the code_action query
                 code_action = code_action.strip(';')
