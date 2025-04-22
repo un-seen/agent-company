@@ -249,11 +249,8 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
             "user": user,
             "password": password
         }
-        logger.info(f"Connecting to the database {dbname} on {host}:{port}")
         self.pg_conn = psycopg2.connect(**self.pg_config)
-        
         self.sql_schema = []
-        logger.info("Fetching schema from the database")
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
             tables = [row["table_name"] for row in cur.fetchall()]
