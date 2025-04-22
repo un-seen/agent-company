@@ -288,6 +288,7 @@ class FlowPattern(ModelContextProtocolImpl):
     
     def get_final_answer(self) -> Any:
         code_action = self.state.get("final_answer", None)
+        code_action = self.executor_environment.parse_code_blob(code_action)
         if code_action is None:
             raise ValueError("No final answer found in the state.")
         try:

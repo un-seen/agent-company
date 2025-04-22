@@ -265,9 +265,9 @@ class B2TextInterpreter(ExecutionEnvironment):
     def parse_code_blob(self, code_blob: str) -> Template:
         code_blob = code_blob.strip()
         t = Template(code_blob)
-        if isinstance(t.get_identifiers(), list):
-            return code_blob
-        raise InterpreterError("Invalid code blobs for Python template string.")
+        if not t.is_valid():
+            raise InterpreterError("Invalid code blobs for Python template string.")
+        return code_blob
 
     def setup_file_content(self) -> None:
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
