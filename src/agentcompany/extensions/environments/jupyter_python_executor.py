@@ -135,8 +135,11 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         os.makedirs(self.notebook_path, exist_ok=True)
         
         # Initialize kernel
+        logger.info("Starting Jupyter kernel...")
         self.km: KernelManager = KernelManager()
         self.km.start_kernel()
+        # Set the kernel connection file
+        logger.info("Kernel connection file: %s", self.km.connection_file)
         self.kc = self.km.client()
         self.kc.start_channels()
         
