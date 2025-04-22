@@ -355,6 +355,7 @@ class FlowPattern(ModelContextProtocolImpl):
         plan: List[Node] = self.prompt_templates["plan"]
         i = 0
         self.setup_hint()
+        self.state["mcp_servers"] = self.mcp_servers
         while i < len(plan):
             node = plan[i]
             step = node["step"]
@@ -363,11 +364,10 @@ class FlowPattern(ModelContextProtocolImpl):
             action_type = node.get("action", "execute")
             return_type = node.get("return_type", "string")
             # Replace placeholders in the step with values from state
-            template: Template = Template(step)
-            rendered_step = template.render(**self.state)
+            prompt = populate_template(step, variables=self.state)
             self.logger.log(text=f"Out={out} | Out_id={out_id}", title=f"Step {i} ({self.interface_id}/{self.name}):")
             if out == "one_to_many":
-                output, _ = self._run_step(rendered_step, action_type, return_type, self.state)
+                output, _ = self._run_step(prompt, action_type, return_type, self.state)
 
                 if not isinstance(output, list):
                     raise ValueError(f"Expected list output for 'one_to_many', got {type(output)}")
@@ -391,11 +391,10 @@ class FlowPattern(ModelContextProtocolImpl):
                         next_step_out_id = next_step.get("out_id")
                         next_step_action_type = next_step.get("action", "execute")
                         next_step_return_type = next_step.get("return_type", "string")
-                        template_next: Template = Template(next_step["step"])
                         # Render the step
-                        rendered_next_step = template_next.render(**local_state)
+                        next_prompt = populate_template(next_step["step"], variables=local_state)
                         # Run the next step
-                        next_output, previous_environment_errors = self._run_step(rendered_next_step, next_step_action_type, next_step_return_type, local_state, return_on_fail=True, previous_environment_errors=previous_environment_errors)
+                        next_output, previous_environment_errors = self._run_step(next_prompt, next_step_action_type, next_step_return_type, local_state, return_on_fail=True, previous_environment_errors=previous_environment_errors)
                         if next_output is None:
                             print(f"Step {i} failed with error: {previous_environment_errors}")
                             failures += 1
@@ -415,12 +414,12 @@ class FlowPattern(ModelContextProtocolImpl):
                 break  # Exiting the loop as subsequent steps were processed already
 
             elif out == "one_to_one":
-                output, _ = self._run_step(rendered_step, action_type, return_type, self.state)
+                output, _ = self._run_step(prompt, action_type, return_type, self.state)
                 set_state_out_id(self.state, self.state, out_id, output)
             elif out == "many_to_one":
                 if not isinstance(self.state["current"], list):
                     raise ValueError("Expected list in 'current' for 'many_to_one'")
-                output, _ = self._run_step(rendered_step, action_type, return_type, self.state)
+                output, _ = self._run_step(prompt, action_type, return_type, self.state)
                 set_state_out_id(self.state, self.state, out_id, output)
             i += 1
                 
