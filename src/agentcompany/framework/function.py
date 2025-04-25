@@ -296,6 +296,7 @@ class FunctionPattern(ModelContextProtocolImpl):
             variables={
                 "task": task,
                 "inputs": inputs,
+                "context": context,
                 "context_as_str": context_as_str,
                 "main_choice": main_choice,
             }

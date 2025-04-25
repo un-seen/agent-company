@@ -39,7 +39,7 @@ main: |-
     {{ task }}
     ```
     
-    {%- if context_as_str and context_as_str|length > 0 %}
+    {%- if context and context|length > 0 %}
     The sample data provided as input:
     ```
     {{ context_as_str }}
