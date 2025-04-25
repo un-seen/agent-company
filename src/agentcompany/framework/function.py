@@ -203,11 +203,11 @@ class FunctionPattern(ModelContextProtocolImpl):
         code_content = main_choice[self.executor_environment.language]
         self.logger.log(text=code_content, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
         variables = {}
-        print(f"main_choice: {main_choice}")
+        self.logger.log(title=f"main_choice: {main_choice}")
         if len(main_choice["argument"]) > 0:
             argument_list = main_choice["argument"]
             argument_dict = self.extract_argument(code_content, argument_list)
-            print(f"argument_dict: {argument_dict}")
+            self.logger.log(f"argument_dict: {argument_dict}")
             variables.update(argument_dict)
         # TODO handle case when context has to render for multiple items individually
         # in a single run call
