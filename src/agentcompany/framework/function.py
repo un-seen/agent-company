@@ -291,6 +291,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         main_prompt = self.prompt_templates["main"]
         main_choice = self.prompt_templates["main_choice"]
         context_as_str = list_of_dict_to_markdown_table(context[:5]) if len(context) > 0 else ""
+        print(f"context_as_str: {context_as_str} | {len(context)}")
         input_message = populate_template(
             main_prompt,
             variables={
