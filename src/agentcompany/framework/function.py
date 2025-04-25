@@ -204,6 +204,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         self.logger.log(text=code_content, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
         argument_list = main_choice["argument"]
         argument_dict = self.extract_argument(code_content, argument_list)
+        print(f"argument_dict: {argument_dict}")
         code_content = populate_template(
             code_content,
             variables=argument_dict
