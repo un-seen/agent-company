@@ -19,6 +19,10 @@ from agentcompany.llms.monitoring import (
     AgentLogger,
 )
 import copy
+from agentcompany.llms.base import (
+    AugmentedLLM,
+    
+)
 from typing_extensions import Literal
 from agentcompany.llms.base import (
     ReturnType
@@ -39,6 +43,7 @@ from typing import TypedDict
 from agentcompany.framework.prompt_template import ExecutionEnvironmentConfig, populate_template
 from agentcompany.llms.base import (
     ChatMessage,
+    Argument,
     BaseLLM
 )
 from agentcompany.llms.utils import (
@@ -168,6 +173,14 @@ class FunctionPattern(ModelContextProtocolImpl):
             messages.extend(memory_step.to_messages())
         return messages
     
+    def extract_argument(self, code_content: str, argument_list: list[Argument]) -> dict[str, str]:
+        """
+        Extracts the argument from the code content.
+        """
+        llm: AugmentedLLM = self.model
+        output: Dict[str, Any] = llm.function_call(code_content, argument=argument_list)
+        return output
+    
     def execute_main_choice(self, model_input_messages: list[dict[str, any]], context: list[dict[str, any]]) -> Tuple[str, Any]:
         model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
         self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
@@ -189,9 +202,16 @@ class FunctionPattern(ModelContextProtocolImpl):
             raise ValueError(f"Choice ID '{choice_id}' not found in main choices.")
         code_content = main_choice[self.executor_environment.language]
         self.logger.log(text=code_content, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
+        argument_list = main_choice["argument"]
+        argument_dict = self.extract_argument(code_content, argument_list)
+        code_content = populate_template(
+            code_content,
+            variables=argument_dict
+        )
         try:
             code_action = self.executor_environment.parse_code_blob(code_content)
         except Exception as e:
+            
             error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
             error_msg = self.executor_environment.parse_error_logs(error_msg)
             raise AgentError(f"Error in code parsing:\n{e}", self.logger) from e

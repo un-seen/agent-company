@@ -4,11 +4,22 @@ from agentcompany.llms.utils import (
 )
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.llms.utils import ChatMessage
-from typing import Dict, List, Optional, Callable, Literal
+from typing import Dict, List, Optional, Callable, Literal, Type, Union, Any, TypedDict
+from pydantic import BaseModel
+import abc
+
 
 BaseLLM = Callable[[List[Dict[str, str]]], ChatMessage]
 ReturnType = Literal["list", "string"]
 
+class Argument(TypedDict):
+    """
+    Argument for the Agent Flow
+    """
+    name: str
+    description: str
+    
+    
 class AugmentedLLM:
     def __init__(self, **kwargs):
         self.last_input_token_count = None
@@ -66,6 +77,29 @@ class AugmentedLLM:
             "output_token_count": self.last_output_token_count,
         }
 
+    @abc.abstractmethod
+    def structured_output(
+        self,
+        prompt: str,
+        output_schema: Type[BaseModel],
+        **kwargs,
+    ) -> Union[BaseModel, None]:
+        raise NotImplementedError(
+            "The structured_output method must be implemented in a child class."
+        )
+    
+    @abc.abstractmethod
+    def function_call(
+        self,
+        prompt: str,
+        name: str, 
+        description: str, 
+        argument: List[Argument]
+    ) -> Union[Dict[str, Any], None]:
+        raise NotImplementedError(
+            "The function_call method must be implemented in a child class."
+        )
+        
     def __call__(
         self,
         messages: List[Dict[str, str]],

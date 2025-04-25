@@ -1,9 +1,9 @@
 import json
 import os
 from agentcompany.llms.base import AugmentedLLM
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union, Tuple, Any
 from agentcompany.llms.utils import ChatMessage
-from agentcompany.llms.base import ReturnType
+from agentcompany.llms.base import ReturnType, Argument
 import logging
 from pydantic import BaseModel
 
@@ -139,6 +139,37 @@ class OpenAIServerLLM(AugmentedLLM):
         
         return prompt
     
+    def function_call(self, prompt: str, name: str, description: str, argument_list: List[Argument]) -> Union[Tuple[str, Dict[str, str]], None]:
+        
+        output_schema = {
+            "type": "object",
+            "properties": {
+                arg["name"]: {
+                    "type": "string",
+                    "description": arg["description"]
+                } for arg in argument_list
+            }
+        }
+        
+        tool = {
+            "type": "function",
+            "name": name,
+            "description": description,
+            "parameters": {
+                "type": "object",
+                "properties": output_schema,
+                "required": [arg["name"] for arg in argument_list],
+                "additionalProperties": False
+            }
+        }
+        logger.info(f"Tool: {tool}")
+        response = self.client.responses.create(
+            model=self.model_id,
+            input=[{"role": "user", "content": "Can you send an email to ilan@example.com and katia@example.com saying hi?"}],
+            tools=[tool]
+        )
+        return response.output
+
     def structured_output(
         self,
         prompt: str,
