@@ -67,4 +67,4 @@ main: |-
 
     {%- endfor %}
 
-    You have to return the choice_id of the main function choice that can take as input the preprocessing code output and solve the task.
+    You have to return the choice_id of the applicable next step, or return `None` if no step is applicable.

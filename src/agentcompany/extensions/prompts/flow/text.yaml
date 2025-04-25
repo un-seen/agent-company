@@ -13,6 +13,12 @@ plan:
       {{ task }}
       ```
 
+      {%- if hint and hint|length > 0 %}
+      
+      {{ hint }}
+      {% endif %}
+
+
       You have to complete the task by writing a plain text report. Do not include any markdown or any other formatting.
       
       The report must have a structure that is easy to read and understand.
