@@ -39,10 +39,14 @@ main: |-
     {{ task }}
     ```
     
+    {%- if context_as_str and context_as_str|length > 0 %}
     The sample data provided as input:
     ```
     {{ context_as_str }}
     ```
+    {% endif %}
+
+    
 
     The main input features for the function:
     {%- for input in inputs %}
