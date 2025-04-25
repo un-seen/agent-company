@@ -50,12 +50,7 @@ main: |-
         - {{ input }}
     {%- endfor %}
 
-    {% endif %}
-
-    
-
-    
-    
+    {%- endif %}
 
     Main function choices:
 
