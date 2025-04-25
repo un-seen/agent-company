@@ -202,13 +202,23 @@ class FunctionPattern(ModelContextProtocolImpl):
             raise ValueError(f"Choice ID '{choice_id}' not found in main choices.")
         code_content = main_choice[self.executor_environment.language]
         self.logger.log(text=code_content, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
-        argument_list = main_choice["argument"]
-        argument_dict = self.extract_argument(code_content, argument_list)
-        print(f"argument_dict: {argument_dict}")
-        code_content = populate_template(
-            code_content,
-            variables=argument_dict
-        )
+        variables = {}
+        print(f"main_choice: {main_choice}")
+        if len(main_choice["argument"]) > 0:
+            argument_list = main_choice["argument"]
+            argument_dict = self.extract_argument(code_content, argument_list)
+            print(f"argument_dict: {argument_dict}")
+            variables.update(argument_dict)
+        # TODO handle case when context has to render for multiple items individually
+        # in a single run call
+        if len(context) == 1:
+            variables.update(self.executor_environment.parse_context(context[0]))
+        # Populate the code content with the context
+        code_action = populate_template(
+            code_action,
+            variables=variables
+        )   
+        self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
         try:
             code_action = self.executor_environment.parse_code_blob(code_content)
         except Exception as e:
@@ -217,16 +227,6 @@ class FunctionPattern(ModelContextProtocolImpl):
             error_msg = self.executor_environment.parse_error_logs(error_msg)
             raise AgentError(f"Error in code parsing:\n{e}", self.logger) from e
         
-        # Case when context is singular then render the task with i
-        # TODO handle case when context has to render for multiple items individually
-        # in a single run call
-        if len(context) == 1:
-            code_action = populate_template(
-                code_action,
-                variables=self.executor_environment.parse_context(context[0])
-            )
-            
-        self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
         try:
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
