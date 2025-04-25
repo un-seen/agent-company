@@ -44,15 +44,17 @@ main: |-
     ```
     {{ context_as_str }}
     ```
+
+    The main input features for the function:
+    {%- for input in inputs %}
+        - {{ input }}
+    {%- endfor %}
+
     {% endif %}
 
     
 
-    The main input features for the function:
-    {%- for input in inputs %}
-
-        - {{ input }}
-    {%- endfor %}
+    
     
 
     Main function choices:
