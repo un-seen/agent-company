@@ -282,7 +282,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         if isinstance(context, dict):
             context = [context]
         context: List[Dict[str, Any]] = context
-        context_as_str = list_of_dict_to_markdown_table(context[:5])
+        
         if not isinstance(task, str) or not isinstance(inputs, (list, str)) or not isinstance(context, (list, dict)):
             raise ValueError("Task should be a string, inputs should be a list of strings, and context should be a list of dictionaries.")
         
@@ -290,6 +290,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         # Input Message
         main_prompt = self.prompt_templates["main"]
         main_choice = self.prompt_templates["main_choice"]
+        context_as_str = list_of_dict_to_markdown_table(context[:5]) if len(context) > 0 else ""
         input_message = populate_template(
             main_prompt,
             variables={
