@@ -163,7 +163,7 @@ class OpenAIServerLLM(AugmentedLLM):
                 "additionalProperties": False
             }
         }
-        logger.info(f"Tool: {tool}")
+        print(f"Tool: {tool} Prompt: {prompt}")
         response = self.client.responses.create(
             model=self.model_id,
             input=[{"role": "user", "content": prompt}],
