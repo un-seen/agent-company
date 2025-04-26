@@ -160,13 +160,11 @@ class OpenAIServerLLM(AugmentedLLM):
                 "additionalProperties": False
             }
         }
-        print(f"tool: {tool} Prompt: {prompt}")
         response = self.client.responses.create(
             model=self.model_id,
             input=[{"role": "user", "content": prompt}],
             tools=[tool]
         )
-        print(f"response: {response.output}")
         if len(response.output) > 0 and response.output[0].type == "function_call":
             try:
                 function_call = response.output[0]

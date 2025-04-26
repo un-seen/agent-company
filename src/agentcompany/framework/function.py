@@ -193,11 +193,11 @@ class FunctionPattern(ModelContextProtocolImpl):
         if main_choice:
             self.logger.log(text=main_choice, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
             variables = {}
-            self.logger.log(title=f"main_choice: {main_choice}")
             if len(main_choice["argument"]) > 0:
                 argument_list = main_choice["argument"]
                 llm: AugmentedLLM = self.model
                 argument_dict: Dict[str, Any] = llm.function_call(self.task, name=main_choice["choice_id"], description=main_choice["description"], argument_list=argument_list)
+                self.logger.log(text=argument_dict, title=f"Main Function Arguments ({self.interface_id}/{self.name}):")
                 variables.update(argument_dict)
             if len(context) == 1:
                 variables.update(self.executor_environment.parse_context(context[0]))
