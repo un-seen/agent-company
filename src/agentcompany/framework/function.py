@@ -136,6 +136,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         # State
         self.state = {}
         # MCP Servers
+        print(mcp_servers)
         self.setup_mcp_servers(mcp_servers)
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
