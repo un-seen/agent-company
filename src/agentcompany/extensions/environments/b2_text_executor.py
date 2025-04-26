@@ -305,10 +305,10 @@ class B2TextInterpreter(ExecutionEnvironment):
         return data
     
     
-    def get_file_data(self, code_action: str) -> Optional[str]:
+    def get_file_data(self, code_action: str, count: int) -> Optional[str]:
         namespace = self.get_vector_namespace("task")
         # TODO add reranking
-        results = self.vector_index.search(
+        task_results = self.vector_index.search(
             namespace=namespace,
             query={
                 "top_k": 1,
@@ -317,10 +317,22 @@ class B2TextInterpreter(ExecutionEnvironment):
                 }
             }
         )
-        print(f"Results: {results}")
-        hits = results["results"]["hits"]
-        print(f"Hits: {hits}")
-        raise NotImplementedError("Pinecone search is not implemented yet.")
+        hits = task_results["result"]["hits"]
+        ids = [hit["_id"] for hit in hits]
+        task_list = [hit["fields"]["text"] for hit in hits]
+        
+        namespace = self.get_vector_namespace("answer")
+        hits = self.vector_index.fetch(ids=ids, namespace=namespace)
+        answer_list = [hit["fields"]["text"] for hit in hits]
+        
+        data = ""
+        for file_key, task_text, answer_text in zip(ids, task_list, answer_list):
+            data += f"File: {file_key}\n"
+            data += f"Task: {task_text}\n"
+            data += f"Answer: {answer_text}\n"
+            data += "-" * 80 + "\n"
+
+        return data if len(data) > 0 else None
     
     def get_vector_namespace(self, _type: str) -> str:
         return self.b2_config["prefix"].replace("/", "_") + "_" + _type
