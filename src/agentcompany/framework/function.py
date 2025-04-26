@@ -128,20 +128,18 @@ class FunctionPattern(ModelContextProtocolImpl):
         self.name = name
         self.interface_id = interface_id
         self.session_id = session_id
+        self.description = description
         # LLM
         self.model = model
         # Prompt Templates
         self.prompt_templates = prompt_templates
         # State
         self.state = {}
-        # Environment
-        self.executor_environment_config = self.prompt_templates["executor_environment"]
-        # Postgres Agent
-        # self.postgres_agent = postgres_agent
-        self.setup_environment()
-        self.description = description
         # MCP Servers
         self.setup_mcp_servers(mcp_servers)
+        # Environment
+        self.executor_environment_config = self.prompt_templates["executor_environment"]
+        self.setup_environment()
         # Logging
         verbosity_level: int = 1
         self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
