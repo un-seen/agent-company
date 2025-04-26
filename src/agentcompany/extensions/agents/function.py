@@ -41,6 +41,7 @@ def FunctionAgent(name: str,
         session_id=session_id,
         interface_id=interface_id, 
         description=description, 
+        mcp_servers=mcp_servers,
         model=OpenAIServerLLM(model_id=model_id),
         prompt_templates=updated_prompt_templates,
     )
