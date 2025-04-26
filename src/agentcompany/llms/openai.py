@@ -158,7 +158,8 @@ class OpenAIServerLLM(AugmentedLLM):
                 "required": [arg["name"] for arg in argument_list],
             },
         }
-
+        print(f"Function declaration: {function_declaration}")
+        print(f"Prompt: {prompt}")
         # Configure the client and tools
         tools = types.Tool(function_declarations=[function_declaration])
         config = types.GenerateContentConfig(tools=[tools])
@@ -167,7 +168,7 @@ class OpenAIServerLLM(AugmentedLLM):
         response = self.gemini.models.generate_content(
             model="gemini-2.0-flash",
             contents=prompt,
-            config=config,
+            config=config
         )
 
         # Check for a function call
