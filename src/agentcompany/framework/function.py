@@ -141,7 +141,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         self.setup_environment()
         self.description = description
         # MCP Servers
-        self.mcp_servers = mcp_servers
+        self.setup_mcp_servers(mcp_servers)
         # Logging
         verbosity_level: int = 1
         self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
@@ -343,11 +343,19 @@ class FunctionPattern(ModelContextProtocolImpl):
         # Instantiate the chosen class
         self.executor_environment = environment_cls(
             self.session_id,
-            mcp_servers={},
+            mcp_servers=self.mcp_servers,
             **self.executor_environment_config["config"]
         )
             
     
+    def setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
+        self.mcp_servers = {}
+        if mcp_servers:
+            assert all(server.name and server.description for server in mcp_servers), (
+                "All managed agents need both a name and a description!"
+            )
+            self.mcp_servers = {server.name: server for server in mcp_servers}
+            
     def forward(self, 
                 task: str, 
                 inputs: Union[str, List[str]] = None, 
