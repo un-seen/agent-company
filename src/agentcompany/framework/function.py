@@ -178,7 +178,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         Extracts the argument from the code content.
         """
         llm: AugmentedLLM = self.model
-        output: Dict[str, Any] = llm.function_call(code_content, argument=argument_list)
+        output: Dict[str, Any] = llm.function_call(code_content, argument_list=argument_list)
         return output
     
     def execute_main_choice(self, model_input_messages: list[dict[str, any]], context: list[dict[str, any]]) -> Tuple[str, Any]:
