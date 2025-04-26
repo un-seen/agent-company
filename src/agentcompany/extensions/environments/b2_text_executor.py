@@ -217,13 +217,12 @@ def answer_from_data(data: str, question: str) -> QuestionAnswer:
     Answer: {code_action}
     Is any answer given in the answer? Answer with True or False.
     """.strip()
-    print(f"Judge Prompt: {judge_prompt}")
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role":"user","content": judge_prompt}],
     )
     judge = completion.choices[0].message.content
-    print(f"Judge: {judge}")
+    print(f"Answer_from_Data_Judge: {judge}")
     if judge.lower() == "true":
         response.success = True
         response.answer = code_action
