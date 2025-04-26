@@ -322,9 +322,10 @@ class B2TextInterpreter(ExecutionEnvironment):
         raise NotImplementedError("Pinecone search is not implemented yet.")
     
     def save_in_long_term_memory(self, file_key: str, code_action: str, answer: str) -> None:
-        task_index = self.pinecone_client.Index("b2_text_interpreter/task")
+        index_name = self.b2_config["prefix"]
+        task_index = self.pinecone_client.Index(index_name)
         task_index.upsert_records(
-            self.b2_config["prefix"],
+            "task",
             [
                 {
                     "_id": file_key,
@@ -332,9 +333,9 @@ class B2TextInterpreter(ExecutionEnvironment):
                 }
             ]
         ) 
-        answer_index = self.pinecone_client.Index("b2_text_interpreter/answer")
+        answer_index = self.pinecone_client.Index(index_name)
         answer_index.upsert_records(
-            self.b2_config["prefix"],
+            "answer",
             [
                 {
                     "_id": file_key,
