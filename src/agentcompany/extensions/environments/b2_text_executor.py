@@ -258,6 +258,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         self.session_id = session_id
         self.static_tools = mcp_servers
         self.pinecone_client = pinecone.Pinecone(api_key=os.environ["PINECONE_API_KEY"])
+        self.vector_index = self.pinecone_client.Index("b2-interpreter")
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
     
     def parse_code_blob(self, code_blob: str) -> Template:
@@ -305,11 +306,10 @@ class B2TextInterpreter(ExecutionEnvironment):
     
     
     def get_file_data(self, code_action: str) -> Optional[str]:
-        task_index = self.pinecone_client.Index("b2_text_interpreter/task")
-        # Search the dense index
+        namespace = self.get_vector_namespace("task")
         # TODO add reranking
-        results = task_index.search(
-            namespace=self.b2_config["prefix"],
+        results = self.vector_index.search(
+            namespace=namespace,
             query={
                 "top_k": 1,
                 "inputs": {
@@ -321,11 +321,13 @@ class B2TextInterpreter(ExecutionEnvironment):
         print(f"Hits: {hits}")
         raise NotImplementedError("Pinecone search is not implemented yet.")
     
+    def get_vector_namespace(self, _type: str) -> str:
+        return self.b2_config["prefix"].replace("/", "_") + "_" + _type
+        
     def save_in_long_term_memory(self, file_key: str, code_action: str, answer: str) -> None:
-        index_name = self.b2_config["prefix"]
-        task_index = self.pinecone_client.Index(index_name)
-        task_index.upsert_records(
-            "task",
+        namespace = self.get_vector_namespace("task")
+        self.vector_index.upsert_records(
+            namespace,
             [
                 {
                     "_id": file_key,
@@ -333,9 +335,9 @@ class B2TextInterpreter(ExecutionEnvironment):
                 }
             ]
         ) 
-        answer_index = self.pinecone_client.Index(index_name)
-        answer_index.upsert_records(
-            "answer",
+        namespace = self.get_vector_namespace("answer")
+        self.vector_index.upsert_records(
+            namespace,
             [
                 {
                     "_id": file_key,
