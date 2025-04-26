@@ -136,7 +136,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         # State
         self.state = {}
         # MCP Servers
-        print(mcp_servers)
         self.setup_mcp_servers(mcp_servers)
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
@@ -348,11 +347,13 @@ class FunctionPattern(ModelContextProtocolImpl):
             
     
     def setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
-        assert all(server.name and server.description for server in mcp_servers), (
-            "All managed agents need both a name and a description!"
-        )
-        self.mcp_servers = {server.name: server for server in mcp_servers}
-        print(f"mcp_servers: {self.mcp_servers} {mcp_servers}")
+        if mcp_servers:
+            assert all(server.name and server.description for server in mcp_servers), (
+                "All managed agents need both a name and a description!"
+            )
+            self.mcp_servers = {server.name: server for server in mcp_servers}
+        else:
+            self.mcp_servers = {}
             
     def forward(self, 
                 task: str, 
