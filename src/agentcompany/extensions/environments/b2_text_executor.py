@@ -310,7 +310,6 @@ class B2TextInterpreter(ExecutionEnvironment):
         # TODO add reranking
         task_results = self.vector_index.search(
             namespace=namespace,
-            include_metadata=True,
             query={
                 "top_k": count,
                 "inputs": {
