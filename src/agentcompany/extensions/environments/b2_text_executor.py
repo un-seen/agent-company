@@ -310,6 +310,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         # TODO add reranking
         task_results = self.vector_index.search(
             namespace=namespace,
+            include_metadata=True,
             query={
                 "top_k": count,
                 "inputs": {
@@ -320,16 +321,10 @@ class B2TextInterpreter(ExecutionEnvironment):
         hits = task_results["result"]["hits"]
         ids = [hit["_id"] for hit in hits]
         task_list = [hit["fields"]["text"] for hit in hits]
-        
-        namespace = self.get_vector_namespace("answer")
-        hits = self.vector_index.fetch(ids=ids, namespace=namespace)
-        answer_list = [hit["fields"]["text"] for hit in hits]
-        
         data = ""
-        for file_key, task_text, answer_text in zip(ids, task_list, answer_list):
+        for file_key, task_answer_text in zip(ids, task_list):
             data += f"File: {file_key}\n"
-            data += f"Task: {task_text}\n"
-            data += f"Answer: {answer_text}\n"
+            data += f"{task_answer_text}\n"
             data += "-" * 80 + "\n"
 
         return data if len(data) > 0 else None
@@ -344,8 +339,7 @@ class B2TextInterpreter(ExecutionEnvironment):
             [
                 {
                     "_id": file_key,
-                    "text": code_action,
-                    "answer": answer
+                    "text": f"Task: {code_action} \n \n Answer: {answer}",
                 }
             ]
         ) 
