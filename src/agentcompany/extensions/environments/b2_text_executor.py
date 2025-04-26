@@ -311,7 +311,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         task_results = self.vector_index.search(
             namespace=namespace,
             query={
-                "top_k": 1,
+                "top_k": count,
                 "inputs": {
                     'text': code_action
                 }
@@ -345,19 +345,10 @@ class B2TextInterpreter(ExecutionEnvironment):
                 {
                     "_id": file_key,
                     "text": code_action,
+                    "answer": answer
                 }
             ]
         ) 
-        namespace = self.get_vector_namespace("answer")
-        self.vector_index.upsert_records(
-            namespace,
-            [
-                {
-                    "_id": file_key,
-                    "text": answer,
-                }
-            ]
-        )      
         
     def save_data(self, code_action: str, answer: str) -> None:
         random_uuid = randint(0, 1000000)
