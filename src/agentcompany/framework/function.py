@@ -193,56 +193,58 @@ class FunctionPattern(ModelContextProtocolImpl):
         # TODO parse the choice id
         self.logger.log(text=choice_id, title=f"Main Choice ID ({self.interface_id}/{self.name}):")
         main_choice_list = self.prompt_templates["main_choice"]
-        main_choice: CodeChoiceDefinition = None
+        main_choice: CodeChoiceDefinition = None            
         for item in main_choice_list:
             if item["choice_id"] in choice_id:
                 main_choice = item
                 break
-        if main_choice is None:
-            raise ValueError(f"Choice ID '{choice_id}' not found in main choices.")
-        self.logger.log(text=main_choice, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
-        variables = {}
-        self.logger.log(title=f"main_choice: {main_choice}")
-        if len(main_choice["argument"]) > 0:
-            argument_list = main_choice["argument"]
-            argument_dict = self.extract_argument(model_input_messages_str, argument_list)
-            self.logger.log(f"argument_dict: {argument_dict}")
-            variables.update(argument_dict)
-        # TODO handle case when context has to render for multiple items individually
-        # in a single run call
-        if len(context) == 1:
-            variables.update(self.executor_environment.parse_context(context[0]))
-        # Populate the code content with the context
-        code_action = populate_template(
-            code_action,
-            variables=variables
-        )   
-        self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
-        try:
-            code_action = self.executor_environment.parse_code_blob(code_content)
-        except Exception as e:
-            
-            error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-            error_msg = self.executor_environment.parse_error_logs(error_msg)
-            raise AgentError(f"Error in code parsing:\n{e}", self.logger) from e
-        
-        try:
-            observations, _, _ = self.executor_environment(
-                code_action=code_action,
-                additional_variables={
-                    "context": context
-                },
-                return_type="pandas.DataFrame"
+        if main_choice:
+            self.logger.log(text=main_choice, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
+            variables = {}
+            self.logger.log(title=f"main_choice: {main_choice}")
+            if len(main_choice["argument"]) > 0:
+                argument_list = main_choice["argument"]
+                argument_dict = self.extract_argument(model_input_messages_str, argument_list)
+                self.logger.log(f"argument_dict: {argument_dict}")
+                variables.update(argument_dict)
+            # TODO handle case when context has to render for multiple items individually
+            # in a single run call
+            if len(context) == 1:
+                variables.update(self.executor_environment.parse_context(context[0]))
+            # Populate the code content with the context
+            code_action = populate_template(
+                code_action,
+                variables=variables
+            )   
+            self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
+            try:
+                code_action = self.executor_environment.parse_code_blob(code_action)
+            except Exception as e:
+                error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                error_msg = self.executor_environment.parse_error_logs(error_msg)
+                raise AgentError(f"Error in code parsing:\n{e}", self.logger) from e
+            try:
+                observations, _, _ = self.executor_environment(
+                    code_action=code_action,
+                    additional_variables={
+                        "context": context
+                    },
+                    return_type="pandas.DataFrame"
+                )
+                return code_action, observations
+            except Exception as e:
+                error_msg = "Error in Code Execution: \n"
+                if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
+                    error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
+                error_msg += str(e)
+                error_msg = self.executor_environment.parse_error_logs(error_msg)
+                raise AgentError(f"Error in code execution:\n{e}", self.logger) from e            
+        else:
+            self.logger.log(
+                text=choice_id,
+                title=f"Main Choice ID ({self.interface_id}/{self.name}):",
             )
-        except Exception as e:
-            error_msg = "Error in Code Execution: \n"
-            if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
-            error_msg += str(e)
-            error_msg = self.executor_environment.parse_error_logs(error_msg)
-            raise AgentError(f"Error in code execution:\n{e}", self.logger) from e
-
-        return code_action, observations
+            return None, None
     
     
     def run(
