@@ -173,14 +173,6 @@ class FunctionPattern(ModelContextProtocolImpl):
             messages.extend(memory_step.to_messages())
         return messages
     
-    def extract_argument(self, code_content: str, argument_list: list[Argument]) -> dict[str, str]:
-        """
-        Extracts the argument from the code content.
-        """
-        llm: AugmentedLLM = self.model
-        output: Dict[str, Any] = llm.function_call(code_content, argument_list=argument_list)
-        return output
-    
     def execute_main_choice(self, model_input_messages: list[dict[str, any]], context: list[dict[str, any]]) -> Tuple[str, Any]:
         model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
         self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
@@ -204,7 +196,8 @@ class FunctionPattern(ModelContextProtocolImpl):
             self.logger.log(title=f"main_choice: {main_choice}")
             if len(main_choice["argument"]) > 0:
                 argument_list = main_choice["argument"]
-                argument_dict = self.extract_argument(model_input_messages_str, argument_list)
+                llm: AugmentedLLM = self.model
+                argument_dict: Dict[str, Any] = llm.function_call(model_input_messages_str, name=main_choice["choice_id"], description=main_choice["description"], argument_list=argument_list)
                 self.logger.log(f"argument_dict: {argument_dict}")
                 variables.update(argument_dict)
             # TODO handle case when context has to render for multiple items individually
