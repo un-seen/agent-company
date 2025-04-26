@@ -143,47 +143,33 @@ class OpenAIServerLLM(AugmentedLLM):
         return prompt
     
     def function_call(self, prompt: str, name: str, description: str, argument_list: List[Argument]) -> Union[Tuple[str, Dict[str, str]], None]:
-        
-        function_declaration = {
+
+        tool = {
+            "type": "function",
             "name": name,
             "description": description,
             "parameters": {
                 "type": "object",
                 "properties": {
-                    arg["name"]: {
-                        "type": "string",
-                        "description": arg["description"]
-                    } for arg in argument_list
+                    "type": "object",
+                    "properties": {
+                        arg["name"]: {
+                            "type": "string",
+                            "description": arg["description"]
+                        } for arg in argument_list
+                    }
                 },
                 "required": [arg["name"] for arg in argument_list],
-            },
+                "additionalProperties": False
+            }
         }
-        print(f"Function declaration: {function_declaration}")
-        print(f"Prompt: {prompt}")
-        # Configure the client and tools
-        tools = types.Tool(function_declarations=[function_declaration])
-        config = types.GenerateContentConfig(tools=[tools])
-
-        # Send request with function declarations
-        response = self.gemini.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-            config=config
+        logger.info(f"Tool: {tool}")
+        response = self.client.responses.create(
+            model=self.model_id,
+            input=[{"role": "user", "content": prompt}],
+            tools=[tool]
         )
-
-        # Check for a function call
-        if response.candidates[0].content.parts[0].function_call:
-            function_call = response.candidates[0].content.parts[0].function_call
-            print(f"Function to call: {function_call.name}")
-            print(f"Arguments: {function_call.args}")
-            #  In a real app, you would call your function here:
-            #  result = schedule_meeting(**function_call.args)
-            return function_call.name, function_call.args
-        else:
-            print("No function call found in the response.")
-            print(response.text)
-            return None
-        
+        return response.output
 
     def structured_output(
         self,
