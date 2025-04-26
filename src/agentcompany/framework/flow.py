@@ -89,14 +89,13 @@ def set_state_out_id(global_state: dict, state: dict, out_id: str, output: Any) 
     """
     Set the out_id in the state.
     """
+    if not 'known_variables' in state:
+        state["known_variables"] = {}
+    if not 'known_variables' in global_state:
+        global_state["known_variables"] = {}
     if out_id and out_id.startswith("$"):
         out_id = out_id[1:]
-        out_id = state[out_id]
-        if not 'known_variables' in state:
-            state["known_variables"] = {}
-        if not 'known_variables' in global_state:
-            global_state["known_variables"] = {}
-            
+        out_id = state[out_id]            
         state["known_variables"][out_id] = output
         global_state["known_variables"][out_id] = output
         if "final_answer" in state:
