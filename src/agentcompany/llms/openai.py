@@ -142,7 +142,7 @@ class OpenAIServerLLM(AugmentedLLM):
         
         return prompt
     
-    def function_call(self, prompt: str, name: str, description: str, argument_list: List[Argument]) -> Union[Tuple[str, Dict[str, str]], None]:
+    def function_call(self, prompt: str, name: str, description: str, argument_list: List[Argument]) -> Union[Dict[str, str], None]:
 
         tool = {
             "type": "function",
@@ -184,7 +184,7 @@ class OpenAIServerLLM(AugmentedLLM):
                 for arg in argument_dict:
                     if arg not in tool["parameters"]["properties"]:
                         raise ValueError(f"Invalid argument: {arg} is not defined in the function schema.")
-                return tool["name"], argument_dict
+                return argument_dict
             except Exception as e:
                 logger.error(f"Failed to parse response content as JSON: {e}")
 
