@@ -375,7 +375,17 @@ class B2TextInterpreter(ExecutionEnvironment):
             search_urls = brave_web_search(code_action)
             if len(search_urls) > 0:
                 url = search_urls[0]["url"]
-                text = get_url_as_text(url)
+                max_attempt = 3
+                attempt = 0
+                while True:
+                    try:
+                        text = get_url_as_text(url)
+                    except Exception as e:
+                        if attempt >= max_attempt:
+                            return response.answer
+                        print(f"Error getting URL: {url} - {e}")
+                        attempt += 1
+                    
                 data = f"{file_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
                 response = answer_from_data(data, code_action)
                 if response.success:
