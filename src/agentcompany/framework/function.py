@@ -122,6 +122,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         description: str,
         model: BaseLLM,
         prompt_templates: PromptTemplates,
+        mcp_servers: List[ModelContextProtocolImpl] = [],
     ):
         # Identifiers
         self.name = name
@@ -139,6 +140,8 @@ class FunctionPattern(ModelContextProtocolImpl):
         # self.postgres_agent = postgres_agent
         self.setup_environment()
         self.description = description
+        # MCP Servers
+        self.mcp_servers = mcp_servers
         # Logging
         verbosity_level: int = 1
         self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
@@ -203,9 +206,8 @@ class FunctionPattern(ModelContextProtocolImpl):
                 variables.update(self.executor_environment.parse_context(context[0]))
             # Populate the code content with the context
             if "agent" in main_choice:
-                # TODO: Implement the agent call
                 agent = main_choice["agent"]
-                server = self.executor_environment_config["mcp_servers"][agent]
+                server = self.mcp_servers[agent]
                 if server is None:
                     raise ValueError(f"Agent {agent} not found in MCP servers.")
                 server_prompt = "\n".join([f"The {k} is {v}" for k, v in variables.items()])
