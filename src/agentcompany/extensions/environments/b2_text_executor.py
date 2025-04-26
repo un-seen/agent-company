@@ -317,6 +317,7 @@ class B2TextInterpreter(ExecutionEnvironment):
                 }
             }
         )
+        print(f"Results: {results}")
         hits = results["results"]["hits"]
         print(f"Hits: {hits}")
         raise NotImplementedError("Pinecone search is not implemented yet.")
