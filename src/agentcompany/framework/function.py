@@ -202,35 +202,51 @@ class FunctionPattern(ModelContextProtocolImpl):
             if len(context) == 1:
                 variables.update(self.executor_environment.parse_context(context[0]))
             # Populate the code content with the context
-            code_action = main_choice[self.executor_environment.language]
-            print(f"code_action: {code_action} | {self.executor_environment.language} | {variables}")
-            code_action = populate_template(
-                code_action,
-                variables=variables
-            )   
-            self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
-            try:
-                code_action = self.executor_environment.parse_code_blob(code_action)
-            except Exception as e:
-                error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+            if "agent" in main_choice:
+                # TODO: Implement the agent call
+                agent = main_choice["agent"]
+                server = self.executor_environment_config["mcp_servers"][agent]
+                if server is None:
+                    raise ValueError(f"Agent {agent} not found in MCP servers.")
+                server_prompt = "\n".join([f"The {k} is {v}" for k, v in variables.items()])
+                response = server(server_prompt)
+                self.logger.log(text=response, title=f"Agent Response ({self.interface_id}/{self.name}):")
+                return agent, response
+            elif self.executor_environment.language in main_choice:
+                code_action = main_choice[self.executor_environment.language]
+                print(f"code_action: {code_action} | {self.executor_environment.language} | {variables}")
+                code_action = populate_template(
+                    code_action,
+                    variables=variables
+                )   
+                self.logger.log(text=code_action, title=f"Code Output ({self.interface_id}/{self.name}):")
+                try:
+                    code_action = self.executor_environment.parse_code_blob(code_action)
+                except Exception as e:
+                    error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                    error_msg = self.executor_environment.parse_error_logs(error_msg)
+                    raise AgentError(f"Error in code parsing:\n{e}", self.logger) from e
+                try:
+                    observations, _, _ = self.executor_environment(
+                        code_action=code_action,
+                        additional_variables={
+                            "context": context
+                        },
+                        return_type="pandas.DataFrame"
+                    )
+                    return code_action, observations
+            
+                except Exception as e:
+                    error_msg = "Error in Code Execution: \n"
+                    if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
+                        error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
+                    error_msg += str(e)
+                    error_msg = self.executor_environment.parse_error_logs(error_msg)
+                    raise AgentError(f"Error in code execution:\n{e}", self.logger) from e            
+            else:
+                error_msg = f"Error in code execution: {self.executor_environment.language} not supported."
                 error_msg = self.executor_environment.parse_error_logs(error_msg)
-                raise AgentError(f"Error in code parsing:\n{e}", self.logger) from e
-            try:
-                observations, _, _ = self.executor_environment(
-                    code_action=code_action,
-                    additional_variables={
-                        "context": context
-                    },
-                    return_type="pandas.DataFrame"
-                )
-                return code_action, observations
-            except Exception as e:
-                error_msg = "Error in Code Execution: \n"
-                if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                    error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
-                error_msg += str(e)
-                error_msg = self.executor_environment.parse_error_logs(error_msg)
-                raise AgentError(f"Error in code execution:\n{e}", self.logger) from e            
+                raise AgentError(f"Error in code execution:\n{error_msg}", self.logger) from e
         else:
             self.logger.log(
                 text=choice_id,
