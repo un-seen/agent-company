@@ -351,6 +351,7 @@ class FunctionPattern(ModelContextProtocolImpl):
             "All managed agents need both a name and a description!"
         )
         self.mcp_servers = {server.name: server for server in mcp_servers}
+        print(f"mcp_servers: {self.mcp_servers}")
             
     def forward(self, 
                 task: str, 
