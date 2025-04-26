@@ -160,13 +160,30 @@ class OpenAIServerLLM(AugmentedLLM):
                 "additionalProperties": False
             }
         }
-        print(f"Tool: {tool} Prompt: {prompt}")
         response = self.client.responses.create(
             model=self.model_id,
             input=[{"role": "user", "content": prompt}],
             tools=[tool]
         )
-        return response.output
+        if len(response.output) > 0:
+            try:
+                function_call = response.output[0]
+                argument_dict = function_call["arguments"]
+                argument_dict = json.loads(argument_dict)
+                # Check if the function call is valid
+                if not isinstance(argument_dict, dict):
+                    raise ValueError("Invalid function call: arguments must be a dictionary.")
+                # Check if the function call contains all required arguments
+                for arg in tool["parameters"]["required"]:
+                    if arg not in argument_dict:
+                        raise ValueError(f"Missing required argument: {arg}")
+                # Check if the function call contains any additional properties
+                for arg in argument_dict:
+                    if arg not in tool["parameters"]["properties"]:
+                        raise ValueError(f"Invalid argument: {arg} is not defined in the function schema.")
+                return tool["name"], argument_dict
+            except Exception as e:
+                logger.error(f"Failed to parse response content as JSON: {e}")
 
     def structured_output(
         self,
