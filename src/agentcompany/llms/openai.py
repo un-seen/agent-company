@@ -166,9 +166,11 @@ class OpenAIServerLLM(AugmentedLLM):
             input=[{"role": "user", "content": prompt}],
             tools=[tool]
         )
-        if len(response.output) > 0:
+        print(f"response: {response}")
+        if len(response.output) > 0 and response.output[0].get("type") == "function_call":
             try:
                 function_call = response.output[0]
+                print(f"function_call: {function_call}")
                 argument_dict = function_call["arguments"]
                 argument_dict = json.loads(argument_dict)
                 # Check if the function call is valid

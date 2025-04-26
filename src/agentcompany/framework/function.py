@@ -198,7 +198,6 @@ class FunctionPattern(ModelContextProtocolImpl):
                 argument_list = main_choice["argument"]
                 llm: AugmentedLLM = self.model
                 argument_dict: Dict[str, Any] = llm.function_call(self.task, name=main_choice["choice_id"], description=main_choice["description"], argument_list=argument_list)
-                
                 variables.update(argument_dict)
             # TODO handle case when context has to render for multiple items individually
             # in a single run call
