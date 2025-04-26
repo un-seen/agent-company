@@ -356,7 +356,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         # Get Files from Memory
         response: QuestionAnswer = QuestionAnswer(question=code_action, answer=None, success=False)
         # Look in memory
-        file_data = self.get_file_data(code_action)
+        file_data = self.get_file_data(code_action, count=3)
         if file_data is not None:
             response = answer_from_data(file_data, code_action)
         # Look in EXA Web
