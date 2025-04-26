@@ -151,13 +151,10 @@ class OpenAIServerLLM(AugmentedLLM):
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "type": "object",
-                    "properties": {
-                        arg["name"]: {
-                            "type": "string",
-                            "description": arg["description"]
-                        } for arg in argument_list
-                    }
+                    arg["name"]: {
+                        "type": "string",
+                        "description": arg["description"]
+                    } for arg in argument_list
                 },
                 "required": [arg["name"] for arg in argument_list],
                 "additionalProperties": False
