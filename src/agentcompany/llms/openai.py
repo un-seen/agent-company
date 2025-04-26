@@ -165,7 +165,7 @@ class OpenAIServerLLM(AugmentedLLM):
         logger.info(f"Tool: {tool}")
         response = self.client.responses.create(
             model=self.model_id,
-            input=[{"role": "user", "content": "Can you send an email to ilan@example.com and katia@example.com saying hi?"}],
+            input=[{"role": "user", "content": prompt}],
             tools=[tool]
         )
         return response.output
