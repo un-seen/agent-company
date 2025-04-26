@@ -200,13 +200,12 @@ class FunctionPattern(ModelContextProtocolImpl):
                 break
         if main_choice is None:
             raise ValueError(f"Choice ID '{choice_id}' not found in main choices.")
-        code_content = main_choice[self.executor_environment.language]
-        self.logger.log(text=code_content, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
+        self.logger.log(text=main_choice, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
         variables = {}
         self.logger.log(title=f"main_choice: {main_choice}")
         if len(main_choice["argument"]) > 0:
             argument_list = main_choice["argument"]
-            argument_dict = self.extract_argument(code_content, argument_list)
+            argument_dict = self.extract_argument(model_input_messages_str, argument_list)
             self.logger.log(f"argument_dict: {argument_dict}")
             variables.update(argument_dict)
         # TODO handle case when context has to render for multiple items individually
