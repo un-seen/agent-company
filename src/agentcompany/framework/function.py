@@ -199,11 +199,11 @@ class FunctionPattern(ModelContextProtocolImpl):
                 llm: AugmentedLLM = self.model
                 argument_dict: Dict[str, Any] = llm.function_call(self.task, name=main_choice["choice_id"], description=main_choice["description"], argument_list=argument_list)
                 variables.update(argument_dict)
-            # TODO handle case when context has to render for multiple items individually
-            # in a single run call
             if len(context) == 1:
                 variables.update(self.executor_environment.parse_context(context[0]))
             # Populate the code content with the context
+            code_action = main_choice[self.executor_environment.language]
+            print(f"code_action: {code_action} | {self.executor_environment.language} | {variables}")
             code_action = populate_template(
                 code_action,
                 variables=variables
