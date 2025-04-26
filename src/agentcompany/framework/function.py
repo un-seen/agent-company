@@ -272,6 +272,7 @@ class FunctionPattern(ModelContextProtocolImpl):
             self.memory.reset()
         self.memory.append_step(TaskStep(task=self.task))
         task: str = task
+        self.task = task
         inputs: List[str] = inputs
         if isinstance(context, dict):
             context = [context]

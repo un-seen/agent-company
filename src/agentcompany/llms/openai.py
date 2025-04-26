@@ -160,6 +160,7 @@ class OpenAIServerLLM(AugmentedLLM):
                 "additionalProperties": False
             }
         }
+        print(f"tool: {tool} Prompt: {prompt}")
         response = self.client.responses.create(
             model=self.model_id,
             input=[{"role": "user", "content": prompt}],
