@@ -6,7 +6,9 @@ from agentcompany.llms.utils import ChatMessage
 from agentcompany.llms.base import ReturnType, Argument
 import logging
 from pydantic import BaseModel
-
+from google import genai
+from google.genai import types
+ 
 logger = logging.getLogger(__name__)
 
 class ArrayOutput(BaseModel):
@@ -61,7 +63,8 @@ class OpenAIServerLLM(AugmentedLLM):
             organization=organization,
             project=project,
         )
-        
+        # gemini
+        self.gemini = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
         # logfire.instrument_openai(self.client)  
         self.custom_role_conversions = custom_role_conversions
 
@@ -141,34 +144,45 @@ class OpenAIServerLLM(AugmentedLLM):
     
     def function_call(self, prompt: str, name: str, description: str, argument_list: List[Argument]) -> Union[Tuple[str, Dict[str, str]], None]:
         
-        output_schema = {
-            "type": "object",
-            "properties": {
-                arg["name"]: {
-                    "type": "string",
-                    "description": arg["description"]
-                } for arg in argument_list
-            }
-        }
-        
-        tool = {
-            "type": "function",
+        function_declaration = {
             "name": name,
             "description": description,
             "parameters": {
                 "type": "object",
-                "properties": output_schema,
+                "properties": {
+                    arg["name"]: {
+                        "type": "string",
+                        "description": arg["description"]
+                    } for arg in argument_list
+                },
                 "required": [arg["name"] for arg in argument_list],
-                "additionalProperties": False
-            }
+            },
         }
-        logger.info(f"Tool: {tool}")
-        response = self.client.responses.create(
-            model=self.model_id,
-            input=[{"role": "user", "content": prompt}],
-            tools=[tool]
+
+        # Configure the client and tools
+        tools = types.Tool(function_declarations=[function_declaration])
+        config = types.GenerateContentConfig(tools=[tools])
+
+        # Send request with function declarations
+        response = self.gemini.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config=config,
         )
-        return response.output
+
+        # Check for a function call
+        if response.candidates[0].content.parts[0].function_call:
+            function_call = response.candidates[0].content.parts[0].function_call
+            print(f"Function to call: {function_call.name}")
+            print(f"Arguments: {function_call.args}")
+            #  In a real app, you would call your function here:
+            #  result = schedule_meeting(**function_call.args)
+            return function_call.name, function_call.args
+        else:
+            print("No function call found in the response.")
+            print(response.text)
+            return None
+        
 
     def structured_output(
         self,
