@@ -1,5 +1,5 @@
 import os
-import copy
+import pinecone
 import re
 import shlex
 from random import randint
@@ -257,9 +257,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         self.storage = {}
         self.session_id = session_id
         self.static_tools = mcp_servers
-        self.task_memory: Dict[str, str] = {}
-        self.file_memory: Dict[str, str] = {}
-        self.setup_file_content()
+        self.pinecone_client = pinecone.Pinecone(api_key=os.environ["PINECONE_API_KEY"])
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
     
     def parse_code_blob(self, code_blob: str) -> Template:
@@ -268,22 +266,21 @@ class B2TextInterpreter(ExecutionEnvironment):
         if not t.is_valid():
             raise InterpreterError("Invalid code blobs for Python template string.")
         return code_blob
-
-    def setup_file_content(self) -> None:
+    
+    
+    def setup_index(self) -> None:
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
-        if len(files) > 0:
-            for index, file_key in enumerate(files, 1):
-                if file_key.endswith("content.txt"):
-                    task_file = file_key.replace("content.txt", "task.txt")
-                    if not check_key_exists(self.b2_config["bucket_name"], task_file):
-                        logger.warning(f"File {task_file} does not exist.")
-                        continue
-                    task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
-                    self.task_memory[file_key] = task_text   
-                    file_text = get_text_from_key(self.b2_config["bucket_name"], file_key)
-                    self.file_memory[file_key] = file_text
-                        
-    def get_file_data(self, code_action: str) -> Optional[str]:
+        for file_key in files:
+            if file_key.endswith("content.txt"):
+                task_file = file_key.replace("content.txt", "task.txt")
+                if not check_key_exists(self.b2_config["bucket_name"], task_file):
+                    print(f"File {task_file} does not exist.")
+                    continue
+                task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
+                file_text = get_text_from_key(self.b2_config["bucket_name"], file_key)
+                self.save_in_long_term_memory(file_key, task_text, file_text)
+
+    def get_b2_file_data(self, code_action: str) -> Optional[str]:
         # Get Files from Memory
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
         data = None
@@ -291,23 +288,69 @@ class B2TextInterpreter(ExecutionEnvironment):
         if len(files) > 0:
             # Create Context
             data = ""
-            for index, file_key in enumerate(self.file_memory, 1):
-                task_text = self.task_memory[file_key]
-                file_text = self.file_memory[file_key]
-                if len(task_text) > 0 and len(file_text) > 0 and quick_word_match(task_text, code_action, case_insensitive=True):
-                    data += f"File: {file_key}\n"
-                    data += f"Task: {task_text}\n"
-                    data += f"Content: {file_text}\n"
-                    data += "-" * 80 + "\n"
+            for index, file_key in enumerate(files, 1):
+                if file_key.endswith("content.txt"):
+                    task_file = file_key.replace("content.txt", "task.txt")
+                    if not check_key_exists(self.b2_config["bucket_name"], task_file):
+                        print(f"File {task_file} does not exist.")
+                        continue
+                    task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
+                    file_text = get_text_from_key(self.b2_config["bucket_name"], file_key)
+                    if len(task_text) > 0 and len(file_text) > 0 and quick_word_match(task_text, code_action, case_insensitive=True):
+                        data += f"File: {file_key}\n"
+                        data += f"Task: {task_text}\n"
+                        data += f"Content: {file_text}\n"
+                        data += "-" * 80 + "\n"
         return data
     
     
+    def get_file_data(self, code_action: str) -> Optional[str]:
+        task_index = self.pinecone_client.Index("b2_text_interpreter/task")
+        # Search the dense index
+        # TODO add reranking
+        results = task_index.search(
+            namespace=self.b2_config["prefix"],
+            query={
+                "top_k": 1,
+                "inputs": {
+                    'text': code_action
+                }
+            }
+        )
+        hits = results["results"]["hits"]
+        print(f"Hits: {hits}")
+        raise NotImplementedError("Pinecone search is not implemented yet.")
+    
+    def save_in_long_term_memory(self, file_key: str, code_action: str, answer: str) -> None:
+        task_index = self.pinecone_client.Index("b2_text_interpreter/task")
+        task_index.upsert_records(
+            self.b2_config["prefix"],
+            [
+                {
+                    "_id": file_key,
+                    "text": code_action,
+                }
+            ]
+        ) 
+        answer_index = self.pinecone_client.Index("b2_text_interpreter/answer")
+        answer_index.upsert_records(
+            self.b2_config["prefix"],
+            [
+                {
+                    "_id": file_key,
+                    "text": answer,
+                }
+            ]
+        )      
+        
     def save_data(self, code_action: str, answer: str) -> None:
         random_uuid = randint(0, 1000000)
         file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
         task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
         store_file(self.b2_config["bucket_name"], file_key, answer.encode("utf-8"))
         store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))    
+        self.save_in_long_term_memory(file_key, code_action, answer)
+        
         
     def web_call(self, code_action: str) -> Optional[str]:
         # Get Files from Memory

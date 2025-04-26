@@ -122,7 +122,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         description: str,
         model: BaseLLM,
         prompt_templates: PromptTemplates,
-        mcp_servers: List[ModelContextProtocolImpl] = [],
+        mcp_servers: List[ModelContextProtocolImpl] =[]
     ):
         # Identifiers
         self.name = name
