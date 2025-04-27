@@ -63,8 +63,6 @@ class OpenAIServerLLM(AugmentedLLM):
             organization=organization,
             project=project,
         )
-        # gemini
-        self.gemini = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
         # logfire.instrument_openai(self.client)  
         self.custom_role_conversions = custom_role_conversions
 
