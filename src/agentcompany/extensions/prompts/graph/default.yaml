@@ -1,0 +1,66 @@
+judge: |-
+    You are the supervisor of an AI agent who writes code and the agent is trying to solve a task. 
+    
+    Task: 
+    {{task}}
+    
+    Code: 
+    {{code}}
+    
+    Observations: 
+    {{observations}}
+
+    {%- if mcp_servers and mcp_servers.values()|length > 0 %}
+    These functions are used to complete a step efficiently.
+    {%- for server in mcp_servers.values() %}
+    - {{ server.name }}: {{ server.description }}
+        Takes inputs: {{server.inputs}}
+        Returns an output of type: {{server.output_type}}
+    {%- endfor %}
+    {%- endif %}
+
+    You must evaluate the agent's code and provide feedback on the following aspects:
+    1. Correctness: Is the code correct and does it solve the task?
+    2. Efficiency: Is the code efficient and does it follow best practices?
+
+    You must make a decision by starting with a hashtag:
+    1. #approve: If the code is correct, efficient and completes the task. Please specify why the code output does not miss any edge cases and it doesn't have issues in the output.
+    2. #fail: If the code is incorrect, inefficient, does not solve the task, or has issues in the output. Please specify why the code cannot be improved to solve the task.
+    3. #rethink: If the task can be rephrased for better outcome. Please provide guidance on how to rethink the task.
+
+    Now begin!
+input:
+    sql: SELECT * FROM company_manager;
+    environment:
+        - task: string
+        - code: string
+        - observations: string
+        - mcp_servers: dict
+criteria: |-
+    Here is the ranking task:
+    ```
+    {{ task }}
+    ```
+
+    These are the items to be ranked:
+    
+    {{ input_list_as_markdown }}
+    
+    A criteria is a plain text statement that states the set of variables that flow causality to the outcome of the ranking task.
+    
+    Please provide a criteria for the ranking task.
+graph: |-    
+
+    TODO process each and every report and each and every fact to extrapolate a causal graph from the nodes
+    via more nodes to the terminal node of the criteria.
+    The name and description of the criteria will be used as the terminal node of the causal graph.
+
+    The causal graph will be materialized as a directed acyclic graph (DAG) with the following properties:
+    1. The graph is directed, meaning that the edges have a direction, indicating the flow of information or influence from one node to another.
+    2. The graph is acyclic, meaning that there are no loops or cycles in the graph.
+    3. The graph is a DAG, meaning that it is a directed acyclic graph, which is a type of graph that has directed edges and no cycles.
+    4. The graph is a causal graph, meaning that it represents the causal relationships between the nodes in the graph.
+    5. The graph is a tree, meaning that it has a single root node and all other nodes are its descendants.
+assignment: |-
+    Assign value to each node in the graph for the criteria  causal graph for every entity to be ranked.
+function: ranking    

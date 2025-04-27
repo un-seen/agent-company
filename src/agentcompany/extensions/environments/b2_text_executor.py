@@ -380,12 +380,12 @@ class B2TextInterpreter(ExecutionEnvironment):
                 while True:
                     try:
                         text = get_url_as_text(url)
+                        break
                     except Exception as e:
                         if attempt >= max_attempt:
                             return response.answer
                         print(f"Error getting URL: {url} - {e}")
                         attempt += 1
-                    
                 data = f"{file_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
                 response = answer_from_data(data, code_action)
                 if response.success:

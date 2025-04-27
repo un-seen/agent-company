@@ -188,9 +188,8 @@ class OpenAIServerLLM(AugmentedLLM):
 
     def structured_output(
         self,
-        prompt: str,
+        messages: List[Dict[str, str]],
         output_schema: Type[BaseModel],
-        **kwargs,
     ) -> Union[BaseModel, None]:
         """
         Sends the provided prompt to the model and expects a JSON-formatted response.
@@ -204,20 +203,10 @@ class OpenAIServerLLM(AugmentedLLM):
         Returns:
             An instance of output_schema populated with the model's output.
         """
-        system_prompt = self.generate_system_prompt(output_schema)
-        # Create a simple message list with the prompt.
-        complete_prompt = f"""
-        {system_prompt}
-        {prompt}
-        """
-        messages = [{"role": "user", "content": complete_prompt}]
-        response = self.__call__(messages, **kwargs)
-        attempt = 0
-        while attempt < 3:
-            try:
-                parsed_content = json.loads(response.content)
-                return output_schema.model_validate(parsed_content)
-            except Exception as e:
-                logger.error(f"Failed to parse response content as JSON: {e}")
-                attempt += 1
-        return None
+        response = self.client.responses.parse(
+            model=self.model_id,
+            input=messages,
+            text_format=output_schema
+        )
+        
+        return response.output_parsed
