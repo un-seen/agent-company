@@ -579,7 +579,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         hits = results["result"]["hits"]
         ids = [hit["_id"] for hit in hits]
         texts = [hit["fields"]["text"] for hit in hits]
-        primary_columns = [hit["fields"]["primary_key"] for hit in hits]
+        primary_columns = [hit["fields"]["primary_column"] for hit in hits]
         if len(ids) == 0 or len(texts) == 0 or len(primary_columns) == 0:
             return None
         the_id = ids[0]
