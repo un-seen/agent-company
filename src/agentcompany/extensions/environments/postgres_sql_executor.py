@@ -536,7 +536,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
             records = []
             for row in rows:
                 records.append({
-                    "_id": f"{table}/{primary_key}/{row[primary_key]}",
+                    "_id": f"{table}/{primary_key}/{ascii(row[primary_key])}",
                     "text": row[primary_key],
                     "table": table
                 })
