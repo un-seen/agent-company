@@ -3,6 +3,7 @@ import copy
 import sqlglot
 from datetime import datetime, date
 from psycopg2 import sql
+import pinecone
 import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import traceback
@@ -12,6 +13,7 @@ from agentcompany.mcp.base import ModelContextProtocolImpl
 import logging
 from agentcompany.driver.dict import dict_rows_to_markdown_table
 import psycopg2
+from pydantic import BaseModel
 from urllib.parse import urlparse
 from psycopg2.extras import RealDictCursor
 from agentcompany.extensions.environments.exceptions import InterpreterError, ERRORS
@@ -19,6 +21,54 @@ from agentcompany.extensions.environments.base import ExecutionEnvironment, Obse
 
 logger = logging.getLogger(__name__)
 
+
+class QuestionAnswer(BaseModel):
+    question: str
+    answer: Optional[str]
+    success: bool
+
+
+def answer_from_data(data: str, question: str) -> QuestionAnswer:
+    """
+    Generate a JSON array for the user text using the Gemini API.
+    """
+    from openai import OpenAI
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    response = QuestionAnswer(question=question, answer=None, success=False)
+    # TODO fix the prompt by switching to flow agent here
+    prompt = f"""
+    You have to answer the question with a plain text value and not formatting based on the below data:
+    
+    {data} \n\n
+    
+    Question:
+    {question}
+    
+    You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
+    """
+    # Generate Answer
+    completion = client.chat.completions.create(
+        model="o4-mini",
+        messages=[{"role":"user","content": prompt}],
+    )
+    code_action = completion.choices[0].message.content
+    print(f"AnswerFromData -> Prompt: {prompt} Code Action: {code_action}")
+    # Judge Answer
+    judge_prompt = f"""
+    Question: {question}
+    Answer: {code_action}
+    Is any answer given in the answer? Answer with True or False.
+    """.strip()
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"user","content": judge_prompt}],
+    )
+    judge = completion.choices[0].message.content
+    print(f"Answer_from_Data_Judge: {judge}")
+    if judge.lower() == "true":
+        response.success = True
+        response.answer = code_action
+    return response
 
 def connect_with_uri(uri):
     """Connects to a PostgreSQL database using a connection URI.
@@ -260,11 +310,13 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         }
         self.pg_conn = psycopg2.connect(**self.pg_config)
         self.sql_schema = []
+        self.table_list = []
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
             tables = [row["table_name"] for row in cur.fetchall()]
             for table in tables:
                 self.sql_schema.append(f"Table {table} has columns:")
+                self.table_list.append(table)
                 cur.execute(
                     "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = %s;",
                     (table,)
@@ -274,6 +326,8 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         self.sql_schema = "\n".join(self.sql_schema)
         # Add base trusted tools to list
         self.static_tools = mcp_servers
+        self.pinecone_client = pinecone.Pinecone(api_key=os.environ["PINECONE_API_KEY"])
+        self.vector_index = self.pinecone_client.Index("b2-interpreter")
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
         
     def reset_connection(self):
@@ -497,6 +551,125 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                 
     def reset_storage(self):
         self.storage = {}
+    
+    def get_vector_namespace(self, _type: str) -> str:
+        return self.b2_config["prefix"].replace("/", "_") + "_" + _type
+    
+    def setup_vector_index(self) -> None:
+        # TODO
+        for table in self.table_list:
+            code_action = f"SELECT row_to_json(t) as data FROM {table};"
+            rows = evaluate_sql_code(
+                self.pg_conn,
+                code_action,
+                state=self.state,
+                static_tools=self.static_tools
+            )
+            for row in rows:
+                data = row["data"]
+                self.vector_index.upsert_records(
+                    self.get_vector_namespace(table),
+                    [
+                        {
+                            "_id": row["id"],
+                            "text": json.dumps(data, default=json_serial)
+                        }
+                    ]
+                )
+            
+                
+    def get_pg_db_data(self, code_action: str) -> Optional[str]:
+        # TODO
+        from agentcompany.extensions.environments.web_executor import quick_word_match
+        # Get Files from Memory
+        files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
+        data = None
+        # Default to EXA Web if no files found
+        if len(files) > 0:
+            # Create Context
+            data = ""
+            for index, file_key in enumerate(files, 1):
+                if file_key.endswith("content.txt"):
+                    task_file = file_key.replace("content.txt", "task.txt")
+                    if not check_key_exists(self.b2_config["bucket_name"], task_file):
+                        print(f"File {task_file} does not exist.")
+                        continue
+                    task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
+                    file_text = get_text_from_key(self.b2_config["bucket_name"], file_key)
+                    if len(task_text) > 0 and len(file_text) > 0 and quick_word_match(task_text, code_action, case_insensitive=True):
+                        data += f"File: {file_key}\n"
+                        data += f"Task: {task_text}\n"
+                        data += f"Content: {file_text}\n"
+                        data += "-" * 80 + "\n"
+        return data
+    
+    def db_qa(self, question: str) -> Optional[str]:
+        # TODO
+        # Write sql code to get the data from the database
+        pass
+        
+    def save_qa(self, code_action: str, answer: str) -> None:
+        # TODO save qa
+        random_uuid = randint(0, 1000000)
+        file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
+        task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
+        store_file(self.b2_config["bucket_name"], file_key, answer.encode("utf-8"))
+        store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))    
+        # Vector
+        namespace = self.get_vector_namespace("task")
+        self.vector_index.upsert_records(
+            namespace,
+            [
+                {
+                    "_id": file_key,
+                    "text": f"Task: {code_action} \n \n Answer: {answer}",
+                }
+            ]
+        ) 
+        
+    def web_qa(self, question: str) -> Optional[str]:
+        # TODO
+        # Get Files from Memory
+        from agentcompany.extensions.environments.web_executor import exa_web_qa, QuestionAnswer, answer_from_data
+        response: QuestionAnswer = QuestionAnswer(question=question, answer=None, success=False)
+        # Look in memory
+        file_data = self.db_qa(question)
+        if file_data is not None:
+            response = answer_from_data(file_data, question)
+        # Look in EXA Web
+        if not response.success:
+            exa_answer = exa_web_qa(question)
+            if not exa_answer.startswith("I am sorry"):
+                response.answer = exa_answer
+                response.success = True
+                self.save_qa(question, exa_answer)
+            else:
+                response.answer = exa_answer
+                response.success = False
+        # Look in Web with Reasoning
+        if not response.success:
+            from agentcompany.extensions.tools.brave import brave_web_search
+            from agentcompany.extensions.tools.jina import get_url_as_text
+            search_urls = brave_web_search(question)
+            if len(search_urls) > 0:
+                url = search_urls[0]["url"]
+                max_attempt = 3
+                attempt = 0
+                while True:
+                    try:
+                        text = get_url_as_text(url)
+                        break
+                    except Exception as e:
+                        if attempt >= max_attempt:
+                            return response.answer
+                        print(f"Error getting URL: {url} - {e}")
+                        attempt += 1
+                data = f"{file_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
+                response = answer_from_data(data, question)
+                if response.success:
+                    self.save_qa(question, response.answer)
+        
+        return response.answer
     
     def get_final_storage(self) -> pd.DataFrame:
         max_step_id = max(self.storage.keys())

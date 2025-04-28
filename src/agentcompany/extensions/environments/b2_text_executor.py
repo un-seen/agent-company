@@ -20,8 +20,6 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 S3_RESOURCE = None
-# Precompile once at import-time
-_WORD_RE = re.compile(r"\b\w+\b", flags=re.UNICODE)
 
 def init_s3(endpoint_url, access_key_id, secret_access_key):
     global S3_RESOURCE
@@ -125,109 +123,6 @@ def collapse_dollar_runs(text: str) -> str:
     return re.sub(r"\${2,}", "$", text)
 
 
-def quick_word_match(s1: str, s2: str, 
-                     *, 
-                     case_insensitive: bool = True,
-                     word_pattern: Optional[re.Pattern] = None
-                    ) -> bool:
-    """
-    Return True if any “word” in s1 also appears in s2.
-    
-    - Runs in O(len(s1) + len(s2)) time.
-    - Uses a set for O(1) lookups.
-    - Short‑circuits on first match for s2.
-    
-    Params:
-      s1, s2            : input strings
-      case_insensitive  : if True, lower‑cases before matching
-      word_pattern      : custom regex for “words” (default = \\b\\w+\\b)
-    """
-    pat = word_pattern or _WORD_RE
-    
-    if case_insensitive:
-        s1 = s1.lower()
-        s2 = s2.lower()
-    
-    # build set of words from s1
-    words1: Set[str] = {m.group() for m in pat.finditer(s1)}
-    if not words1:
-        return False
-    
-    # scan s2, stop at first hit
-    for m in pat.finditer(s2):
-        if m.group() in words1:
-            return True
-    return False
-
-
-class QuestionAnswer(BaseModel):
-    question: str
-    answer: Optional[str]
-    success: bool
-    
-    
-def get_exa_web_text(prompt: str) -> str:
-    """
-    Generate a JSON array for the user text using the Gemini API.
-    """
-    from openai import OpenAI
-
-    client = OpenAI(
-        base_url="https://api.exa.ai",
-        api_key=os.environ["EXA_API_KEY"],
-    )
-    completion = client.chat.completions.create(
-        model="exa",
-        messages=[
-            {"role":"user","content": prompt}    
-        ],
-    )
-    response = completion.choices[0].message.content
-    return response
-    
-
-def answer_from_data(data: str, question: str) -> QuestionAnswer:
-    """
-    Generate a JSON array for the user text using the Gemini API.
-    """
-    from openai import OpenAI
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    response = QuestionAnswer(question=question, answer=None, success=False)
-    # TODO fix the prompt by switching to flow agent here
-    prompt = f"""
-    You have to answer the question with a plain text value and not formatting based on the below data:
-    
-    {data} \n\n
-    
-    Question:
-    {question}
-    
-    You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
-    """
-    # Generate Answer
-    completion = client.chat.completions.create(
-        model="o4-mini",
-        messages=[{"role":"user","content": prompt}],
-    )
-    code_action = completion.choices[0].message.content
-    print(f"AnswerFromData -> Prompt: {prompt} Code Action: {code_action}")
-    # Judge Answer
-    judge_prompt = f"""
-    Question: {question}
-    Answer: {code_action}
-    Is any answer given in the answer? Answer with True or False.
-    """.strip()
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role":"user","content": judge_prompt}],
-    )
-    judge = completion.choices[0].message.content
-    print(f"Answer_from_Data_Judge: {judge}")
-    if judge.lower() == "true":
-        response.success = True
-        response.answer = code_action
-    return response
-
 
 class B2TextInterpreter(ExecutionEnvironment):
     
@@ -268,7 +163,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         return code_blob
     
     
-    def setup_index(self) -> None:
+    def setup_vector_index(self) -> None:
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
         for file_key in files:
             if file_key.endswith("content.txt"):
@@ -278,9 +173,19 @@ class B2TextInterpreter(ExecutionEnvironment):
                     continue
                 task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
                 file_text = get_text_from_key(self.b2_config["bucket_name"], file_key)
-                self.save_in_long_term_memory(file_key, task_text, file_text)
+                namespace = self.get_vector_namespace("task")
+                self.vector_index.upsert_records(
+                    namespace,
+                    [
+                        {
+                            "_id": file_key,
+                            "text": f"Task: {task_text} \n \n Answer: {file_text}",
+                        }
+                    ]
+                ) 
 
     def get_b2_file_data(self, code_action: str) -> Optional[str]:
+        from agentcompany.extensions.environments.web_executor import quick_word_match
         # Get Files from Memory
         files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
         data = None
@@ -303,8 +208,10 @@ class B2TextInterpreter(ExecutionEnvironment):
                         data += "-" * 80 + "\n"
         return data
     
+    def get_vector_namespace(self, _type: str) -> str:
+        return self.b2_config["prefix"].replace("/", "_") + "_" + _type
     
-    def get_file_data(self, code_action: str, count: int) -> Optional[str]:
+    def file_qa(self, code_action: str, count: int) -> Optional[str]:
         namespace = self.get_vector_namespace("task")
         # TODO add reranking
         task_results = self.vector_index.search(
@@ -326,11 +233,14 @@ class B2TextInterpreter(ExecutionEnvironment):
             data += "-" * 80 + "\n"
 
         return data if len(data) > 0 else None
-    
-    def get_vector_namespace(self, _type: str) -> str:
-        return self.b2_config["prefix"].replace("/", "_") + "_" + _type
         
-    def save_in_long_term_memory(self, file_key: str, code_action: str, answer: str) -> None:
+    def save_qa(self, code_action: str, answer: str) -> None:
+        random_uuid = randint(0, 1000000)
+        file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
+        task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
+        store_file(self.b2_config["bucket_name"], file_key, answer.encode("utf-8"))
+        store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))    
+        # Vector
         namespace = self.get_vector_namespace("task")
         self.vector_index.upsert_records(
             namespace,
@@ -342,29 +252,21 @@ class B2TextInterpreter(ExecutionEnvironment):
             ]
         ) 
         
-    def save_data(self, code_action: str, answer: str) -> None:
-        random_uuid = randint(0, 1000000)
-        file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
-        task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
-        store_file(self.b2_config["bucket_name"], file_key, answer.encode("utf-8"))
-        store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))    
-        self.save_in_long_term_memory(file_key, code_action, answer)
-        
-        
-    def web_call(self, code_action: str) -> Optional[str]:
+    def web_qa(self, code_action: str) -> Optional[str]:
         # Get Files from Memory
+        from agentcompany.extensions.environments.web_executor import exa_web_qa, QuestionAnswer, answer_from_data
         response: QuestionAnswer = QuestionAnswer(question=code_action, answer=None, success=False)
         # Look in memory
-        file_data = self.get_file_data(code_action, count=3)
+        file_data = self.file_qa(code_action, count=3)
         if file_data is not None:
             response = answer_from_data(file_data, code_action)
         # Look in EXA Web
         if not response.success:
-            exa_answer = get_exa_web_text(code_action)
+            exa_answer = exa_web_qa(code_action)
             if not exa_answer.startswith("I am sorry"):
                 response.answer = exa_answer
                 response.success = True
-                self.save_data(code_action, exa_answer)
+                self.save_qa(code_action, exa_answer)
             else:
                 response.answer = exa_answer
                 response.success = False
@@ -389,7 +291,7 @@ class B2TextInterpreter(ExecutionEnvironment):
                 data = f"{file_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
                 response = answer_from_data(data, code_action)
                 if response.success:
-                    self.save_data(code_action, response.answer)
+                    self.save_qa(code_action, response.answer)
         
         return response.answer
     
