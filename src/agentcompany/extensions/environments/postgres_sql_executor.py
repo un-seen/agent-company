@@ -512,7 +512,10 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         # Get Files from Memory
         from agentcompany.extensions.environments.web_executor import exa_web_qa, QuestionAnswer, answer_from_data
         response: QuestionAnswer = QuestionAnswer(question=question, answer=None, success=False)
-        response = answer_from_data(context, question)
+        # Look in context
+        if context is not None:
+            response = answer_from_data(context, question)
+        # TODO use code gen to execute code and search in db
         # Look in EXA Web
         if not response.success:
             exa_answer = exa_web_qa(question)
