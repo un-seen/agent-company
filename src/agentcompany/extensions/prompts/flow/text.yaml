@@ -70,7 +70,7 @@ plan:
       The question should only fetch additional information which is unknown to reduce ambiguity in the value of variable {{ variable_name }} in the final_answer.
     out_id: variable_question
     action: skip
-  - step: web_call
+  - step: web_qa
     action: environment
     out_id: supporting_information
   - step: |-
