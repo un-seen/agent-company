@@ -505,9 +505,89 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
     def reset_storage(self):
         self.storage = {}
     
-    def get_vector_namespace(self, _type: str) -> str:
-        return self.pg_config["host"] + "_" + self.pg_config["dbname"]+ "_" + _type
+    def get_vector_namespace(self) -> str:
+        return self.pg_config["host"] + "_" + self.pg_config["dbname"]
+    
+    def setup_vector_index(self, table: str) -> None:
+        vector_namespace = self.get_vector_namespace()
+        code_action = f"""SELECT
+                            kcu.column_name,
+                            kcu.ordinal_position          
+                            FROM   information_schema.table_constraints AS tc
+                            JOIN   information_schema.key_column_usage AS kcu
+                                ON  tc.constraint_name  = kcu.constraint_name
+                                AND tc.constraint_schema = kcu.constraint_schema
+                            WHERE  tc.constraint_type  = 'PRIMARY KEY'
+                            AND  tc.table_schema     = 'public'
+                            AND  tc.table_name       = '{table}'
+                            ORDER BY kcu.ordinal_position;"""
+        primary_key = None
+        with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(code_action)
+            primary_keys = cur.fetchall()
+            if len(primary_keys) == 0:
+                raise ValueError(f"Table {table} has no primary key.")
+            primary_key = primary_keys[0]["column_name"]
         
+        with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
+            code_action = f"SELECT {primary_key} as text FROM {table};"
+            cur.execute(code_action)
+            rows = cur.fetchall()
+            records = []
+            for row in rows:
+                text  = ascii(row["text"])
+                records.append({
+                    "_id": f"{table}/{primary_key}/{row[primary_key]}",
+                    "text": text,
+                    "table": table
+                })
+            self.vector_index.upsert_records(
+                vector_namespace,
+                records
+            )
+    
+    def get_variable_list(self, task: str, table: str, column: str) -> Optional[Tuple[str, Dict[str, str]]]:
+        vector_namespace = self.get_vector_namespace()
+        results = self.vector_index.search(
+            namespace=vector_namespace,
+            query={
+                "top_k": 1,
+                "inputs": {
+                    'text': task
+                },
+                "filter": {
+                    "table": {
+                        "$eq": table
+                    }
+                }
+            }
+        )
+        hits = results["result"]["hits"]
+        ids = [hit["_id"] for hit in hits]
+        if len(ids) == 0:
+            return None
+        the_id = ids[0]
+        table, primary_column, primary_key = the_id.split("/")
+        code_action = f"SELECT {primary_key}, {column} FROM {table} WHERE {primary_column} = '{primary_key}';"
+        with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(code_action)
+            rows = cur.fetchall()
+            if len(rows) == 0:
+                return None
+            row = rows[0]
+            key = row[primary_key]
+            if column not in row:
+                return None
+            value = row[column]
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    return None
+            if isinstance(value, dict):
+                return key, value
+            return None     
+    
     def web_qa(self, question: str, context: Optional[str] = None) -> Optional[str]:
         # Get Files from Memory
         from agentcompany.extensions.environments.web_executor import exa_web_qa, QuestionAnswer, answer_from_data

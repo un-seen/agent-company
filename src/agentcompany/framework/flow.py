@@ -152,6 +152,7 @@ class FlowPattern(ModelContextProtocolImpl):
         # Environment
         self.executor_environment_config = self.prompt_templates["executor_environment"]
         self.setup_environment()
+        self.setup_variable_system()
         # Logging
         verbosity_level: int = 1
         self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
@@ -233,6 +234,20 @@ class FlowPattern(ModelContextProtocolImpl):
         if reset:
             self.memory.reset()
         self.memory.append_step(TaskStep(task=self.task))
+        # Get Variables
+        if self.variable_system:
+            variable_table = self.variable_system["table"]
+            variable_column_name = self.variable_system["column_name"]
+            variable_list = self.variable_system.get_variable_list(self.task, variable_table, variable_column_name)
+            if variable_list is not None:
+                variable_key, variable_data = variable_list
+                self.state["known_entity"] = variable_key
+                self.state["known_variables"] = variable_data
+                self.state["variable_statement"] = [variable_key, "-" * 80]
+                for key, value in variable_data.items():
+                    self.state["variable_statement"].append(f"{key} = {value}")
+                self.state["variable_statement"] = "\n".join(self.state["variable_statement"])
+                
         # Execute Task
         observations = None
         try:
@@ -325,7 +340,26 @@ class FlowPattern(ModelContextProtocolImpl):
             """.strip()
         else:
             self.state["hint"] = ""
-            
+    
+    def setup_variable_system(self):
+        # Get class name from config
+        variable_system_config = self.prompt_templates["variable_system"]
+        if variable_system_config is None:
+            self.variable_system = None
+            return
+        interface_name = variable_system_config["interface"]
+        if interface_name != "PostgresSqlInterpreter":
+            raise ValueError(f"Unknown variable system '{interface_name}'.")
+        # Instantiate the chosen class
+        self.variable_system = PostgresSqlInterpreter(
+            self.session_id,
+            self.mcp_servers,
+            **self.executor_environment_config["config"]
+        )
+        self.variable_system.get_context = variable_system_config["get_context"]
+        self.variable_system.set_context = variable_system_config["set_context"]
+        
+        
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
         i = 0
