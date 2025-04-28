@@ -579,7 +579,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                     raise ValueError(f"Table {table} has no primary key.")
                 primary_key = primary_keys[0]["column_name"]
                              
-            code_action = f"SELECT {primary_key} as _id, row_to_json(t) as data FROM {table} as t;"
+            code_action = f"SELECT ascii({primary_key}) as _id, row_to_json(t) as data FROM {table} as t;"
             rows = evaluate_sql_code(
                 self.pg_conn,
                 code_action,
