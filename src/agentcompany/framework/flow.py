@@ -261,6 +261,10 @@ class FlowPattern(ModelContextProtocolImpl):
             self.logger.log(text=e.message, title="AgentError:")
             observations = e.message
 
+        if self.variable_system and "known_variables" in self.state:
+            variable_table = self.variable_system_config["table"]
+            variable_column_name = self.variable_system_config["column_name"]
+            self.variable_system.set_variable_list(self.state["known_entity"], variable_table, variable_column_name, self.state["known_variables"])
         return observations        
     
     

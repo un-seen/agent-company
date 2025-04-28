@@ -508,8 +508,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
     def get_vector_namespace(self) -> str:
         return self.pg_config["host"] + "_" + self.pg_config["dbname"]
     
-    def setup_vector_index(self, table: str) -> None:
-        vector_namespace = self.get_vector_namespace()
+    def get_primary_column(self, table: str) -> Optional[str]:
         code_action = f"""SELECT
                             kcu.column_name,
                             kcu.ordinal_position          
@@ -521,14 +520,17 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                             AND  tc.table_schema     = 'public'
                             AND  tc.table_name       = '{table}'
                             ORDER BY kcu.ordinal_position;"""
-        primary_key = None
+        primary_column = None
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(code_action)
-            primary_keys = cur.fetchall()
-            if len(primary_keys) == 0:
+            primary_column_list = cur.fetchall()
+            if len(primary_column_list) == 0:
                 raise ValueError(f"Table {table} has no primary key.")
-            primary_key = primary_keys[0]["column_name"]
-        
+            primary_column = primary_column_list[0]["column_name"]
+        return primary_column
+    
+    def setup_vector_index(self, table: str) -> None:
+        primary_key = self.get_primary_column(table)
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             code_action = f"SELECT {primary_key} FROM {table};"
             cur.execute(code_action)
@@ -541,12 +543,26 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                     "table": table
                 })
         batch_size = 96
+        vector_namespace = self.get_vector_namespace()
         for i in range(0, len(records), batch_size):
             batch = records[i:i + batch_size]
             self.vector_index.upsert_records(
                 vector_namespace,
                 batch
             )
+            
+    def set_variable_list(self, primary_key: str, table: str, column_name: str, variable_dict: Dict[str, str]) -> None:
+        primary_column = self.get_primary_column(table)
+        variable_dict_json = json.dumps(variable_dict, default=json_serial)
+        code_action = f"""
+         INSERT INTO {table} ({primary_column}, {column_name})
+         VALUES ('{primary_key}', '{variable_dict_json}')
+            ON CONFLICT ({primary_column}) DO UPDATE
+            SET {column_name} = {table}.{column_name} || EXCLUDED.{column_name};
+        """
+        with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(code_action)
+            self.pg_conn.commit()
     
     def get_variable_list(self, task: str, table: str, column_name: str) -> Optional[Tuple[str, Dict[str, str]]]:
         vector_namespace = self.get_vector_namespace()
