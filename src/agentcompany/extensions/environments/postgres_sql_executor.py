@@ -566,18 +566,13 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
             self.pg_conn.commit()
     
     def get_variable_list(self, task: str, table: str, column_name: str) -> Optional[Tuple[str, Dict[str, str]]]:
-        vector_namespace = self.get_vector_namespace()
+        vector_namespace = self.get_vector_namespace(table)
         results = self.vector_index.search(
             namespace=vector_namespace,
             query={
                 "top_k": 1,
                 "inputs": {
                     'text': task
-                },
-                "filter": {
-                    "table": {
-                        "$eq": table
-                    }
                 }
             }
         )
