@@ -19,7 +19,7 @@ plan:
       {% endif %}
 
 
-      You have to complete the task by writing a plain text report. Do not include any markdown or any other formatting.
+      You have to complete the task by writing a plain text report. Do not include any markdown or any other formatting. Do not include any instructions or any other text that is not to be read by the user.
       
       The report must have a structure that is easy to read and understand.
       
