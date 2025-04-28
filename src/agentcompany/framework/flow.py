@@ -123,7 +123,7 @@ class FlowPattern(ModelContextProtocolImpl):
     description = "This is an agent implementing the flow design pattern."
     name = "FlowPattern"
     inputs = "The task for the agent to solve in plain text english."
-    output_type = "pandas.DataFrame"
+    output_type = "string"
     interface_id: str = None
     
     def __init__(
@@ -242,8 +242,8 @@ class FlowPattern(ModelContextProtocolImpl):
             observations = self.get_final_answer()
         except AgentError as e:
             self.logger.log(text=e.message, title="AgentError:")
-            observations = pd.DataFrame([{"error": e.message}])
-        
+            observations = e.message
+
         return observations        
     
     
