@@ -307,18 +307,25 @@ class GraphPattern(ModelContextProtocolImpl):
         # You parse the criteria into causal variables and a terminal node which is the criteria
         # and then you create a graph from the criteria to the input list via the causal variables
         # Generate criteria and relationships using LLM
-        input_list_as_markdown = list_of_dict_to_markdown_table(input_list)
-        print(input_list_as_markdown)
+        data_input_list = []
+        for item in input_list:
+            data = item.get("data", None)
+            if data is None:
+                raise ValueError("No data found in input list")
+            data["_id"] = item.get("_id", None)
+            data_input_list.append(data)
+        data_input_list_as_markdown = list_of_dict_to_markdown_table(data_input_list)
         criteria_prompt = populate_template(
             self.prompt_templates["criteria"],
             variables={
                 "task": task,
-                "input_list_as_markdown": input_list_as_markdown
+                "input_list_as_markdown": data_input_list_as_markdown
             }
         )
+        self.logger.log(text=criteria_prompt, title="Criteria Prompt:")
         input_messages = [
-            {"role": "system", "content": [{"type": "input_text", "input_text": self.description}]},
-            {"role": "user", "content": [{"type": "input_text", "input_text": criteria_prompt}]}
+            {"role": "system", "content": self.description},
+            {"role": "user", "content": criteria_prompt}
         ]
         criteria_output = self.model(input_messages)
         criteria_output = criteria_output.content
@@ -329,15 +336,16 @@ class GraphPattern(ModelContextProtocolImpl):
             variables={
                 "task": self.task,
                 "criteria": criteria_output,
-                "input_list_as_markdown": input_list_as_markdown
+                "input_list_as_markdown": data_input_list_as_markdown
             }
         )
         input_messages = [
-            {"role": "system", "content": [{"type": "text", "text": self.description}]},
-            {"role": "user", "content": [{"type": "text", "text": variables_prompt}]}
+            {"role": "system", "content": self.description},
+            {"role": "user", "content": variables_prompt}
         ]
         client: AugmentedLLM = self.model
         variable_output: VariableList = client.structured_output(input_messages, output_schema=VariableList)
+        print(f"Variable Output: {variable_output}")
         return variable_output.variable_list
 
     def _identify_root_node(self, graph: Dict) -> str:
@@ -521,21 +529,36 @@ class GraphPattern(ModelContextProtocolImpl):
             raise ValueError("No input list provided in prompt templates")
         input_list, _, _ = self.executor_environment(code_action=input_code, additional_variables={})
         variables_list = self._build_causal_graph(self.state["task"], input_list)
-        data = []
-        for node in input_list:
+        self.logger.log(text=list_of_dict_to_markdown_table([{"name": v.name, "description": v.description} for v in variables_list]), title="Variable List:")
+        node_list = []
+        for node in input_list:            
+            _id = node.get("_id", None)
+            if _id is None:
+                raise ValueError("No _id found in input list")
+            data = node.get("data", None)
+            if data is None:
+                raise ValueError("No data found in input list")
+            
+            data_as_markdown = list_of_dict_to_markdown_table([data])
+            global_context = f"{_id} has these properties:\n {data_as_markdown}\n"
+            print(f"Calculating Rank Vector for Node: {_id}")
+            self.logger.log(text=global_context, title=f"Global Context for {_id}:")
             for variable in variables_list:
                 # TODo fix variable
-                question = f"{variable}: {variable.description} \n\n What is the value of {variable.name}?"
-                variable_value = self.executor_environment.web_qa(question)
-                node[variable.name] = variable_value
-            data.append(node)
+                local_context = f"{global_context} \n {variable.name}: {variable.description} \n" 
+                question = f"What is the value of {variable.name} for {_id} ?"
+                variable_value = self.executor_environment.web_qa(question, local_context)
+                print(f"Question: {question} | Answer: {variable_value}")
+                data[variable.name] = variable_value
+            data["_id"] = _id
+            node_list.append(data)
         # Set final results
-        self.state["results"] = data
+        self.state["results"] = node_list
         # TODO Create a matrix
         # apply reranking
         # return the ranked list 
         # persist in postgres
-        print(f"Data: {data}")
+        print(list_of_dict_to_markdown_table(node_list))
         raise ValueError("Stop here for now")
     
     def forward(self, task: str) -> Any:

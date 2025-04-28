@@ -29,26 +29,47 @@ judge: |-
     3. #rethink: If the task can be rephrased for better outcome. Please provide guidance on how to rethink the task.
 
     Now begin!
-input:
-    sql: SELECT * FROM company_manager;
-    environment:
-        - task: string
-        - code: string
-        - observations: string
-        - mcp_servers: dict
+
+executor_environment: 
+  interface: PostgresSqlInterpreter
+  config:
+    host: caboose.proxy.rlwy.net
+    port: 18027
+    dbname: dwight
+    user: postgres
+    password: 6DdBBFa62b224d2fcdG42D1565FBA3gd
+    additional_authorized_imports: "*"
+input: SELECT company_name as _id, company_data as data FROM company_manager as t LIMIT 10;
 criteria: |-
     Here is the ranking task:
     ```
     {{ task }}
     ```
 
-    These are the items to be ranked:
+    This is only a random sample set of 10 companies from the set of all the companies to be ranked:
     
     {{ input_list_as_markdown }}
     
     A criteria is a plain text statement that states the set of variables that flow causality to the outcome of the ranking task.
     
+    The criteria should only consider macro factors flow causality to the task and it should completely avoid criterias affected by time.
+
     Please provide a criteria for the ranking task.
+variable: |-
+
+    Here is the ranking task:
+    ```
+    {{ task }}
+    ```
+
+    Here is the criteria for the ranking task:
+    ```
+    {{ criteria }}
+    ```
+
+    List variables that flow causality to the criteria for the ranking task.
+
+    A variable must be quantifiable and measurable with a numerical value.
 graph: |-    
 
     TODO process each and every report and each and every fact to extrapolate a causal graph from the nodes
