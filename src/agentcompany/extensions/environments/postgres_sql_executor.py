@@ -535,19 +535,18 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
             rows = cur.fetchall()
             records = []
             for row in rows:
-                text = ascii(row[primary_key])
                 records.append({
-                    "_id": f"{table}/{primary_key}/{text}",
-                    "text": text,
+                    "_id": f"{table}/{primary_key}/{row[primary_key]}",
+                    "text": row[primary_key],
                     "table": table
                 })
-            batch_size = 96
-            for i in range(0, len(records), batch_size):
-                batch = records[i:i + batch_size]
-                self.vector_index.upsert_records(
-                    vector_namespace,
-                    batch
-                )
+        batch_size = 96
+        for i in range(0, len(records), batch_size):
+            batch = records[i:i + batch_size]
+            self.vector_index.upsert_records(
+                vector_namespace,
+                batch
+            )
     
     def get_variable_list(self, task: str, table: str, column: str) -> Optional[Tuple[str, Dict[str, str]]]:
         vector_namespace = self.get_vector_namespace()
