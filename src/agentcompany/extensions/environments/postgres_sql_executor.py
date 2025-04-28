@@ -590,7 +590,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                         if isinstance(value, (datetime, date)):
                             data[key] = value.isoformat()
                         text = f"The {key} of {row['_id']} has is {value}"
-                        vector_id = f"{table}_{row['_id']}_{row['key']}"
+                        vector_id = f"{table}_{row['_id']}"
                         records.append({
                             "_id": vector_id,
                             "text": text
