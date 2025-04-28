@@ -581,15 +581,17 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
             
             with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
                 code_action = f"SELECT ascii({primary_key}) as _id, row_to_json(t) as data FROM {table} as t;"
+                print(f"Code Action: {code_action}")
                 cur.execute(code_action)
                 rows = cur.fetchall()
                 for row in rows:
                     data = row["data"]
                     records = []
+                    print(f"Row: {row}")
                     for key, value in data.items():
                         if isinstance(value, (datetime, date)):
-                            data[key] = value.isoformat()
-                        text = f"The {key} of {row['_id']} has is {value}"
+                            value = value.isoformat()
+                        text = f"The {key} of {row['_id']} is {value}"
                         vector_id = f"{table}_{row['_id']}"
                         records.append({
                             "_id": vector_id,
