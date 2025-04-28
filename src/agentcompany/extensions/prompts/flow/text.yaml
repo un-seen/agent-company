@@ -19,23 +19,24 @@ plan:
       {% endif %}
       
       
-      You have to complete the task by writing a plain text report. Do not include any markdown or any other formatting. Do not include any instructions or any other text that is not to be read by the user.
+      You have to complete the task by writing a plain text report. 
       
+    
       {%- if variable_statement and variable_statement|length > 0 %}
-      These are known statements about {{ known_entity }} which can be utilized in the report:
+      These are known statements about {{ known_entity }} which may be in the report if they are relevant to the task:
       
       {{ variable_statement }}
       {% endif %}
       
       The report must have a structure that is easy to read and understand.
       
-      You must use variables to present information that requires grounding in external data sources or it is not known at the time of writing the report.
+      You must use variables to present information that requires references to real world data that is not known at the time of writing the report.
       
       Do not use variables to present information that is known at the time of writing the report.
       
-      The variables will be used to fill in the report with data from external data sources.
+      The variables will be used to fill in the report with ground truth data from real world sources.
       
-      Do not include any text which is not to be read by the user.
+      Do not include any text which is not to be read by the user such as footnotes.
       
       The variables must be compatible with Python String Template substition, which means that each and every variable name must be presented in the format of $variable_name.
       
