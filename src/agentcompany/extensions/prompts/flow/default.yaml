@@ -24,8 +24,7 @@ judge: |-
     2. Efficiency: Is the code efficient and does it follow best practices?
 
     You must make a decision by starting with a hashtag:
-    1. #approve: If the code is correct, efficient and completes the task. Please specify why the code output does not miss any edge cases and it doesn't have issues in the output.
+    1. #approve: If the code is correct, efficient and completes the task. 
     2. #fail: If the code is incorrect, inefficient, does not solve the task, or has issues in the output. Please specify why the code cannot be improved to solve the task.
-    3. #rethink: If the task can be rephrased for better outcome. Please provide guidance on how to rethink the task.
 
     Now begin!
