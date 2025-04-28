@@ -505,8 +505,8 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
     def reset_storage(self):
         self.storage = {}
     
-    def get_vector_namespace(self) -> str:
-        return self.pg_config["host"] + "_" + self.pg_config["dbname"]
+    def get_vector_namespace(self, table: str) -> str:
+        return self.pg_config["host"] + "_" + self.pg_config["dbname"] + "_" + table
     
     def get_primary_column(self, table: str) -> Optional[str]:
         code_action = f"""SELECT
@@ -530,20 +530,21 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         return primary_column
     
     def setup_vector_index(self, table: str) -> None:
-        primary_key = self.get_primary_column(table)
+        primary_column = self.get_primary_column(table)
+        vector_namespace = self.get_vector_namespace(table)
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
-            code_action = f"SELECT {primary_key} FROM {table};"
+            code_action = f"SELECT {primary_column} FROM {table};"
             cur.execute(code_action)
             rows = cur.fetchall()
             records = []
             for row in rows:
                 records.append({
-                    "_id": f"{table}/{primary_key}/{ascii(row[primary_key])}",
-                    "text": row[primary_key],
-                    "table": table
+                    "_id": f"{primary_column}/{ascii(row[primary_column])}",
+                    "text": row[primary_column],
+                    "primary_column": primary_column
                 })
-        batch_size = 96
-        vector_namespace = self.get_vector_namespace()
+        batch_size = 64
+        
         for i in range(0, len(records), batch_size):
             batch = records[i:i + batch_size]
             self.vector_index.upsert_records(
@@ -583,11 +584,12 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         hits = results["result"]["hits"]
         ids = [hit["_id"] for hit in hits]
         texts = [hit["fields"]["text"] for hit in hits]
-        if len(ids) == 0:
+        primary_columns = [hit["fields"]["primary_key"] for hit in hits]
+        if len(ids) == 0 or len(texts) == 0 or len(primary_columns) == 0:
             return None
         the_id = ids[0]
         text = texts[0]
-        table, primary_column, _ = the_id.split("/")
+        primary_column = primary_columns[0]
         code_action = f"SELECT {primary_column}, {column_name} FROM {table} WHERE {primary_column} = '{text}';"
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(code_action)
