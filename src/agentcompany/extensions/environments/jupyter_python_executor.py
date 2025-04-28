@@ -378,16 +378,8 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         }
         return functions_dict
     
-    def setup_vector_index(self) -> None:
-        """Setup vector index for the kernel, everything in python memory/environment is searchable for qa"""
-        # TODO
-        raise NotImplementedError("setup_vector_index not implemented.")
-    
-    def web_qa(self, prompt: str) -> str:
+    def web_qa(self, question: str, context: Optional[str]) -> Optional[str]:
         raise NotImplementedError("web_qa not implemented.")
-    
-    def save_qa(self, question: str, answer: str) -> str:
-        raise NotImplementedError("save_qa not implemented.")
     
     def parse_code_blob(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""

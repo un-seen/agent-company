@@ -23,54 +23,6 @@ from agentcompany.extensions.environments.base import ExecutionEnvironment, Obse
 logger = logging.getLogger(__name__)
 
 
-class QuestionAnswer(BaseModel):
-    question: str
-    answer: Optional[str]
-    success: bool
-
-
-def answer_from_data(data: str, question: str) -> QuestionAnswer:
-    """
-    Generate a JSON array for the user text using the Gemini API.
-    """
-    from openai import OpenAI
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    response = QuestionAnswer(question=question, answer=None, success=False)
-    # TODO fix the prompt by switching to flow agent here
-    prompt = f"""
-    You have to answer the question with a plain text value and not formatting based on the below data:
-    
-    {data} \n\n
-    
-    Question:
-    {question}
-    
-    You can extrapolate the answer if sufficient information is not provided but you can derive the answer from the data.
-    """
-    # Generate Answer
-    completion = client.chat.completions.create(
-        model="o4-mini",
-        messages=[{"role":"user","content": prompt}],
-    )
-    code_action = completion.choices[0].message.content
-    print(f"AnswerFromData -> Prompt: {prompt} Code Action: {code_action}")
-    # Judge Answer
-    judge_prompt = f"""
-    Question: {question}
-    Answer: {code_action}
-    Is any answer given in the answer? Answer with True or False.
-    """.strip()
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role":"user","content": judge_prompt}],
-    )
-    judge = completion.choices[0].message.content
-    print(f"Answer_from_Data_Judge: {judge}")
-    if judge.lower() == "true":
-        response.success = True
-        response.answer = code_action
-    return response
-
 def connect_with_uri(uri):
     """Connects to a PostgreSQL database using a connection URI.
 
@@ -555,135 +507,12 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
     
     def get_vector_namespace(self, _type: str) -> str:
         return self.pg_config["host"] + "_" + self.pg_config["dbname"]+ "_" + _type
-    
-    def setup_vector_index(self) -> None:
-        # TODO
-        for table in self.table_list:
-            
-            code_action = f"""SELECT
-                                kcu.column_name,
-                                kcu.ordinal_position          
-                             FROM   information_schema.table_constraints AS tc
-                             JOIN   information_schema.key_column_usage AS kcu
-                                 ON  tc.constraint_name  = kcu.constraint_name
-                                 AND tc.constraint_schema = kcu.constraint_schema
-                             WHERE  tc.constraint_type  = 'PRIMARY KEY'
-                             AND  tc.table_schema     = 'public'
-                             AND  tc.table_name       = '{table}'
-                             ORDER BY kcu.ordinal_position;"""
-            primary_key = None
-            with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(code_action)
-                primary_keys = cur.fetchall()
-                if len(primary_keys) == 0:
-                    raise ValueError(f"Table {table} has no primary key.")
-                primary_key = primary_keys[0]["column_name"]
-            
-            with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
-                code_action = f"SELECT {primary_key} as _id, row_to_json(t) as data FROM {table} as t;"
-                print(f"Code Action: {code_action}")
-                cur.execute(code_action)
-                rows = cur.fetchall()
-                for row in rows:
-                    data = row["data"]
-                    row["_id"]  = ascii(row["_id"])
-                    records = []
-                    print(f"Row: {row}")
-                    for key, value in data.items():
-                        if isinstance(value, (datetime, date)):
-                            value = value.isoformat()
-                        text = f"The {key} of {primary_key}:{row['_id']} is {value}"
-                        vector_id = f"{table}_{row['_id']}"
-                        records.append({
-                            "_id": vector_id,
-                            "text": text
-                        })
-                    self.vector_index.upsert_records(
-                        self.get_vector_namespace(table),
-                        records
-                    )
-            
-                
-    def get_pg_db_data(self, code_action: str) -> Optional[str]:
-        # TODO implement using postgres vector indexing
-        # from agentcompany.extensions.environments.web_executor import quick_word_match
-        # # Get Files from Memory
-        # files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
-        # data = None
-        # # Default to EXA Web if no files found
-        # if len(files) > 0:
-        #     # Create Context
-        #     data = ""
-        #     for index, file_key in enumerate(files, 1):
-        #         if file_key.endswith("content.txt"):
-        #             task_file = file_key.replace("content.txt", "task.txt")
-        #             if not check_key_exists(self.b2_config["bucket_name"], task_file):
-        #                 print(f"File {task_file} does not exist.")
-        #                 continue
-        #             task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
-        #             file_text = get_text_from_key(self.b2_config["bucket_name"], file_key)
-        #             if len(task_text) > 0 and len(file_text) > 0 and quick_word_match(task_text, code_action, case_insensitive=True):
-        #                 data += f"File: {file_key}\n"
-        #                 data += f"Task: {task_text}\n"
-        #                 data += f"Content: {file_text}\n"
-        #                 data += "-" * 80 + "\n"
-        # return data
-        pass
-    
-    def db_qa(self, question: str, count: int) -> Optional[str]:
-        namespace = self.get_vector_namespace("question_answer")
-        # TODO add reranking
-        task_results = self.vector_index.search(
-            namespace=namespace,
-            query={
-                "top_k": count,
-                "inputs": {
-                    'text': question
-                }
-            }
-        )
-        hits = task_results["result"]["hits"]
-        ids = [hit["_id"] for hit in hits]
-        task_list = [hit["fields"]["text"] for hit in hits]
-        data = ""
-        for file_key, task_answer_text in zip(ids, task_list):
-            data += f"File: {file_key}\n"
-            data += f"{task_answer_text}\n"
-            data += "-" * 80 + "\n"
-
-        return data if len(data) > 0 else None
         
-        
-    def save_qa(self, question: str, answer: str) -> None:
-        from random import randint
-        random_uuid = randint(0, 1000000)
-        key = f"session/{self.session_id}/{random_uuid}"
-        insert_question_answer = f"INSERT INTO qa (key, question, answer) VALUES ('{key}', '{question}', '{answer}');"
-        with self.pg_conn.cursor() as cur:
-            cur.execute(insert_question_answer)
-            self.pg_conn.commit()
-        
-        # Vector
-        namespace = self.get_vector_namespace("question_answer")
-        self.vector_index.upsert_records(
-            namespace,
-            [
-                {
-                    "_id": key,
-                    "text": f"Question: {question} \n \n Answer: {answer}",
-                }
-            ]
-        ) 
-        
-    def web_qa(self, question: str) -> Optional[str]:
+    def web_qa(self, question: str, context: Optional[str]) -> Optional[str]:
         # Get Files from Memory
         from agentcompany.extensions.environments.web_executor import exa_web_qa, QuestionAnswer, answer_from_data
         response: QuestionAnswer = QuestionAnswer(question=question, answer=None, success=False)
-        # Look in memory
-        db_data = self.db_qa(question, count=3)
-        print(f"Question: {question} \n\n DB Data:\n {db_data}")
-        if db_data is not None:
-            response = answer_from_data(db_data, question)
+        response = answer_from_data(context, question)
         # Look in EXA Web
         if not response.success:
             exa_answer = exa_web_qa(question)
@@ -712,12 +541,10 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                             return response.answer
                         print(f"Error getting URL: {url} - {e}")
                         attempt += 1
-                data = f"{db_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
+                data = f"{url}\n\n{text}"
                 response = answer_from_data(data, question)
-                if response.success:
-                    self.save_qa(question, response.answer)
         
-        return response.answer
+        return response.answer if response.success else None
     
     def get_final_storage(self) -> pd.DataFrame:
         max_step_id = max(self.storage.keys())

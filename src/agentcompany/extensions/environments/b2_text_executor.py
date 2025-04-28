@@ -252,21 +252,25 @@ class B2TextInterpreter(ExecutionEnvironment):
             ]
         ) 
         
-    def web_qa(self, code_action: str) -> Optional[str]:
+    def web_qa(self, question: str, context: Optional[str]) -> Optional[str]:
         # Get Files from Memory
         from agentcompany.extensions.environments.web_executor import exa_web_qa, QuestionAnswer, answer_from_data
-        response: QuestionAnswer = QuestionAnswer(question=code_action, answer=None, success=False)
+        response: QuestionAnswer = QuestionAnswer(question=question, answer=None, success=False)
+        # Look in context
+        if context is not None:
+            response = answer_from_data(context, question)
         # Look in memory
-        file_data = self.file_qa(code_action, count=3)
-        if file_data is not None:
-            response = answer_from_data(file_data, code_action)
+        if not response.success:
+            file_data = self.file_qa(question, count=3)
+            if file_data is not None:
+                response = answer_from_data(file_data, question)
         # Look in EXA Web
         if not response.success:
-            exa_answer = exa_web_qa(code_action)
+            exa_answer = exa_web_qa(question)
             if not exa_answer.startswith("I am sorry"):
                 response.answer = exa_answer
                 response.success = True
-                self.save_qa(code_action, exa_answer)
+                self.save_qa(question, exa_answer)
             else:
                 response.answer = exa_answer
                 response.success = False
@@ -274,7 +278,7 @@ class B2TextInterpreter(ExecutionEnvironment):
         if not response.success:
             from agentcompany.extensions.tools.brave import brave_web_search
             from agentcompany.extensions.tools.jina import get_url_as_text
-            search_urls = brave_web_search(code_action)
+            search_urls = brave_web_search(question)
             if len(search_urls) > 0:
                 url = search_urls[0]["url"]
                 max_attempt = 3
@@ -289,9 +293,9 @@ class B2TextInterpreter(ExecutionEnvironment):
                         print(f"Error getting URL: {url} - {e}")
                         attempt += 1
                 data = f"{file_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
-                response = answer_from_data(data, code_action)
+                response = answer_from_data(data, question)
                 if response.success:
-                    self.save_qa(code_action, response.answer)
+                    self.save_qa(question, response.answer)
         
         return response.answer
     

@@ -1,7 +1,7 @@
 import abc
 import pandas as pd
 from typing import Dict
-from typing import Tuple, Callable, Any, TypedDict, Union, List
+from typing import Tuple, Callable, Any, TypedDict, Union, List, Optional
 from agentcompany.mcp.base import ModelContextProtocolImpl
 
 class Observations(TypedDict):
@@ -69,16 +69,8 @@ class ExecutionEnvironment(abc.ABC):
         raise NotImplementedError("get_memory not implemented.")
     
     @abc.abstractmethod
-    def setup_vector_index(self) -> None:
-        raise NotImplementedError("setup_vector_index not implemented.")
-    
-    @abc.abstractmethod
-    def web_qa(self, prompt: str) -> str:
+    def web_qa(self, question: str, context: Optional[str]) -> Optional[str]:
         raise NotImplementedError("web_qa not implemented.")
-    
-    @abc.abstractmethod
-    def save_qa(self, question: str, answer: str) -> str:
-        raise NotImplementedError("save_qa not implemented.")
         
     def save_observations(self, next_step_id: int, next_step: str, code_action: str, observations: str, feedback: str) -> Observations:
         if "observations" not in self.state:
