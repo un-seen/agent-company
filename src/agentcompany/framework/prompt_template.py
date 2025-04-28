@@ -8,6 +8,7 @@ def populate_template(template: str, variables: Dict[str, Any]) -> str:
     try:
         return compiled_template.render(**variables)
     except Exception as e:
+        
         raise Exception(f"Error during jinja template rendering: {type(e).__name__}: {e}")
 
 

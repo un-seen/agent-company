@@ -22,7 +22,7 @@ plan:
       You have to complete the task by writing a plain text report. Do not include any markdown or any other formatting. Do not include any instructions or any other text that is not to be read by the user.
       
       {%- if variable_statement and variable_statement|length > 0 %}
-      These are known statements that can be used in the report:
+      These are known statements about {{ known_entity }} which can be utilized in the report:
       
       {{ variable_statement }}
       {% endif %}
@@ -59,7 +59,7 @@ plan:
       ```
        
       {%- if known_variables and known_variables.items()|length > 0 %}
-      The known variables in the final answer are:
+      The known variables are:
       {%- for key, value in known_variables.items() %}
       - {{ key }}: {{ value }}
 
