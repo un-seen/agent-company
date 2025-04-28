@@ -519,7 +519,6 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
             if not exa_answer.startswith("I am sorry"):
                 response.answer = exa_answer
                 response.success = True
-                self.save_qa(question, exa_answer)
             else:
                 response.answer = exa_answer
                 response.success = False
