@@ -262,8 +262,9 @@ class FlowPattern(ModelContextProtocolImpl):
         if code_action is None:
             raise ValueError("No final answer found in the state.")
         try:
-            self.logger.log(code=code_action, title="CodeAction:")
+            self.logger.log(text=code_action, title="CodeAction:")
             known_variables = self.state.get("known_variables", {})
+            self.logger.log(text=known_variables, title="Known Variables:")
             observations, _, _ = self.executor_environment(
                 code_action=code_action,
                 additional_variables=known_variables,
@@ -470,7 +471,7 @@ class FlowPattern(ModelContextProtocolImpl):
                 observations = code_output_message.content
             elif action_type == "final_answer":
                 observations = code_output_message.content
-                state["final_answer"] = observations                
+                self.state["final_answer"] = observations                
             else:
                 raise ValueError(f"Unknown action type: {action_type}")
 
