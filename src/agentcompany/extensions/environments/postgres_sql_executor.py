@@ -559,7 +559,27 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
     def setup_vector_index(self) -> None:
         # TODO
         for table in self.table_list:
-            code_action = f"SELECT row_to_json(t) as data FROM {table} as t;"
+            
+            code_action = f"""SELECT
+                                kcu.column_name,
+                                kcu.ordinal_position          
+                             FROM   information_schema.table_constraints AS tc
+                             JOIN   information_schema.key_column_usage AS kcu
+                                 ON  tc.constraint_name  = kcu.constraint_name
+                                 AND tc.constraint_schema = kcu.constraint_schema
+                             WHERE  tc.constraint_type  = 'PRIMARY KEY'
+                             AND  tc.table_schema     = 'public'
+                             AND  tc.table_name       = '{table}'
+                             ORDER BY kcu.ordinal_position;"""
+            primary_key = None
+            with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(code_action)
+                primary_keys = cur.fetchall()
+                if len(primary_keys) == 0:
+                    raise ValueError(f"Table {table} has no primary key.")
+                primary_key = primary_keys[0]["column_name"]
+                             
+            code_action = f"SELECT {primary_key} as _id, row_to_json(t) as data FROM {table} as t;"
             rows = evaluate_sql_code(
                 self.pg_conn,
                 code_action,
@@ -568,11 +588,12 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
             )
             for row in rows:
                 data = row["data"]
+                _id = f"{table}_{row['_id']}"
                 self.vector_index.upsert_records(
                     self.get_vector_namespace(table),
                     [
                         {
-                            "_id": row["id"],
+                            "_id": _id,
                             "text": json.dumps(data, default=json_serial)
                         }
                     ]
