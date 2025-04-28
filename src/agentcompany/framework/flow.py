@@ -354,11 +354,8 @@ class FlowPattern(ModelContextProtocolImpl):
         self.variable_system = PostgresSqlInterpreter(
             self.session_id,
             self.mcp_servers,
-            **self.executor_environment_config["config"]
+            **variable_system_config["config"]
         )
-        self.variable_system.get_context = variable_system_config["get_context"]
-        self.variable_system.set_context = variable_system_config["set_context"]
-        
         
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
