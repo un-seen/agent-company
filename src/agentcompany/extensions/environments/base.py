@@ -69,6 +69,10 @@ class ExecutionEnvironment(abc.ABC):
         raise NotImplementedError("get_memory not implemented.")
     
     @abc.abstractmethod
+    def setup_vector_index(self) -> None:
+        raise NotImplementedError("setup_vector_index not implemented.")
+    
+    @abc.abstractmethod
     def web_qa(self, prompt: str) -> str:
         raise NotImplementedError("web_qa not implemented.")
     

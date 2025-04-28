@@ -554,7 +554,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         self.storage = {}
     
     def get_vector_namespace(self, _type: str) -> str:
-        return self.b2_config["prefix"].replace("/", "_") + "_" + _type
+        return self.pg_config["host"] + "_" + self.pg_config["dbname"]+ "_" + _type
     
     def setup_vector_index(self) -> None:
         # TODO

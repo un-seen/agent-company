@@ -1553,6 +1553,11 @@ class LocalPythonInterpreter(ExecutionEnvironment):
         }
         return functions_dict
     
+    def setup_vector_index(self) -> None:
+        """Setup vector index for the kernel, everything in python memory/environment is searchable for qa"""
+        # TODO
+        raise NotImplementedError("setup_vector_index not implemented.")
+    
     def web_qa(self, prompt: str) -> str:
         raise NotImplementedError("web_qa not implemented.")
     

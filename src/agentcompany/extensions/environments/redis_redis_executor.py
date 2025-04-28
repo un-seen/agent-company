@@ -66,6 +66,11 @@ class RedisRedisInterpreter(ExecutionEnvironment):
         """Parse context to extract relevant information"""
         return context
     
+    def setup_vector_index(self) -> None:
+        """Setup vector index for the kernel, everything in redis environment is searchable for qa"""
+        # TODO
+        raise NotImplementedError("setup_vector_index not implemented.")
+    
     def web_qa(self, prompt: str) -> str:
         raise NotImplementedError("web_qa not implemented.")
     
