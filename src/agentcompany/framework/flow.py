@@ -236,8 +236,8 @@ class FlowPattern(ModelContextProtocolImpl):
         self.memory.append_step(TaskStep(task=self.task))
         # Get Variables
         if self.variable_system:
-            variable_table = self.variable_system["table"]
-            variable_column_name = self.variable_system["column_name"]
+            variable_table = self.variable_system_config["table"]
+            variable_column_name = self.variable_system_config["column_name"]
             variable_list = self.variable_system.get_variable_list(self.task, variable_table, variable_column_name)
             if variable_list is not None:
                 variable_key, variable_data = variable_list
@@ -343,7 +343,7 @@ class FlowPattern(ModelContextProtocolImpl):
     
     def setup_variable_system(self):
         # Get class name from config
-        variable_system_config = self.prompt_templates["variable_system"]
+        variable_system_config: dict = self.prompt_templates["variable_system"]
         if variable_system_config is None:
             self.variable_system = None
             return
@@ -356,6 +356,8 @@ class FlowPattern(ModelContextProtocolImpl):
             self.mcp_servers,
             **variable_system_config["config"]
         )
+        variable_system_config.pop("config")
+        self.variable_system_config = variable_system_config
         
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
