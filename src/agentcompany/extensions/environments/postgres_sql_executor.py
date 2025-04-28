@@ -548,7 +548,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                 batch
             )
     
-    def get_variable_list(self, task: str, table: str, column: str) -> Optional[Tuple[str, Dict[str, str]]]:
+    def get_variable_list(self, task: str, table: str, column_name: str) -> Optional[Tuple[str, Dict[str, str]]]:
         vector_namespace = self.get_vector_namespace()
         results = self.vector_index.search(
             namespace=vector_namespace,
@@ -566,21 +566,23 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         )
         hits = results["result"]["hits"]
         ids = [hit["_id"] for hit in hits]
+        texts = [hit["fields"]["text"] for hit in hits]
         if len(ids) == 0:
             return None
         the_id = ids[0]
-        table, primary_column, primary_key = the_id.split("/")
-        code_action = f"SELECT {primary_key}, {column} FROM {table} WHERE {primary_column} = '{primary_key}';"
+        text = texts[0]
+        table, primary_column, _ = the_id.split("/")
+        code_action = f"SELECT {primary_column}, {column_name} FROM {table} WHERE {primary_column} = '{text}';"
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(code_action)
             rows = cur.fetchall()
             if len(rows) == 0:
                 return None
             row = rows[0]
-            key = row[primary_key]
-            if column not in row:
+            key = row[primary_column]
+            if column_name not in row:
                 return None
-            value = row[column]
+            value = row[column_name]
             if isinstance(value, str):
                 try:
                     value = json.loads(value)
