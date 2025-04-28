@@ -378,7 +378,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         }
         return functions_dict
     
-    def web_qa(self, question: str, context: Optional[str]) -> Optional[str]:
+    def web_qa(self, question: str, context: Optional[str] = None) -> Optional[str]:
         raise NotImplementedError("web_qa not implemented.")
     
     def parse_code_blob(self, code_blob: str) -> str:

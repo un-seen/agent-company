@@ -508,7 +508,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
     def get_vector_namespace(self, _type: str) -> str:
         return self.pg_config["host"] + "_" + self.pg_config["dbname"]+ "_" + _type
         
-    def web_qa(self, question: str, context: Optional[str]) -> Optional[str]:
+    def web_qa(self, question: str, context: Optional[str] = None) -> Optional[str]:
         # Get Files from Memory
         from agentcompany.extensions.environments.web_executor import exa_web_qa, QuestionAnswer, answer_from_data
         response: QuestionAnswer = QuestionAnswer(question=question, answer=None, success=False)

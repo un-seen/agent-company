@@ -66,7 +66,7 @@ class RedisRedisInterpreter(ExecutionEnvironment):
         """Parse context to extract relevant information"""
         return context
     
-    def web_qa(self, question: str, context: Optional[str]) -> Optional[str]:
+    def web_qa(self, question: str, context: Optional[str] = None) -> Optional[str]:
         raise NotImplementedError("web_qa not implemented.")
     
     def __call__(self, code_action: str, additional_variables: Dict, return_type: str = "string") -> Tuple[str, str, bool]:
