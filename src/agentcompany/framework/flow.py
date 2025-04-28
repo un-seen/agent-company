@@ -238,6 +238,7 @@ class FlowPattern(ModelContextProtocolImpl):
         if self.variable_system:
             variable_table = self.variable_system_config["table"]
             variable_column_name = self.variable_system_config["column_name"]
+            print(f"Task: {task} | Table: {variable_table} | Column: {variable_column_name}")
             variable_list = self.variable_system.get_variable_list(self.task, variable_table, variable_column_name)
             if variable_list is not None:
                 variable_key, variable_data = variable_list
