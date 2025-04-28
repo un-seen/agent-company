@@ -5,6 +5,7 @@ from datetime import datetime, date
 from psycopg2 import sql
 import pinecone
 import json
+import os
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import traceback
 import numpy as np
@@ -579,63 +580,84 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
             
                 
     def get_pg_db_data(self, code_action: str) -> Optional[str]:
-        # TODO
-        from agentcompany.extensions.environments.web_executor import quick_word_match
-        # Get Files from Memory
-        files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
-        data = None
-        # Default to EXA Web if no files found
-        if len(files) > 0:
-            # Create Context
-            data = ""
-            for index, file_key in enumerate(files, 1):
-                if file_key.endswith("content.txt"):
-                    task_file = file_key.replace("content.txt", "task.txt")
-                    if not check_key_exists(self.b2_config["bucket_name"], task_file):
-                        print(f"File {task_file} does not exist.")
-                        continue
-                    task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
-                    file_text = get_text_from_key(self.b2_config["bucket_name"], file_key)
-                    if len(task_text) > 0 and len(file_text) > 0 and quick_word_match(task_text, code_action, case_insensitive=True):
-                        data += f"File: {file_key}\n"
-                        data += f"Task: {task_text}\n"
-                        data += f"Content: {file_text}\n"
-                        data += "-" * 80 + "\n"
-        return data
-    
-    def db_qa(self, question: str) -> Optional[str]:
-        # TODO
-        # Write sql code to get the data from the database
+        # TODO implement using postgres vector indexing
+        # from agentcompany.extensions.environments.web_executor import quick_word_match
+        # # Get Files from Memory
+        # files = list_files(self.b2_config["bucket_name"], self.b2_config["prefix"])
+        # data = None
+        # # Default to EXA Web if no files found
+        # if len(files) > 0:
+        #     # Create Context
+        #     data = ""
+        #     for index, file_key in enumerate(files, 1):
+        #         if file_key.endswith("content.txt"):
+        #             task_file = file_key.replace("content.txt", "task.txt")
+        #             if not check_key_exists(self.b2_config["bucket_name"], task_file):
+        #                 print(f"File {task_file} does not exist.")
+        #                 continue
+        #             task_text = get_text_from_key(self.b2_config["bucket_name"], task_file)
+        #             file_text = get_text_from_key(self.b2_config["bucket_name"], file_key)
+        #             if len(task_text) > 0 and len(file_text) > 0 and quick_word_match(task_text, code_action, case_insensitive=True):
+        #                 data += f"File: {file_key}\n"
+        #                 data += f"Task: {task_text}\n"
+        #                 data += f"Content: {file_text}\n"
+        #                 data += "-" * 80 + "\n"
+        # return data
         pass
+    
+    def db_qa(self, question: str, count: int) -> Optional[str]:
+        namespace = self.get_vector_namespace("question_answer")
+        # TODO add reranking
+        task_results = self.vector_index.search(
+            namespace=namespace,
+            query={
+                "top_k": count,
+                "inputs": {
+                    'text': question
+                }
+            }
+        )
+        hits = task_results["result"]["hits"]
+        ids = [hit["_id"] for hit in hits]
+        task_list = [hit["fields"]["text"] for hit in hits]
+        data = ""
+        for file_key, task_answer_text in zip(ids, task_list):
+            data += f"File: {file_key}\n"
+            data += f"{task_answer_text}\n"
+            data += "-" * 80 + "\n"
+
+        return data if len(data) > 0 else None
         
-    def save_qa(self, code_action: str, answer: str) -> None:
-        # TODO save qa
+        
+    def save_qa(self, question: str, answer: str) -> None:
+        from random import randint
         random_uuid = randint(0, 1000000)
-        file_key = f"{self.b2_config['prefix']}/session/{self.session_id}/{random_uuid}.content.txt"
-        task_key = file_key.replace(f"{random_uuid}.content.txt", f"{random_uuid}.task.txt")
-        store_file(self.b2_config["bucket_name"], file_key, answer.encode("utf-8"))
-        store_file(self.b2_config["bucket_name"], task_key, code_action.encode("utf-8"))    
+        key = f"session/{self.session_id}/{random_uuid}"
+        insert_question_answer = f"INSERT INTO qa (key, question, answer) VALUES ('{key}', '{question}', '{answer}');"
+        with self.pg_conn.cursor() as cur:
+            cur.execute(insert_question_answer)
+            self.pg_conn.commit()
+        
         # Vector
-        namespace = self.get_vector_namespace("task")
+        namespace = self.get_vector_namespace("question_answer")
         self.vector_index.upsert_records(
             namespace,
             [
                 {
-                    "_id": file_key,
-                    "text": f"Task: {code_action} \n \n Answer: {answer}",
+                    "_id": key,
+                    "text": f"Question: {question} \n \n Answer: {answer}",
                 }
             ]
         ) 
         
     def web_qa(self, question: str) -> Optional[str]:
-        # TODO
         # Get Files from Memory
         from agentcompany.extensions.environments.web_executor import exa_web_qa, QuestionAnswer, answer_from_data
         response: QuestionAnswer = QuestionAnswer(question=question, answer=None, success=False)
         # Look in memory
-        file_data = self.db_qa(question)
-        if file_data is not None:
-            response = answer_from_data(file_data, question)
+        db_data = self.db_qa(question)
+        if db_data is not None:
+            response = answer_from_data(db_data, question)
         # Look in EXA Web
         if not response.success:
             exa_answer = exa_web_qa(question)
@@ -664,7 +686,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                             return response.answer
                         print(f"Error getting URL: {url} - {e}")
                         attempt += 1
-                data = f"{file_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
+                data = f"{db_data}\n\n" +  "-" * 80  + f"{url}\n\n{text}"
                 response = answer_from_data(data, question)
                 if response.success:
                     self.save_qa(question, response.answer)
