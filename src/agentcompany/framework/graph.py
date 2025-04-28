@@ -18,6 +18,8 @@ from agentcompany.driver.errors import (
     AgentError,
     AgentGenerationError,
 )
+from pydantic import BaseModel
+from agentcompany.llms.base import AugmentedLLM
 from agentcompany.driver.markdown import list_of_dict_to_markdown_table
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from typing import TypedDict
@@ -43,6 +45,20 @@ class Node(TypedDict):
     action: Union[ActionType, None]
     out: Union[Literal["one_to_many", "one_to_one", "many_to_one"], None]
     out_id: Union[str, None]
+    
+    
+class Variable(BaseModel):
+    """
+    Variable for the Agent Flow
+    """
+    name: str
+    description: str
+
+class VariableList(BaseModel):  
+    """
+    Variable list for the Agent Flow
+    """
+    variable_list: List[Variable]
     
 class PromptTemplates(TypedDict):
     """
@@ -279,18 +295,20 @@ class GraphPattern(ModelContextProtocolImpl):
         else:
             self.state["hint"] = ""
             
-    def _build_causal_graph(self, task: str) -> None:
+    def _build_causal_graph(self, task: str, input_list: List[dict]) -> List[Variable]:
         """
         Build a causal graph from the task by identifying root nodes and dependencies.
         Uses LLM to identify criteria and relationships between items in the input list.
         """
-        # Get the input list from state
-        input_list = self.state.get("input_list", [])
-        if not input_list:
-            raise ValueError("No input list provided in state")
-
+        # TODO: Implement logic to create causal graph
+        # backsolved from the criteria as the terminal node
+        # use the list of inputs, hint, previous reports etc
+        # to create the causal graph
+        # You parse the criteria into causal variables and a terminal node which is the criteria
+        # and then you create a graph from the criteria to the input list via the causal variables
         # Generate criteria and relationships using LLM
         input_list_as_markdown = list_of_dict_to_markdown_table(input_list)
+        print(input_list_as_markdown)
         criteria_prompt = populate_template(
             self.prompt_templates["criteria"],
             variables={
@@ -299,28 +317,28 @@ class GraphPattern(ModelContextProtocolImpl):
             }
         )
         input_messages = [
-            {"role": "system", "content": [{"type": "text", "text": self.description}]},
-            {"role": "user", "content": [{"type": "text", "text": criteria_prompt}]}
+            {"role": "system", "content": [{"type": "input_text", "input_text": self.description}]},
+            {"role": "user", "content": [{"type": "input_text", "input_text": criteria_prompt}]}
         ]
         criteria_output = self.model(input_messages)
-
+        criteria_output = criteria_output.content
+        print(f"Criteria Output: {criteria_output}")
         # Parse criteria and build causal graph
-        self.causal_graph = self._parse_criteria_to_graph(criteria_output.content)
-        self.root_node = self._identify_root_node(self.causal_graph)
-
-    def _parse_criteria_to_graph(self, criteria: str) -> Dict:
-        """
-        Parse the criteria into a causal graph structure.
-        The criteria is the terminal node and the graph is built from it.
-        Each node in the graph represents a step in the computation in reverse.
-        """
-        # TODO: Implement logic to create causal graph
-        # backsolved from the criteria as the terminal node
-        # use the list of inputs, hint, previous reports etc
-        # to create the causal graph
-        # You parse the criteria into causal variables and a terminal node which is the criteria
-        # and then you create a graph from the criteria to the input list via the causal variables
-        return {}
+        variables_prompt = populate_template(
+            self.prompt_templates["variable"],
+            variables={
+                "task": self.task,
+                "criteria": criteria_output,
+                "input_list_as_markdown": input_list_as_markdown
+            }
+        )
+        input_messages = [
+            {"role": "system", "content": [{"type": "text", "text": self.description}]},
+            {"role": "user", "content": [{"type": "text", "text": variables_prompt}]}
+        ]
+        client: AugmentedLLM = self.model
+        variable_output: VariableList = client.structured_output(input_messages, output_schema=VariableList)
+        return variable_output.variable_list
 
     def _identify_root_node(self, graph: Dict) -> str:
         """
@@ -490,23 +508,35 @@ class GraphPattern(ModelContextProtocolImpl):
         Execute the computation plan using the causal graph.
         For each item in the input list, traverse the graph and compute the required outputs.
         """
-        if not self.causal_graph or not self.root_node:
-            self._build_causal_graph(self.state["task"])
-
-        input_list = self.state.get("input_list", [])
-        results = []
-
-        for item in input_list:
-            # Set current item in state
-            self.state["current"] = item
-            # Traverse graph and compute outputs
-            output = self._traverse_graph(self.root_node, item)
-            results.append(output)
-
+        # TODO set input list in state
+        # TODO now set the variable value by asking the b2 text interpreter 
+        # create a dict with the variable name and value
+        # Set current item in state
+        # self.state["current"] = item
+        # # Traverse graph and compute outputs
+        # output = self._traverse_graph(self.root_node, item)
+        # results.append(output)
+        input_code = self.prompt_templates.get("input", None)
+        if input_code is None:
+            raise ValueError("No input list provided in prompt templates")
+        input_list, _, _ = self.executor_environment(code_action=input_code, additional_variables={})
+        variables_list = self._build_causal_graph(self.state["task"], input_list)
+        data = []
+        for node in input_list:
+            for variable in variables_list:
+                # TODo fix variable
+                question = f"{variable}: {variable.description} \n\n What is the value of {variable.name}?"
+                variable_value = self.executor_environment.web_qa(question)
+                node[variable.name] = variable_value
+            data.append(node)
         # Set final results
-        self.state["results"] = results
-
-    
+        self.state["results"] = data
+        # TODO Create a matrix
+        # apply reranking
+        # return the ranked list 
+        # persist in postgres
+        print(f"Data: {data}")
+        raise ValueError("Stop here for now")
     
     def forward(self, task: str) -> Any:
         """

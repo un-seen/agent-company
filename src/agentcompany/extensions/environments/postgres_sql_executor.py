@@ -676,7 +676,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         from agentcompany.extensions.environments.web_executor import exa_web_qa, QuestionAnswer, answer_from_data
         response: QuestionAnswer = QuestionAnswer(question=question, answer=None, success=False)
         # Look in memory
-        db_data = self.db_qa(question)
+        db_data = self.db_qa(question, count=3)
         if db_data is not None:
             response = answer_from_data(db_data, question)
         # Look in EXA Web
