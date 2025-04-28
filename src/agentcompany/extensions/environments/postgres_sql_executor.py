@@ -328,7 +328,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         # Add base trusted tools to list
         self.static_tools = mcp_servers
         self.pinecone_client = pinecone.Pinecone(api_key=os.environ["PINECONE_API_KEY"])
-        self.vector_index = self.pinecone_client.Index("b2-interpreter")
+        self.vector_index = self.pinecone_client.Index("postgres-sql-interpreter")
         super().__init__(session_id=session_id, mcp_servers=mcp_servers)
         
     def reset_connection(self):

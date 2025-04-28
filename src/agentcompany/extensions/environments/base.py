@@ -56,15 +56,26 @@ class ExecutionEnvironment(abc.ABC):
     def __call__(self, code_action: str, additional_variables: dict, return_type: str = "string") -> Tuple[str, str, bool]:
         return super().__call__(code_action, additional_variables)
     
+    @abc.abstractmethod
     def set_storage(self, next_step_id: int, code_action: str, observations: List[Dict[str, Any]] = None):
         raise NotImplementedError("save_in_memory not implemented.")
     
+    @abc.abstractmethod
     def get_storage_id(self, next_step_id: int) -> str:
         raise NotImplementedError("get_previous_memory_prompt not implemented.")
     
+    @abc.abstractmethod
     def get_storage(self, storage_id: str) -> str:
         raise NotImplementedError("get_memory not implemented.")
     
+    @abc.abstractmethod
+    def web_qa(self, prompt: str) -> str:
+        raise NotImplementedError("web_qa not implemented.")
+    
+    @abc.abstractmethod
+    def save_qa(self, question: str, answer: str) -> str:
+        raise NotImplementedError("save_qa not implemented.")
+        
     def save_observations(self, next_step_id: int, next_step: str, code_action: str, observations: str, feedback: str) -> Observations:
         if "observations" not in self.state:
             self.state["observations"] = {}
@@ -88,5 +99,6 @@ class ExecutionEnvironment(abc.ABC):
             previous_observations.append(self.state["observations"][i])
         return previous_observations
     
+    @abc.abstractmethod
     def get_final_storage(self) -> pd.DataFrame:
         raise NotImplementedError("get_final_storage not implemented.")

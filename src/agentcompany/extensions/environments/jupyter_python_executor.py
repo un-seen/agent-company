@@ -378,6 +378,11 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         }
         return functions_dict
     
+    def web_qa(self, prompt: str) -> str:
+        raise NotImplementedError("web_qa not implemented.")
+    
+    def save_qa(self, question: str, answer: str) -> str:
+        raise NotImplementedError("save_qa not implemented.")
     
     def parse_code_blob(self, code_blob: str) -> str:
         """Parses the LLM's output to get any code blob inside. Will return the code directly if it's code."""

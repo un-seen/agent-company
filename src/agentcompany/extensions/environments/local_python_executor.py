@@ -1553,6 +1553,12 @@ class LocalPythonInterpreter(ExecutionEnvironment):
         }
         return functions_dict
     
+    def web_qa(self, prompt: str) -> str:
+        raise NotImplementedError("web_qa not implemented.")
+    
+    def save_qa(self, question: str, answer: str) -> str:
+        raise NotImplementedError("save_qa not implemented.")
+    
     def parse_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Parse context to extract relevant information"""
         return context
