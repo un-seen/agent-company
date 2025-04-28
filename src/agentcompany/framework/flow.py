@@ -89,10 +89,10 @@ def set_state_out_id(global_state: dict, state: dict, out_id: str, output: Any) 
     """
     Set the out_id in the state.
     """
-    if not 'known_variables' in state:
-        state["known_variables"] = {}
     if not 'known_variables' in global_state:
         global_state["known_variables"] = {}
+    if not 'known_variables' in state:
+        state["known_variables"] = {}
     if out_id and out_id.startswith("$"):
         out_id = out_id[1:]
         out_id = state[out_id]            
@@ -409,103 +409,100 @@ class FlowPattern(ModelContextProtocolImpl):
         
         previous_environment_errors: List[Dict[str, Any]] = previous_environment_errors or []
 
-        while True:
-            
-            # Check if it is a deterministic action because itself and it's output are both defined in the environment
-            if action_type == "environment":
-                observations = call_method(self.executor_environment, prompt, state["current"])
-                break
-            
-            model_input_messages_with_errors = copy.deepcopy(model_input_messages)
-
-            if previous_environment_errors:
-                error_str = "\n\n".join([
-                    f"\n\n Please avoid these errors:\n\n{err['error']}"
-                    for err in previous_environment_errors
-                ])
-                model_input_messages_with_errors.append(
-                    {"role": "user", "content": [{"type": "text", "text": error_str}]}
-                )        
-            model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages_with_errors])
-            self.logger.log(text=model_input_messages_str, title=f"LLM_Input({self.interface_id}/{self.name}):")
-            try:
-                code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
-            except Exception as e:
-                raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
-            observations = None
-            code_action = None
-            if action_type == "execute":
+        if action_type == "environment":
+            observations = call_method(self.executor_environment, prompt, state["current"])
+        else:
+                
+            while True:
+                model_input_messages_with_errors = copy.deepcopy(model_input_messages)
+                if previous_environment_errors and len(previous_environment_errors) > 0:
+                    error_str = "\n\n".join([
+                        f"\n\n Please avoid these errors:\n\n{err['error']}"
+                        for err in previous_environment_errors
+                    ])
+                    model_input_messages_with_errors.append(
+                        {"role": "user", "content": [{"type": "text", "text": error_str}]}
+                    )        
+                model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages_with_errors])
+                self.logger.log(text=model_input_messages_str, title=f"Flow_Pattern_Run_Step_LLM_Input({self.interface_id}/{self.name}):")
                 try:
-                    code_action = self.executor_environment.parse_code_blob(code_output_message.content)
+                    code_output_message: ChatMessage = self.model(model_input_messages_with_errors, return_type)
                 except Exception as e:
-                    self.logger.log(text=f"Code: {code_output_message.content}\n\nError: {e}", title="Error in Code Parsing:")
-                    error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
-                    error_msg = self.executor_environment.parse_error_logs(error_msg)
-                    previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
-                    continue
-                try:
-                    observations, _, _ = self.executor_environment(
-                        code_action=code_action,
-                        additional_variables={
-                            
-                        },
-                        return_type="string"
-                    )
-                except Exception as e:
-                    error_msg = "Error in Code Execution: \n"
-                    if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                        error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
-                    error_msg += str(e)
-                    error_msg = self.executor_environment.parse_error_logs(error_msg)
-                    self.logger.log(text=error_msg, title="CodeActionError:")
-                    previous_environment_errors.append({"code": code_action, "error": error_msg})
-                    continue
-            elif action_type == "skip":
-                code_action = code_output_message.content
-                observations = code_output_message.content
-            elif action_type == "final_answer":
-                code_action = code_output_message.content
-                observations = code_output_message.content
-                self.state["final_answer"] = observations                
-            else:
-                code_action = code_output_message.content
-                observations = code_output_message.content
-                self.logger.log(text=code_action, title=f"UnknownActionType({action_type}):")
+                    raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
+                observations = None
+                code_action = None
+                if action_type == "execute":
+                    try:
+                        code_action = self.executor_environment.parse_code_blob(code_output_message.content)
+                    except Exception as e:
+                        self.logger.log(text=f"Code: {code_output_message.content}\n\nError: {e}", title="Error in Code Parsing:")
+                        error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+                        error_msg = self.executor_environment.parse_error_logs(error_msg)
+                        previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
+                        continue
+                    try:
+                        observations, _, _ = self.executor_environment(
+                            code_action=code_action,
+                            additional_variables={
+                                
+                            },
+                            return_type="string"
+                        )
+                    except Exception as e:
+                        error_msg = "Error in Code Execution: \n"
+                        if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
+                            error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
+                        error_msg += str(e)
+                        error_msg = self.executor_environment.parse_error_logs(error_msg)
+                        self.logger.log(text=error_msg, title="CodeActionError:")
+                        previous_environment_errors.append({"code": code_action, "error": error_msg})
+                        continue
+                elif action_type == "skip":
+                    code_action = code_output_message.content
+                    observations = code_output_message.content
+                elif action_type == "final_answer":
+                    code_action = code_output_message.content
+                    observations = code_output_message.content
+                    self.state["final_answer"] = observations                
+                else:
+                    code_action = code_output_message.content
+                    observations = code_output_message.content
+                    self.logger.log(text=code_action, title=f"UnknownActionType({action_type}):")
 
-            self.logger.log(code=code_action, title=f"LLM_Output({self.interface_id}/{self.name}):")
-            judge_input_message = {
-                "role": MessageRole.USER, 
-                "content": [{
-                    "type": "text", 
-                    "text": populate_template(
-                        self.prompt_templates["judge"],
-                        variables={
-                            "task": model_input_messages_str,
-                            "code": code_action,
-                            "mcp_servers": self.mcp_servers,
-                            "observations": observations,
-                        }
-                    )
-                }]
-            }
-            self.logger.log(text=judge_input_message["content"][0]["text"], title=f"Judge Input ({self.interface_id}/{self.name}):")
-            judge_output_message: ChatMessage = self.model([judge_input_message])
+                self.logger.log(text=code_action, title=f"Flow_Pattern_Run_Step_LLM_Output({self.interface_id}/{self.name}):")
+                judge_input_message = {
+                    "role": MessageRole.USER, 
+                    "content": [{
+                        "type": "text", 
+                        "text": populate_template(
+                            self.prompt_templates["judge"],
+                            variables={
+                                "task": model_input_messages_str,
+                                "code": code_action,
+                                "mcp_servers": self.mcp_servers,
+                                "observations": observations,
+                            }
+                        )
+                    }]
+                }
+                self.logger.log(text=judge_input_message["content"][0]["text"], title=f"Judge Input ({self.interface_id}/{self.name}):")
+                judge_output_message: ChatMessage = self.model([judge_input_message])
 
-            self.judge_step = JudgeStep([judge_input_message], judge_output_message)
-            self.memory.append_step(self.judge_step)
+                self.judge_step = JudgeStep([judge_input_message], judge_output_message)
+                self.memory.append_step(self.judge_step)
 
-            decision = self.judge_step.to_decision()
-            feedback = self.judge_step.get_feedback_content()
+                decision = self.judge_step.to_decision()
+                feedback = self.judge_step.get_feedback_content()
 
-            self.logger.log(text=self.judge_step.model_output_message.content, title=f"Judge Output ({self.interface_id}/{self.name}): {decision}")
+                self.logger.log(text=self.judge_step.model_output_message.content, title=f"Judge Output ({self.interface_id}/{self.name}): {decision}")
 
-            if decision == "approve":
-                break
-            elif return_on_fail:
-                previous_environment_errors = [{"code": code_action, "error": feedback}]
-                return None, previous_environment_errors
-            else:
-                previous_environment_errors = [{"code": code_action, "error": feedback}]
+                if decision == "approve":
+                    break
+                elif return_on_fail:
+                    previous_environment_errors = [{"code": code_action, "error": feedback}]
+                    return None, previous_environment_errors
+                else:
+                    previous_environment_errors = [{"code": code_action, "error": feedback}]
 
         return observations, previous_environment_errors
     
