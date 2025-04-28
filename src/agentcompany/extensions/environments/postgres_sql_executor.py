@@ -681,6 +681,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
         response: QuestionAnswer = QuestionAnswer(question=question, answer=None, success=False)
         # Look in memory
         db_data = self.db_qa(question, count=3)
+        print(f"Question: {question} \n\n DB Data:\n {db_data}")
         if db_data is not None:
             response = answer_from_data(db_data, question)
         # Look in EXA Web
