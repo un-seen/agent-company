@@ -580,12 +580,13 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                 primary_key = primary_keys[0]["column_name"]
             
             with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
-                code_action = f"SELECT ascii({primary_key}) as _id, row_to_json(t) as data FROM {table} as t;"
+                code_action = f"SELECT {primary_key} as _id, row_to_json(t) as data FROM {table} as t;"
                 print(f"Code Action: {code_action}")
                 cur.execute(code_action)
                 rows = cur.fetchall()
                 for row in rows:
                     data = row["data"]
+                    row["_id"]  = ascii(row["_id"])
                     records = []
                     print(f"Row: {row}")
                     for key, value in data.items():
