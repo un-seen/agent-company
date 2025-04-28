@@ -18,13 +18,14 @@ plan:
       {{ hint }}
       {% endif %}
       
+      
+      You have to complete the task by writing a plain text report. Do not include any markdown or any other formatting. Do not include any instructions or any other text that is not to be read by the user.
+      
       {%- if variable_statement and variable_statement|length > 0 %}
-      These are known statements that must be used to complete the task:
+      These are known statements that can be used in the report:
+      
       {{ variable_statement }}
       {% endif %}
-      
-
-      You have to complete the task by writing a plain text report. Do not include any markdown or any other formatting. Do not include any instructions or any other text that is not to be read by the user.
       
       The report must have a structure that is easy to read and understand.
       
