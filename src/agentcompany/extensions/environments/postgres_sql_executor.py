@@ -530,14 +530,14 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
             primary_key = primary_keys[0]["column_name"]
         
         with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
-            code_action = f"SELECT {primary_key} as text FROM {table};"
+            code_action = f"SELECT {primary_key} FROM {table};"
             cur.execute(code_action)
             rows = cur.fetchall()
             records = []
             for row in rows:
-                text  = ascii(row["text"])
+                text = ascii(row[primary_key])
                 records.append({
-                    "_id": f"{table}/{primary_key}/{row[primary_key]}",
+                    "_id": f"{table}/{primary_key}/{text}",
                     "text": text,
                     "table": table
                 })
