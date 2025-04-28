@@ -433,7 +433,8 @@ class FlowPattern(ModelContextProtocolImpl):
             except Exception as e:
                 raise AgentGenerationError(f"Error in running llm:\n{e}", self.logger) from e
             observations = None
-            if return_type == "string":
+            self.logger.log(code=code_action, title=f"LLM_Output({self.interface_id}/{self.name}):")
+            if action_type == "execute":
                 try:
                     code_action = self.executor_environment.parse_code_blob(code_output_message.content)
                 except Exception as e:
@@ -442,14 +443,6 @@ class FlowPattern(ModelContextProtocolImpl):
                     error_msg = self.executor_environment.parse_error_logs(error_msg)
                     previous_environment_errors.append({"code": code_output_message.content, "error": error_msg})
                     continue
-            elif return_type == "list":
-                code_action = code_output_message.content
-            else:
-                raise ValueError(f"Unknown return type: {return_type}")
-        
-            self.logger.log(code=code_action, title=f"LLM_Output({self.interface_id}/{self.name}):")
-        
-            if action_type == "execute":
                 try:
                     observations, _, _ = self.executor_environment(
                         code_action=code_action,
@@ -473,7 +466,8 @@ class FlowPattern(ModelContextProtocolImpl):
                 observations = code_output_message.content
                 self.state["final_answer"] = observations                
             else:
-                raise ValueError(f"Unknown action type: {action_type}")
+                code_action = code_output_message.content
+                self.logger.log(text=code_action, title=f"UnknownActionType({action_type}):")
 
             judge_input_message = {
                 "role": MessageRole.USER, 
