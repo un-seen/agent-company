@@ -559,7 +559,7 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
     def setup_vector_index(self) -> None:
         # TODO
         for table in self.table_list:
-            code_action = f"SELECT row_to_json(t) as data FROM {table};"
+            code_action = f"SELECT row_to_json(t) as data FROM {table} as t;"
             rows = evaluate_sql_code(
                 self.pg_conn,
                 code_action,
