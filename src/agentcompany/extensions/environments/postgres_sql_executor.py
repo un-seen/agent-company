@@ -578,26 +578,27 @@ class PostgresSqlInterpreter(ExecutionEnvironment):
                 if len(primary_keys) == 0:
                     raise ValueError(f"Table {table} has no primary key.")
                 primary_key = primary_keys[0]["column_name"]
-                             
-            code_action = f"SELECT ascii({primary_key}) as _id, row_to_json(t) as data FROM {table} as t;"
-            rows = evaluate_sql_code(
-                self.pg_conn,
-                code_action,
-                state=self.state,
-                static_tools=self.static_tools
-            )
-            for row in rows:
-                data = row["data"]
-                _id = f"{table}_{row['_id']}"
-                self.vector_index.upsert_records(
-                    self.get_vector_namespace(table),
-                    [
-                        {
-                            "_id": _id,
-                            "text": json.dumps(data, default=json_serial)
-                        }
-                    ]
-                )
+            
+            with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cur:
+                code_action = f"SELECT ascii({primary_key}) as _id, row_to_json(t) as data FROM {table} as t;"
+                cur.execute(code_action)
+                rows = cur.fetchall()
+                for row in rows:
+                    data = row["data"]
+                    records = []
+                    for key, value in data.items():
+                        if isinstance(value, (datetime, date)):
+                            data[key] = value.isoformat()
+                        text = f"The {key} of {row['_id']} has is {value}"
+                        vector_id = f"{table}_{row['_id']}_{row['key']}"
+                        records.append({
+                            "_id": vector_id,
+                            "text": text
+                        })
+                    self.vector_index.upsert_records(
+                        self.get_vector_namespace(table),
+                        records
+                    )
             
                 
     def get_pg_db_data(self, code_action: str) -> Optional[str]:
