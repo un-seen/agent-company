@@ -245,9 +245,9 @@ class FlowPattern(ModelContextProtocolImpl):
                 variable_key, variable_data = variable_list
                 self.state["known_entity"] = variable_key
                 self.state["known_variables"] = variable_data
-                self.state["variable_statement"] = [variable_key, "-" * 80]
+                self.state["variable_statement"] = ["\n\n", variable_key, "-" * 80]
                 for key, value in variable_data.items():
-                    self.state["variable_statement"].append(f"{key} = {value}")
+                    self.state["variable_statement"].append(f"{key} = {value}\n")
                 self.state["variable_statement"] = "\n".join(self.state["variable_statement"])
                 
         # Execute Task
