@@ -268,7 +268,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         user_code = self._normalize_code(code_action)
         
         # Create safe wrapper template
-        code = """
+        wrapper_template = textwrap.dedent('''\
         import pickle
         import base64
         
@@ -276,17 +276,26 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         {user_code}
         except Exception as e:
             final_answer = e
-                                                   
+        
         try:
-            print("SERIALIZED_DATA:" + base64.urlsafe_b64encode(pickle.dumps(final_answer)).decode())
-        except NameError:
-            print("SERIALIZED_DATA:None")
-        """
-
-        # Add and execute the cell
-        cell_index = self._add_execute_cell(code)
-        result,outputs, error_logs = self._execute_cell(cell_index)
-
+            __serialized__ = base64.urlsafe_b64encode(pickle.dumps(final_answer)).decode()
+            print(f"SERIALIZED_DATA:{{__serialized__}}")
+        except Exception as e:
+            print(f"SERIALIZATION_ERROR: {{str(e)}}")
+        ''')
+        
+        # Format with properly indented user code
+        wrapped_code = wrapper_template.format(
+            user_code=textwrap.indent(user_code, '    ')
+        )
+        
+        # Debug: log the final code being executed
+        logger.info("Executing wrapped code:\n%s", wrapped_code)
+        
+        # Execute and process results
+        cell_index = self._add_execute_cell(wrapped_code)
+        result, outputs, error_logs = self._execute_cell(cell_index)
+        
         return result, outputs, error_logs
 
     
