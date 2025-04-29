@@ -259,8 +259,8 @@ class FunctionPattern(ModelContextProtocolImpl):
     def run(
         self,
         task: str,
-        inputs: Union[str, List[str]] = None,
-        context: Union[str, List[str], List[Dict[str, Any]], Dict[str, Any]] = None, 
+        inputs: List[str] = [],
+        context: Union[List[str], List[Dict[str, Any]], Dict[str, Any]] = [], 
         reset: bool = True,
         environment_variables: Optional[Dict] = None,
     ) -> pd.DataFrame:
