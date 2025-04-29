@@ -201,7 +201,7 @@ class FunctionPattern(ModelContextProtocolImpl):
                 argument_dict: Dict[str, Any] = llm.function_call(self.task, name=main_choice["choice_id"], description=main_choice["description"], argument_list=argument_list)
                 self.logger.log(text=argument_dict, title=f"Main Function Arguments ({self.interface_id}/{self.name}):")
                 variables.update(argument_dict)
-                variables.update({item["name"]: self.state[item["name"]] for item in argument_list if item["name"] in self.state})
+                variables.update({item["name"]: self.state[item["name"]] for item in main_choice["argument"] if item["name"] in self.state})
             if len(context) == 1:
                 variables.update(self.executor_environment.parse_context(context[0]))
             # Populate the code content with the context
@@ -303,7 +303,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         main_prompt = self.prompt_templates["main"]
         main_choice = self.prompt_templates["main_choice"]
         context_as_str = list_of_dict_to_markdown_table(context[:5]) if len(context) > 0 else ""
-        print(f"context_as_str: {context_as_str} | {len(context)}")
         input_message = populate_template(
             main_prompt,
             variables={

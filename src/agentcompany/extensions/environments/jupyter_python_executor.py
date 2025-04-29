@@ -275,15 +275,15 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         try:
         {user_code}
         except Exception as e:
-            __result__ = e
+            result = e
         
         try:
-            __serialized__ = base64.urlsafe_b64encode(pickle.dumps(__result__)).decode()
+            __serialized__ = base64.urlsafe_b64encode(pickle.dumps(result)).decode()
             print(f"SERIALIZED_DATA:{{__serialized__}}")
         except Exception as e:
             print(f"SERIALIZATION_ERROR: {{str(e)}}")
         finally:
-            del __result__
+            del result
         ''')
         
         # Format with properly indented user code
@@ -297,7 +297,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         # Execute and process results
         cell_index = self._add_execute_cell(wrapped_code)
         result, outputs, error_logs = self._execute_cell(cell_index)
-            
+        
         return result, outputs, error_logs
 
     
