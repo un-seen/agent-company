@@ -1,6 +1,7 @@
 executor_environment: 
   interface: JupyterPythonInterpreter
   config:
+    additional_authorized_imports: "*"  
 judge: |-
     You are the supervisor of an AI agent who writes code and the agent is trying to solve a task. 
     

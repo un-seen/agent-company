@@ -124,6 +124,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         session_id: str,
         mcp_servers: Dict,
         notebook_path: str = "/tmp/jupyter_notebooks",
+        additional_authorized_imports: str = "*"
     ):
         self.session_id = session_id
         self.notebook_path = notebook_path
