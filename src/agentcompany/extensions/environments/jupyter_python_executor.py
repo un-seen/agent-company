@@ -123,13 +123,13 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         self,
         session_id: str,
         mcp_servers: Dict,
-        additional_authorized_imports: List[str],
         notebook_path: str = "/tmp/jupyter_notebooks",
     ):
         self.session_id = session_id
         self.notebook_path = notebook_path
         self.notebook_name = f"execution_{session_id}.ipynb"
         self.cell_counter = 0
+        self.storage = {}  # Initialize storage dictionary
         
         # Create notebook directory if needed
         os.makedirs(self.notebook_path, exist_ok=True)
@@ -144,7 +144,6 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         self.kc.start_channels()
         
         # Create new notebook structure
-        
         self.notebook: NotebookNode = nb_v4.new_notebook()
         self._add_initial_cells()
         
@@ -433,33 +432,110 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
             return execution_logs.split('Traceback')[-1]
         return execution_logs
 
+    def get_storage_id(self, next_step_id: int) -> str:
+        """
+        Generate a unique storage ID for the given step.
+        
+        Args:
+            next_step_id (int): The ID of the next step.
+            
+        Returns:
+            str: A unique storage ID combining session ID and step ID.
+        """
+        return f"{self.session_id}_temp_storage_{next_step_id}"
+    
+    def set_storage(self, next_step_id: int, code_action: str, observations: List[Dict[str, Any]] = None):
+        """
+        Store the result of code execution in the kernel's namespace and local storage.
+        
+        Args:
+            next_step_id (int): The ID of the next step.
+            code_action (str): The code that was executed.
+            observations (List[Dict[str, Any]], optional): The observations to store.
+        """
+        storage_id = self.get_storage_id(next_step_id)
+        
+        if observations:
+            # Store observations in kernel namespace
+            code = f"{storage_id} = {repr(observations)}"
+            self.kc.execute(code)
+            
+            # Store in local storage dictionary
+            self.storage[storage_id] = observations
+        else:
+            # Execute code and store result
+            result, _, _ = self._execute_cell(self._add_execute_cell(code_action))
+            
+            # Store result in kernel namespace
+            code = f"{storage_id} = {repr(result)}"
+            self.kc.execute(code)
+            
+            # Store in local storage dictionary
+            self.storage[storage_id] = result
+    
+    def get_final_storage(self) -> pd.DataFrame:
+        """
+        Get the final storage result as a pandas DataFrame.
+        
+        Returns:
+            pd.DataFrame: The final storage result as a DataFrame.
+        """
+        # Get the last storage ID
+        max_step_id = max(int(k.split('_')[-1]) for k in self.storage.keys() if k.startswith(f"{self.session_id}_temp_storage_"))
+        storage_id = self.get_storage_id(max_step_id)
+        
+        # Get the stored value
+        stored_value = self.storage.get(storage_id)
+        
+        if isinstance(stored_value, list):
+            # Convert list of dictionaries to DataFrame
+            return pd.DataFrame(stored_value)
+        elif isinstance(stored_value, dict):
+            # Convert single dictionary to DataFrame
+            return pd.DataFrame([stored_value])
+        else:
+            # Handle other types by wrapping in a DataFrame
+            return pd.DataFrame([{"result": stored_value}])
+    
     def get_storage(self, next_step_id: int) -> str:
-        """Get variable from kernel namespace"""
-        code = f"print({self.get_storage_id(next_step_id)})"
-        output, _ = self._execute_code_snippet(code)
-        return output
-
-    def _execute_code_snippet(self, code: str) -> Tuple[str, str]:
-        """Execute code snippet directly in kernel"""
-        msg_id = self.kc.execute(code)
-        outputs = []
-        errors = []
+        """
+        Get information about the storage for a specific step.
         
-        while True:
-            msg = self.kc.get_iopub_msg(timeout=10)
-            if msg['parent_header'].get('msg_id') == msg_id:
-                msg_type = msg['msg_type']
-                content = msg['content']
+        Args:
+            next_step_id (int): The ID of the step.
+            
+        Returns:
+            str: Information about the storage in a formatted string.
+        """
+        storage_id = self.get_storage_id(next_step_id)
+        stored_value = self.storage.get(storage_id)
+        
+        if stored_value is None:
+            return f"No storage found for step {next_step_id}"
+            
+        if isinstance(stored_value, list):
+            # Get column information for list of dictionaries
+            if len(stored_value) > 0 and isinstance(stored_value[0], dict):
+                columns = list(stored_value[0].keys())
+                sample_values = {col: [row.get(col) for row in stored_value[:3]] for col in columns}
                 
-                if msg_type == 'execute_result':
-                    outputs.append(str(content['data']))
-                elif msg_type == 'stream':
-                    outputs.append(content['text'])
-                elif msg_type == 'error':
-                    errors.extend(content['traceback'])
-                elif msg_type == 'status' and content['execution_state'] == 'idle':
-                    break
+                info = []
+                for col in columns:
+                    samples = sample_values[col]
+                    sample_str = ", ".join(str(s) for s in samples if s is not None)
+                    info.append(f"{col}, Example: {sample_str}")
+                
+                return f"""
+                Storage ID: {storage_id}
+                Columns: {', '.join(columns)}
+                Sample Information:
+                {', '.join(info)}
+                """
         
-        return "\n".join(outputs), "\n".join(errors)
+        return f"""
+        Storage ID: {storage_id}
+        Value: {stored_value}
+        Type: {type(stored_value).__name__}
+        """
 
 __all__ = ["JupyterPythonInterpreter"]
