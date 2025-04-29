@@ -284,7 +284,7 @@ class JupyterPythonInterpreter(ExecutionEnvironment):
         """
 
         # Add and execute the cell
-        cell_index = self.executor_environment._add_execute_cell(code)
+        cell_index = self._add_execute_cell(code)
         result,outputs, error_logs = self._execute_cell(cell_index)
 
         return result, outputs, error_logs
