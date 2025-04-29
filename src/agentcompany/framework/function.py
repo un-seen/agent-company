@@ -196,6 +196,7 @@ class FunctionPattern(ModelContextProtocolImpl):
             variables = {}
             if "argument" in main_choice and len(main_choice["argument"]) > 0:
                 argument_list = main_choice["argument"]
+                argument_list = [item for item in argument_list if item["name"] not in self.state]
                 llm: AugmentedLLM = self.model
                 argument_dict: Dict[str, Any] = llm.function_call(self.task, name=main_choice["choice_id"], description=main_choice["description"], argument_list=argument_list)
                 self.logger.log(text=argument_dict, title=f"Main Function Arguments ({self.interface_id}/{self.name}):")
