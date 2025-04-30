@@ -16,7 +16,8 @@ class AgentCompany:
     def __init__(self, interface_id: str, session_id: str, **kwargs):
         self.interface_id = interface_id
         self.session_id = session_id
-
+        self.bucket = os.environ['AGENT_COMPANY_CONTEXT_BUCKET']
+        self.prefix = os.environ['AGENT_COMPANY_CONTEXT_PREFIX']
         # Initialize Redis client
         self.redis_client = redis.Redis.from_url(
             os.environ["REDIS_URL"],
@@ -34,17 +35,19 @@ class AgentCompany:
             setattr(self, key, value)
 
 
-    def read_from_s3(self, bucket, key):
+    def read_from_s3(self, key):
         try:
-            response = self.s3_client.get_object(Bucket=bucket, Key=key)
+            key = f"{self.prefix}/{key}"
+            response = self.s3_client.get_object(Bucket=self.bucket, Key=key)
             return response['Body'].read().decode('utf-8')
         except Exception as e:
             print(f"Error reading from S3: {e}")
             return None
         
-    def check_s3_file_exists(self, bucket, key):
+    def check_s3_file_exists(self, key):
         try:
-            self.s3_client.head_object(Bucket=bucket, Key=key)
+            key = f"{self.prefix}/{key}"
+            self.s3_client.head_object(Bucket=self.bucket, Key=key)
             return True
         except ClientError:
             return False
@@ -57,6 +60,7 @@ class AgentCompany:
 
     def save_to_s3(self, bucket, key, content):
         try:
+            key = f"{self.prefix}/{key}"
             self.s3_client.put_object(
                 Bucket=bucket,
                 Key=key,
