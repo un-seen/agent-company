@@ -58,11 +58,11 @@ class AgentCompany:
         raise NotImplementedError("Subclasses must implement this method")
     
 
-    def save_to_s3(self, bucket, key, content):
+    def save_to_s3(self, key, content):
         try:
             key = f"{self.prefix}/{key}"
             self.s3_client.put_object(
-                Bucket=bucket,
+                Bucket=self.bucket,
                 Key=key,
                 Body=content.encode('utf-8'),
                 ContentType='text/markdown'
