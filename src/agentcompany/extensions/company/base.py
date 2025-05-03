@@ -44,6 +44,12 @@ class AgentCompany:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+    def generate_presigned_url(self, key):
+        return self.s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': self.bucket, 'Key': key},
+            ExpiresIn=3600
+        )
 
     def read_from_s3(self, key):
         try:
