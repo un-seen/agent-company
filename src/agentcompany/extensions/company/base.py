@@ -26,14 +26,7 @@ class AgentCompany:
         )
         # Initialize postgres client
         postgres_url = os.environ['POSTGRES_URL']
-        postgres_config = urlparse(postgres_url)
-        self.postgres_client = psycopg2.connect(
-            host=postgres_config['POSTGRES_HOST'],
-            port=postgres_config['POSTGRES_PORT'],
-            database=postgres_config['POSTGRES_DB'],
-            user=postgres_config['POSTGRES_USER'],
-            password=postgres_config['POSTGRES_PASSWORD']
-        )
+        self.postgres_client = psycopg2.connect(postgres_url)
         # Initialize S3 client
         self.s3_client = boto3.client(
             's3',
