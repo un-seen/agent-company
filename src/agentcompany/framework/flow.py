@@ -348,9 +348,9 @@ class FlowPattern(ModelContextProtocolImpl):
     
     def setup_variable_system(self):
         # Get class name from config
-        variable_system_config: dict = self.prompt_templates["variable_system"]
+        self.variable_system = None
+        variable_system_config = self.prompt_templates.get("variable_system", None)
         if variable_system_config is None:
-            self.variable_system = None
             return
         interface_name = variable_system_config["interface"]
         if interface_name != "PostgresSqlInterpreter":
