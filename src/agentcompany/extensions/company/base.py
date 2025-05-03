@@ -5,7 +5,8 @@ import json
 import abc
 from botocore.exceptions import ClientError
 from typing import List
-
+from urllib.parse import urlparse
+import psycopg2
 
 class AgentCompany:
     """
@@ -23,7 +24,16 @@ class AgentCompany:
             os.environ["REDIS_URL"],
             decode_responses=True
         )
-
+        # Initialize postgres client
+        postgres_url = os.environ['POSTGRES_URL']
+        postgres_config = urlparse(postgres_url)
+        self.postgres_client = psycopg2.connect(
+            host=postgres_config['POSTGRES_HOST'],
+            port=postgres_config['POSTGRES_PORT'],
+            database=postgres_config['POSTGRES_DB'],
+            user=postgres_config['POSTGRES_USER'],
+            password=postgres_config['POSTGRES_PASSWORD']
+        )
         # Initialize S3 client
         self.s3_client = boto3.client(
             's3',
