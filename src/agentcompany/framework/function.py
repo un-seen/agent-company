@@ -328,6 +328,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
         from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
         from agentcompany.extensions.environments.jupyter_python_executor import JupyterPythonInterpreter
+        from agentcompany.extensions.environments.b2_text_executor import B2TextInterpreter
         
         environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
         try:
