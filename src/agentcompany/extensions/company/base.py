@@ -4,6 +4,7 @@ import os
 import json
 import abc
 from botocore.exceptions import ClientError
+from botocore.client import Config
 from typing import List
 from urllib.parse import urlparse
 import psycopg2
@@ -13,7 +14,8 @@ class AgentCompany:
     AgentCompany is a class that contains a list of agents
     It is used to run a company of agents on a given task
     """
-    
+    presigned_url_expiration = 3600
+
     def __init__(self, interface_id: str, session_id: str, **kwargs):
         self.interface_id = interface_id
         self.session_id = session_id
@@ -28,20 +30,27 @@ class AgentCompany:
         postgres_url = os.environ['POSTGRES_URL']
         self.postgres_client = psycopg2.connect(postgres_url)
         # Initialize S3 client
+
+        cfg = Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "virtual"}   # gives bucket-name host style
+        )
         self.s3_client = boto3.client(
             's3',
             endpoint_url=os.environ['DATALAKE_AWS_ENDPOINT_URL'],
             aws_access_key_id=os.environ.get('DATALAKE_AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.environ.get('DATALAKE_AWS_SECRET_ACCESS_KEY')
+            aws_secret_access_key=os.environ.get('DATALAKE_AWS_SECRET_ACCESS_KEY'),
+            config=cfg
         )
         for key, value in kwargs.items():
             setattr(self, key, value)
 
     def generate_presigned_url(self, key):
+        
         return self.s3_client.generate_presigned_url(
             'get_object',
             Params={'Bucket': self.bucket, 'Key': key},
-            ExpiresIn=3600
+            ExpiresIn=self.presigned_url_expiration
         )
 
     def read_from_s3(self, key):
