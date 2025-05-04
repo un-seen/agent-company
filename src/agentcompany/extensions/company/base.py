@@ -46,7 +46,6 @@ class AgentCompany:
             setattr(self, key, value)
 
     def generate_presigned_url(self, key):
-        
         return self.s3_client.generate_presigned_url(
             'get_object',
             Params={'Bucket': self.bucket, 'Key': key},
@@ -64,7 +63,8 @@ class AgentCompany:
         
     def check_s3_file_exists(self, key):
         try:
-            key = f"{self.prefix}/{key}"
+            if len(self.prefix) > 0 and not key.startswith(self.prefix):
+                key = f"{self.prefix}/{key}"
             self.s3_client.head_object(Bucket=self.bucket, Key=key)
             return True
         except ClientError:
