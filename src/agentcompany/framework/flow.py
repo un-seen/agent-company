@@ -503,9 +503,7 @@ class FlowPattern(ModelContextProtocolImpl):
                     observations = code_output_message.content
                     self.state["final_answer"] = observations                
                 else:
-                    code_action = code_output_message.content
-                    observations = code_output_message.content
-                    self.logger.log(text=code_action, title=f"UnknownActionType({action_type}):")
+                    raise ValueError(f"UnknownActionType({action_type})")
 
                 self.logger.log(text=code_action, title=f"Flow_Pattern_Run_Step_LLM_Output({self.interface_id}/{self.name}):")
                 judge_input_message = {

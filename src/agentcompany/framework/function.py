@@ -174,7 +174,7 @@ class FunctionPattern(ModelContextProtocolImpl):
             messages.extend(memory_step.to_messages())
         return messages
     
-    def execute_main_choice(self, model_input_messages: list[dict[str, any]], context: list[dict[str, any]]) -> Tuple[str, Any]:
+    def execute_main_choice(self, model_input_messages: list[dict[str, any]], context: list[dict[str, any]], environment_variables: dict[str, any]) -> Tuple[str, Any]:
         model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
         self.logger.log(text=model_input_messages_str, title=f"Augmented_LLM_Input({self.interface_id}/{self.name}):")
         try:
@@ -193,7 +193,7 @@ class FunctionPattern(ModelContextProtocolImpl):
                 break
         if main_choice:
             self.logger.log(text=main_choice, title=f"Main Function Choice ({self.interface_id}/{self.name}):")
-            variables = {}
+            variables = copy.deepcopy(environment_variables)
             if "argument" in main_choice and len(main_choice["argument"]) > 0:
                 argument_list = main_choice["argument"]
                 argument_list = [item for item in argument_list if item["name"] not in self.state]
@@ -281,10 +281,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         agent.run("What is the result of 2 power 3.7384?")
         ```
         """
-        # Add Environment Variables
-        if environment_variables is not None:
-            self.state.update(environment_variables)
-            
         if reset:
             self.memory.reset()
         self.memory.append_step(TaskStep(task=self.task))
@@ -294,9 +290,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         if isinstance(context, dict):
             context = [context]
         context: List[Dict[str, Any]] = context
-        
-        if not isinstance(task, str) or not isinstance(inputs, (list, str)) or not isinstance(context, (list, dict)):
-            raise ValueError("Task should be a string, inputs should be a list of strings, and context should be a list of dictionaries.")
         
         # Main
         # Input Message
@@ -317,7 +310,7 @@ class FunctionPattern(ModelContextProtocolImpl):
         model_input_messages = [
             {"role": "system", "content": [{"type": "text", "text": input_message}]},
         ]
-        main_code, main_outputs = self.execute_main_choice(model_input_messages, context)
+        main_code, main_outputs = self.execute_main_choice(model_input_messages, context, environment_variables)
         return main_outputs
                 
     def setup_environment(self):
