@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Company Documentation</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        .nav-link:hover {
+            border-left: 3px solid #3b82f6;
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+        .nav-link.active {
+            border-left: 3px solid #3b82f6;
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+        .sidebar {
+            position: sticky;
+            top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f9fafb;
+        }
+        pre {
+            background-color: #f1f5f9;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            font-size: 0.9em;
+            background-color: #f1f5f9;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        .top-nav {
+            background-color: #1e293b;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <header class="top-nav py-4">
+        <div class="container flex justify-between items-center">
+            <h1 class="text-2xl font-bold flex items-center">
+                <i class="fas fa-robot mr-2"></i> Agent Company
+            </h1>
+            <div class="flex space-x-4">
+                <a href="https://github.com/un-seen/agent-company" target="_blank" class="text-white hover:text-blue-300 transition-colors">
+                    <i class="fab fa-github mr-1"></i> GitHub
+                </a>
+                <span class="text-gray-400">|</span>
+                <span class="bg-blue-700 px-2 py-1 rounded text-xs">MIT License</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container my-8 flex flex-wrap">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-1/4 pr-4 sidebar">
+            <nav class="bg-white p-4 rounded-lg shadow-sm">
+                <h2 class="text-lg font-semibold mb-4 border-b pb-2">Documentation</h2>
+                <ul class="space-y-1">
+                    <li><a href="#overview" class="nav-link block px-3 py-2 rounded hover:bg-gray-100">Overview</a></li>
+                    <li><a href="#installation" class="nav-link block px-3 py-2 rounded hover:bg-gray-100">Installation</a></li>
+                    <li><a href="#components" class="nav-link block px-3 py-2 rounded hover:bg-gray-100">Core Components</a></li>
+                    <li><a href="#features" class="nav-link block px-3 py-2 rounded hover:bg-gray-100">Features</a></li>
+                    <li><a href="#environments" class="nav-link block px-3 py-2 rounded hover:bg-gray-100">Environment Types</a></li>
+                    <li><a href="#usage" class="nav-link block px-3 py-2 rounded hover:bg-gray-100">Usage Examples</a></li>
+                    <li><a href="#api" class="nav-link block px-3 py-2 rounded hover:bg-gray-100">API Reference</a></li>
+                    <li><a href="#license" class="nav-link block px-3 py-2 rounded hover:bg-gray-100">License</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="w-full md:w-3/4 pl-0 md:pl-4 mt-4 md:mt-0">
+            <section id="overview" class="bg-white p-6 rounded-lg shadow-sm mb-6">
+                <h2 class="text-2xl font-bold mb-4 text-blue-700 border-b pb-2">Overview</h2>
+                <p class="mb-4">
+                    Agent Company is a modular framework for building autonomous agents. It is designed to help developers build sophisticated multi-agent systems. The framework leverages Redis for messaging and provides a flexible API to incorporate custom tools and agents.
+                </p>
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                    <p class="font-semibold">Key Features:</p>
+                    <ul class="list-disc ml-6 mt-2">
+                        <li>Modular architecture for building autonomous agents</li>
+                        <li>Flexible API for custom tool integration</li>
+                        <li>Redis-based messaging system</li>
+                        <li>Support for various environment types</li>
+                        <li>Multi-agent system capabilities</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="installation" class="bg-white p-6 rounded-lg shadow-sm mb-6">
+                <h2 class="text-2xl font-bold mb-4 text-blue-700 border-b pb-2">Installation</h2>
+                <p class="mb-4">You can install Agent Company using pip:</p>
+                <pre><code>pip install agent-company</code></pre>
+                
+                <h3 class="text-xl font-semibold mt-6 mb-3">Requirements</h3>
+                <ul class="list-disc ml-6 mb-4">
+                    <li>Python 3.8+</li>
+                    <li>Redis (for messaging)</li>
+                </ul>
+                
+                <h3 class="text-xl font-semibold mt-6 mb-3">Clone from GitHub</h3>
+                <p class="mb-2">Alternatively, you can clone the repository directly:</p>
+                <pre><code>git clone https://github.com/un-seen/agent-company.git
+cd agent-company
+pip install -e .</code></pre>
+            </section>
+            
+            <section id="components" class="bg-white p-6 rounded-lg shadow-sm mb-6">
+                <h2 class="text-2xl font-bold mb-4 text-blue-700 border-b pb-2">Core Components</h2>
+                <p class="mb-4">Agent Company consists of several key components that work together to create a flexible agent system:</p>
+                
+                <div class="grid md:grid-cols-2 gap-4 mb-6">
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h3 class="text-lg font-semibold text-blue-600 mb-2">
+                            <i class="fas fa-user-astronaut mr-2"></i> Agent
+                        </h3>
+                        <p>The autonomous entity that interacts with the environment, makes decisions, and takes actions based on its goals and perceptions.</p>
+                    </div>
+                    
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h3 class="text-lg font-semibold text-blue-600 mb-2">
+                            <i class="fas fa-cogs mr-2"></i> Driver
+                        </h3>
+                        <p>Manages the execution flow and lifecycle of agents, handling initialization, scheduling, and termination.</p>
+                    </div>
+                    
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h3 class="text-lg font-semibold text-blue-600 mb-2">
+                            <i class="fas fa-globe mr-2"></i> Environment
+                        </h3>
+                        <p>The context in which agents operate, providing the state information and accepting agent actions.</p>
+                    </div>
+                    
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h3 class="text-lg font-semibold text-blue-600 mb-2">
+                            <i class="fas fa-exchange-alt mr-2"></i> Protocol
+                        </h3>
+                        <p>Defines the communication standards between components, ensuring proper message formatting and routing.</p>
+                    </div>
+                </div>
+                
+                <h3 class="text-xl font-semibold mt-6 mb-3">Component Relationships</h3>
+                <p class="mb-4">
+                    These components interact in a structured way to create a complete agent system:
+                </p>
+                <ul class="list-disc ml-6 mb-4">
+                    <li><strong>Agents</strong> observe the environment and take actions within it</li>
+                    <li><strong>The Environment</strong> provides observations to agents and processes their actions</li>
+                    <li><strong>The Driver</strong> manages the execution flow, determining when agents act and updating the environment</li>
+                    <li><strong>The Protocol</strong> ensures all components can communicate effectively</li>
+                </ul>
+            </section>
+
+            <section id="features" class="bg-white p-6 rounded-lg shadow-sm mb-6">
+                <h2 class="text-2xl font-bold mb-4 text-blue-700 border-b pb-2">
+                    <i class="fas fa-star text-yellow-500 mr-2"></i> Features
+                </h2>
+                
+                <div class="grid md:grid-cols-2 gap-4 mb-6">
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h3 class="text-lg font-semibold text-blue-600 mb-2">Modular Architecture</h3>
+                        <p>Build and combine agent components independently, allowing for flexible system design and easy maintenance.</p>
+                    </div>
+                    
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h3 class="text-lg font-semibold text-blue-600 mb-2">Redis Messaging</h3>
+                        <p>Leverages Redis for reliable and scalable messaging between agents and components.</p>
+                    </div>
+                    
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h3 class="text-lg font-semibold text-blue-600 mb-2">Flexible API</h3>
+                        <p>Incorporate custom tools and agents with a straightforward API designed for extensibility.</p>
+                    </div>
+                    
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h3 class="text-lg font-semibold text-blue-600 mb-2">Environment Support</h3>
+                        <p>Comprehensive support for various environment types with well-defined interfaces.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="environments" class="bg-white p-6 rounded-lg shadow-sm mb-6">
+                <h2 class="text-2xl font-bold mb-4 text-blue-700 border-b pb-2">Environment Types</h2>
+                <p class="mb-4">
+                    The Agent Company framework supports a variety of environment types that determine how agents interact with their surroundings. 
+                    The following table organizes the environment types, providing a structured view for clarity:
+                </p>
+                
+                <div class="overflow-x-auto mb-6">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th>Category</th>
+                                <th>Subcategory</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td rowspan="2" class="font-medium">Observability</td>
+                                <td>Fully Observable</td>
+                                <td>The agent has complete information about the state of the environment at any time, requiring no history tracking.</td>
+                                <td>Chess, where the board and moves are fully visible.</td>
+                            </tr>
+                            <tr>
+                                <td>Partially Observable</td>
+                                <td>The agent has incomplete information, needing to infer hidden states.</td>
+                                <td>Driving, where road conditions beyond corners are unknown.</td>
+                            </tr>
+                            
+                            <tr>
+                                <td rowspan="2" class="font-medium">Determinism</td>
+                                <td>Deterministic</td>
+                                <td>The next state is completely determined by the current state and action, with no randomness.</td>
+                                <td>Chess, where each move has a definite outcome.</td>
+                            </tr>
+                            <tr>
+                                <td>Stochastic</td>
+                                <td>The next state involves randomness, not fully predictable by the agent.</td>
+                                <td>Self-driving cars, affected by unpredictable driver behaviors.</td>
+                            </tr>
+                            
+                            <tr>
+                                <td rowspan="2" class="font-medium">Interaction Type</td>
+                                <td>Competitive</td>
+                                <td>Agents compete to optimize their own objectives, often in zero-sum games.</td>
+                                <td>Chess, where players aim to defeat each other.</td>
+                            </tr>
+                            <tr>
+                                <td>Cooperative</td>
+                                <td>Agents work together to achieve a common goal, coordinating actions.</td>
+                                <td>Multiple self-driving cars cooperating to avoid collisions.</td>
+                            </tr>
+                            
+                            <tr>
+                                <td rowspan="2" class="font-medium">Number of Agents</td>
+                                <td>Single-agent</td>
+                                <td>Only one agent operates in the environment, focusing on its task.</td>
+                                <td>A person navigating a maze alone.</td>
+                            </tr>
+                            <tr>
+                                <td>Multi-agent</td>
+                                <td>Multiple agents interact, potentially competing or cooperating.</td>
+                                <td>A game of football with 11 players per team.</td>
+                            </tr>
+                            
+                            <tr>
+                                <td rowspan="2" class="font-medium">Environment Dynamics</td>
+                                <td>Static</td>
+                                <td>The environment remains unchanged over time, except by agent actions.</td>
+                                <td>An empty house, where entering doesn't alter surroundings.</td>
+                            </tr>
+                            <tr>
+                                <td>Dynamic</td>
+                                <td>The environment changes independently of agent actions over time.</td>
+                                <td>A roller coaster ride, constantly in motion.</td>
+                            </tr>
+                            
+                            <tr>
+                                <td rowspan="2" class="font-medium">State and Action Space</td>
+                                <td>Discrete</td>
+                                <td>The environment has a finite number of states or actions, countable and distinct.</td>
+                                <td>Chess, with a finite set of possible moves per game.</td>
+                            </tr>
+                            <tr>
+                                <td>Continuous</td>
+                                <td>The environment has an infinite number of states or actions, not countable.</td>
+                                <td>Self-driving cars, with continuous driving and parking actions.</td>
+                            </tr>
+                            
+                            <tr>
+                                <td rowspan="2" class="font-medium">Task Structure</td>
+                                <td>Episodic</td>
+                                <td>The agent's actions are divided into independent episodes, each with no dependency on previous ones.</td>
+                                <td>A pick-and-place robot inspecting parts on a conveyor belt, deciding per part.</td>
+                            </tr>
+                            <tr>
+                                <td>Sequential</td>
+                                <td>The agent's actions are interdependent, with previous decisions affecting future ones.</td>
+                                <td>Checkers, where each move impacts subsequent strategies.</td>
+                            </tr>
+                            
+                            <tr>
+                                <td rowspan="2" class="font-medium">Environment Knowledge</td>
+                                <td>Known</td>
+                                <td>The agent knows the complete model, including how actions lead to state transitions.</td>
+                                <td>Chess, with known rules and outcomes for moves.</td>
+                            </tr>
+                            <tr>
+                                <td>Unknown</td>
+                                <td>The agent does not know the model, requiring learning through interaction.</td>
+                                <td>An agent in an unexplored environment, needing to discover dynamics.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <p class="mb-4">
+                    Understanding these environment characteristics helps developers design appropriate agent architectures and strategies for their specific use cases.
+                </p>
+            </section>
+
+            <section id="usage" class="bg-white p-6 rounded-lg shadow-sm mb-6">
+                <h2 class="text-2xl font-bold mb-4 text-blue-700 border-b pb-2">Usage Examples</h2>
+                
+                <h3 class="text-xl font-semibold mt-6 mb-3">Basic Agent Setup</h3>
+                <p class="mb-2">Here's how to set up a basic agent with Agent Company:</p>
+                <pre><code>from agent_company import Agent, Environment, Driver
+
+# Create a simple environment
+env = Environment(type="fully_observable")
+
+# Create an agent
+agent = Agent(name="my_agent")
+
+# Create a driver to manage the agent and environment
+driver = Driver(agents=[agent], environment=env)
+
+# Run the system
+driver.run()</code></pre>
+                
+                <h3 class="text-xl font-semibold mt-6 mb-3">Creating a Custom Environment</h3>
+                <p class="mb-2">Implementing a custom environment:</p>
+                <pre><code>from agent_company import BaseEnvironment
+
+class ChessEnvironment(BaseEnvironment):
+    def __init__(self):
+        super().__init__(
+            type="fully_observable",
+            is_deterministic=True,
+            is_competitive=True
+        )
+        self.board = self._initialize_board()
+    
+    def _initialize_board(self):
+        # Initialize chess board
+        return initial_board_state
+    
+    def get_observation(self, agent_id):
+        # Return the current board state as observation
+        return self.board
+    
+    def process_action(self, agent_id, action):
+        # Process the agent's move
+        # Update the board state
+        # Return reward
+        valid_move = self._validate_move(action)
+        if valid_move:
+            self.board = self._update_board(action)
+            return 1.0  # Reward for valid move
+        return -1.0  # Penalty for invalid move</code></pre>
+                
+                <h3 class="text-xl font-semibold mt-6 mb-3">Multi-Agent System</h3>
+                <p class="mb-2">Setting up a multi-agent system with Redis messaging:</p>
+                <pre><code>from agent_company import Agent, Environment, Driver, RedisMessaging
+
+# Initialize Redis messaging
+messaging = RedisMessaging(host="localhost", port=6379)
+
+# Create environment
+env = Environment(type="partially_observable", messaging=messaging)
+
+# Create multiple agents
+agent1 = Agent(name="agent1", messaging=messaging)
+agent2 = Agent(name="agent2", messaging=messaging)
+
+# Create driver
+driver = Driver(
+    agents=[agent1, agent2],
+    environment=env,
+    messaging=messaging
+)
+
+# Run the system
+driver.run()</code></pre>
+            </section>
+
+            <section id="api" class="bg-white p-6 rounded-lg shadow-sm mb-6">
+                <h2 class="text-2xl font-bold mb-4 text-blue-700 border-b pb-2">API Reference</h2>
+                
+                <h3 class="text-xl font-semibold mt-6 mb-3">Agent</h3>
+                <p class="mb-2">The primary class for creating autonomous agents.</p>
+                <pre><code>class Agent:
+    def __init__(self, name, messaging=None, config=None):
+        """
+        Initialize an agent.
+        
+        Args:
+            name (str): Unique name for the agent
+            messaging: Communication system for the agent
+            config (dict): Configuration parameters
+        """
+        
+    def observe(self, environment):
+        """
+        Get an observation from the environment.
+        
+        Args:
+            environment: The environment to observe
+            
+        Returns:
+            Observation data
+        """
+        
+    def decide(self, observation):
+        """
+        Make a decision based on the observation.
+        
+        Args:
+            observation: Data observed from environment
+            
+        Returns:
+            action: The chosen action
+        """
+        
+    def act(self, action, environment):
+        """
+        Perform an action in the environment.
+        
+        Args:
+            action: The action to perform
+            environment: The environment to act in
+            
+        Returns:
+            result: Result of the action
+        """</code></pre>
+                
+                <h3 class="text-xl font-semibold mt-6 mb-3">Environment</h3>
+                <p class="mb-2">Base class for creating agent environments.</p>
+                <pre><code>class Environment:
+    def __init__(self, type="fully_observable", config=None):
+        """
+        Initialize an environment.
+        
+        Args:
+            type (str): Type of environment (fully_observable, partially_observable, etc.)
+            config (dict): Configuration parameters
+        """
+        
+    def get_observation(self, agent_id):
+        """
+        Provide an observation to an agent.
+        
+        Args:
+            agent_id: Identifier for the requesting agent
+            
+        Returns:
+            observation: Data about the environment state
+        """
+        
+    def process_action(self, agent_id, action):
+        """
+        Process an agent's action and update environment state.
+        
+        Args:
+            agent_id: Identifier for the acting agent
+            action: The action being performed
+            
+        Returns:
+            reward: Numerical feedback about the action
+        """
+        
+    def reset(self):
+        """
+        Reset the environment to an initial state.
+        
+        Returns:
+            initial_state: The environment's initial state
+        """</code></pre>
+                
+                <h3 class="text-xl font-semibold mt-6 mb-3">Driver</h3>
+                <p class="mb-2">Manages the execution flow of the agent system.</p>
+                <pre><code>class Driver:
+    def __init__(self, agents, environment, config=None):
+        """
+        Initialize a driver.
+        
+        Args:
+            agents (list): List of agents to manage
+            environment: The environment agents operate in
+            config (dict): Configuration parameters
+        """
+        
+    def run(self, episodes=1):
+        """
+        Run the agent system.
+        
+        Args:
+            episodes (int): Number of episodes to run
+            
+        Returns:
+            results: Performance metrics and outcomes
+        """
+        
+    def step(self):
+        """
+        Execute a single step of the agent system.
+        
+        Returns:
+            state: Current state after the step
+        """</code></pre>
+            </section>
+
+            <section id="license" class="bg-white p-6 rounded-lg shadow-sm mb-6">
+                <h2 class="text-2xl font-bold mb-4 text-blue-700 border-b pb-2">License</h2>
+                <p class="mb-4">
+                    Agent Company is licensed under the MIT License, which is a permissive license that allows for reuse with few restrictions.
+                </p>
+                <div class="bg-gray-50 p-4 rounded border">
+                    <h3 class="font-semibold mb-2">MIT License</h3>
+                    <p>Copyright (c) 2025 un-seen</p>
+                    <p class="mt-2">
+                        Permission is hereby granted, free of charge, to any person obtaining a copy
+                        of this software and associated documentation files (the "Software"), to deal
+                        in the Software without restriction, including without limitation the rights
+                        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                        copies of the Software, and to permit persons to whom the Software is
+                        furnished to do so, subject to the following conditions:
+                    </p>
+                    <p class="mt-2">
+                        The above copyright notice and this permission notice shall be included in all
+                        copies or substantial portions of the Software.
+                    </p>
+                    <p class="mt-2">
+                        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+                        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+                        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+                        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+                        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+                        SOFTWARE.
+                    </p>
+                </div>
+            </section>
+            
+            <footer class="bg-gray-100 p-6 rounded-lg shadow-sm text-center">
+                <p>
+                    <a href="https://github.com/un-seen/agent-company" target="_blank" class="text-blue-600 hover:underline">
+                        <i class="fab fa-github mr-1"></i> Agent Company on GitHub
+                    </a>
+                </p>
+                <p class="text-gray-600 text-sm mt-2">
+                    Documentation created for the Agent Company repository - A modular framework for building autonomous agents.
+                </p>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // Simple script to highlight active navigation links
+        document.addEventListener('DOMContentLoaded', function() {
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            // Function to highlight the active section in the navigation
+            function highlightNav() {
+                let scrollPosition = window.scrollY;
+                
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop - 100;
+                    const sectionHeight = section.offsetHeight;
+                    const sectionId = section.getAttribute('id');
+                    
+                    if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href') === '#' + sectionId) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }
+            
+            // Add event listener for scroll
+            window.addEventListener('scroll', highlightNav);
+            
+            // Initial call to highlight the active section
+            highlightNav();
+        });
+    </script>
+</body>
+</html>
