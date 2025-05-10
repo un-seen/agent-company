@@ -15,7 +15,8 @@ class AmbientPattern(ModelContextProtocolImpl):
     redis_client: Redis
     name: str
 
-    def __init__():
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
 
     @property
