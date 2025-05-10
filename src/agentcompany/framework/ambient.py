@@ -6,7 +6,7 @@ from agentcompany.llms.memory import AgentMemory
 from agentcompany.extensions.environments.base import ExecutionEnvironment
 from agentcompany.driver.errors import AgentExecutionError
 from agentcompany.mcp.base import ModelContextProtocolImpl
-
+from agentcompany.utils.markdown import list_of_dict_to_markdown_table
 
 class AmbientPattern(ModelContextProtocolImpl):
     """
