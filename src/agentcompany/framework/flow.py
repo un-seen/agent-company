@@ -21,7 +21,6 @@ from agentcompany.driver.errors import (
     AgentExecutionError,
     AgentGenerationError,
 )
-from agentcompany.driver.markdown import list_of_dict_to_markdown_table
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from typing import TypedDict
 from agentcompany.framework.prompt_template import ExecutionEnvironmentConfig, populate_template
