@@ -16,6 +16,7 @@ from agentcompany.driver.errors import (
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from typing import TypedDict
 from agentcompany.framework.prompt_template import ExecutionEnvironmentConfig, populate_template
+from agentcompany.framework.ambient import AmbientPattern
 from agentcompany.llms.base import (
     ChatMessage,
     BaseLLM
@@ -64,7 +65,7 @@ class PromptTemplates(TypedDict):
     executor_environment_config: ExecutionEnvironmentConfig
     
 
-class ReActPattern(ModelContextProtocolImpl):
+class ReActPattern(AmbientPattern):
     """
     Agent class that solves the given task step by step, using the ReAct design pattern:
     While the objective is not reached, the agent will perform a cycle of action (given by the LLM) and observation (obtained from the environment).
@@ -111,8 +112,8 @@ class ReActPattern(ModelContextProtocolImpl):
         self.state = {}
         # Prompt Templates
         self.prompt_templates = prompt_templates
-        # Environment
-        self.executor_environment_config = self.prompt_templates["executor_environment"]
+        # Super Init
+        super().__init__()
         # MCP Servers
         self.setup_mcp_servers(mcp_servers)
         self.final_answer_checks = final_answer_checks
@@ -123,17 +124,12 @@ class ReActPattern(ModelContextProtocolImpl):
         self._generate_initial_facts()
         self.description = description
         # Logging
-        verbosity_level: int = 1
-        self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
-        # Storage Client
-        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+        self.setup_logger_and_memory()
         # Context
         self.input_messages = None
         self.task = None
         self.max_steps = max_steps
-        # Memory
-        self.memory = AgentMemory(name, interface_id, self.system_prompt)
-        super().__init__()
+        
         # Clean Input Messages
         self.redis_client.delete(f"{self.interface_id}/{self.name}/input_messages")
         self.redis_client.delete(f"{self.interface_id}/{self.name}/plan")
@@ -161,40 +157,6 @@ class ReActPattern(ModelContextProtocolImpl):
             messages.extend(memory_step.to_messages(summary_mode=summary_mode))
         return messages
     
-    def setup_environment(self):
-        # Get class name from config
-        interface_name = self.executor_environment_config["interface"]
-
-        # Find all registered ExecutionEnvironment subclasses
-        from agentcompany.extensions.environments.jupyter_python_executor import JupyterPythonInterpreter
-        from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
-        from agentcompany.extensions.environments.b2_text_executor import B2TextInterpreter
-        
-        environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
-        try:
-            environment_cls = environment_classes[interface_name]
-        except KeyError:
-            available = list(environment_classes.keys())
-            raise ValueError(
-                f"Unknown execution environment '{interface_name}'. "
-                f"Available implementations: {available}"
-            ) from None
-
-        # Instantiate the chosen class
-        self.executor_environment = environment_cls(
-            self.session_id,
-            self.mcp_servers,
-            **self.executor_environment_config["config"]
-        )
-        self.executor_environment.attach_mcp_servers(self.mcp_servers)
-        
-    def setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
-        self.mcp_servers = {}
-        if mcp_servers:
-            assert all(server.name and server.description for server in mcp_servers), (
-                "All managed agents need both a name and a description!"
-            )
-            self.mcp_servers = {server.name: server for server in mcp_servers}
             
     def initialize_system_prompt(self) -> str:
         variables={
