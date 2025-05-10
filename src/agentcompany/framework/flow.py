@@ -32,6 +32,7 @@ from agentcompany.llms.base import (
 from agentcompany.llms.utils import (
     MessageRole
 )
+from agentcompany.framework.ambient import AmbientPattern
 
 logger = getLogger(__name__)
 
