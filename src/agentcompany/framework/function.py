@@ -49,6 +49,7 @@ from agentcompany.llms.base import (
 from agentcompany.llms.utils import (
     MessageRole
 )
+from agentcompany.framework.ambient import AmbientPattern
 
 logger = getLogger(__name__)
 
@@ -95,7 +96,7 @@ class CodeChoiceDefinition(TypedDict):
     sql: Optional[str]
     
 
-class FunctionPattern(ModelContextProtocolImpl):
+class FunctionPattern(AmbientPattern):
     """
     Agent class that takes as input a prompt and calls if required one or more agents to execute a vision.
     
@@ -129,6 +130,8 @@ class FunctionPattern(ModelContextProtocolImpl):
         self.interface_id = interface_id
         self.session_id = session_id
         self.description = description
+        # Super Init
+        super().__init__()
         # LLM
         self.model = model
         # Prompt Templates
@@ -138,41 +141,15 @@ class FunctionPattern(ModelContextProtocolImpl):
         # MCP Servers
         self.setup_mcp_servers(mcp_servers)
         # Environment
-        self.executor_environment_config = self.prompt_templates["executor_environment"]
         self.setup_environment()
         # Logging
-        verbosity_level: int = 1
-        self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
-        # Storage Client
-        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+        self.setup_logger_and_memory()
         # Context
         self.input_messages = None
         self.task = None
         # Vision
         self.plan_step = None
-        # Memory
-        self.memory = AgentMemory(name, interface_id)
-        super().__init__()
 
-    @property
-    def logs(self):
-        return [self.memory.system_prompt] + self.memory.steps
-
-    def set_verbosity_level(self, level: int):
-        self.logger.set_level(level)
-    
-    def write_memory_to_messages(
-        self,
-    ) -> List[Dict[str, str]]:
-        """
-        Reads past llm_outputs, actions, and observations or errors from the memory into a series of messages
-        that can be used as input to the LLM. Adds a number of keywords (such as PLAN, error, etc) to help
-        the LLM.
-        """
-        messages = []
-        for memory_step in self.memory.steps:
-            messages.extend(memory_step.to_messages())
-        return messages
     
     def execute_main_choice(self, model_input_messages: list[dict[str, any]], context: list[dict[str, any]], environment_variables: dict[str, any]) -> Tuple[str, Any]:
         model_input_messages_str = "\n".join([msg["content"][0]["text"] for msg in model_input_messages])
@@ -313,42 +290,6 @@ class FunctionPattern(ModelContextProtocolImpl):
         main_code, main_outputs = self.execute_main_choice(model_input_messages, context, environment_variables)
         return main_outputs
                 
-    def setup_environment(self):
-        # Get class name from config
-        interface_name = self.executor_environment_config["interface"]
-
-        # Find all registered ExecutionEnvironment subclasses
-        from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
-        from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
-        from agentcompany.extensions.environments.jupyter_python_executor import JupyterPythonInterpreter
-        from agentcompany.extensions.environments.b2_text_executor import B2TextInterpreter
-        
-        environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
-        try:
-            environment_cls = environment_classes[interface_name]
-        except KeyError:
-            available = list(environment_classes.keys())
-            raise ValueError(
-                f"Unknown execution environment '{interface_name}'. "
-                f"Available implementations: {available}"
-            ) from None
-
-        # Instantiate the chosen class
-        self.executor_environment = environment_cls(
-            self.session_id,
-            mcp_servers=self.mcp_servers,
-            **self.executor_environment_config["config"]
-        )
-            
-    
-    def setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
-        if mcp_servers:
-            assert all(server.name and server.description for server in mcp_servers), (
-                "All managed agents need both a name and a description!"
-            )
-            self.mcp_servers = {server.name: server for server in mcp_servers}
-        else:
-            self.mcp_servers = {}
             
     def forward(self, 
                 task: str, 

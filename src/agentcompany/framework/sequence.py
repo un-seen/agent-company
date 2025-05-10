@@ -16,6 +16,7 @@ from agentcompany.driver.errors import (
     AgentExecutionError,
     AgentGenerationError,
 )
+from agentcompany.framework.ambient import AmbientPattern
 from agentcompany.framework.prompt_template import populate_template
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from agentcompany.llms.base import (
@@ -47,7 +48,7 @@ class SeriesStep(TypedDict):
 class PromptTemplates(TypedDict):
     Series: List[SeriesStep]
     
-class SequencePattern(ModelContextProtocolImpl):
+class SequencePattern(AmbientPattern):
     """
     Agent class that takes as input a series and executes code in an environment to process every item in the series.
     The agent will keep track of the state of the environment and if there are new additions to the series it will
@@ -86,6 +87,8 @@ class SequencePattern(ModelContextProtocolImpl):
         self.name = name
         self.interface_id = interface_id
         self.session_id = session_id
+        # Super Init
+        super().__init__()
         # LLM
         self.model = model
         self.description = description
@@ -98,114 +101,10 @@ class SequencePattern(ModelContextProtocolImpl):
         # Setup Series
         self.prompt_templates = prompt_templates
         # Logging
-        verbosity_level: int = 1
-        self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
-        # Storage Client
-        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+        self.setup_logger_and_memory()
         # Context
         self.task = None
-        # Memory
-        self.memory: Dict[int, AgentMemory] = {}
-        super().__init__()
-        # Clean Input Messages
-        self.redis_client.delete(f"{self.interface_id}/{self.name}/input_messages")
-        self.redis_client.delete(f"{self.interface_id}/{self.name}/plan")
-        self.redis_client.delete(f"{self.interface_id}/{self.name}/fact")
-        self.redis_client.delete(f"{self.interface_id}/{self.name}/ack")
 
-    @property
-    def logs(self):
-        return [self.memory.system_prompt] + self.memory.steps
-
-    def set_verbosity_level(self, level: int):
-        self.logger.set_level(level)
-    
-    def setup_memory(self, idx: int, system_prompt: str):
-        self.memory[idx] = AgentMemory(f"{self.name}/{idx}", self.interface_id, system_prompt)
-        
-    def write_memory_to_messages(
-        self,
-        summary_mode: Optional[bool] = False,
-    ) -> List[Dict[str, str]]:
-        """
-        Reads past llm_outputs, actions, and observations or errors from the memory into a series of messages
-        that can be used as input to the LLM. Adds a number of keywords (such as PLAN, error, etc) to help
-        the LLM.
-        """
-        messages = self.memory.system_prompt.to_messages(summary_mode=summary_mode)
-        for memory_step in self.memory.steps:
-            messages.extend(memory_step.to_messages(summary_mode=summary_mode))
-        return messages
-    
-    def setup_environment(self, interface_name: str, environmnt_config: Dict[str, Any]):
-        '''
-        interface_name: str
-            The class name of the ExecutionEnvironment to use.
-        '''
-        # Find all registered ExecutionEnvironment subclasses
-        from agentcompany.extensions.environments.local_python_executor import LocalPythonInterpreter
-        from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
-        from agentcompany.extensions.environments.local_tfserving_executor import LocalTfServingInterpreter
-        
-        environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
-        try:
-            environment_cls = environment_classes[interface_name]
-        except KeyError:
-            available = list(environment_classes.keys())
-            raise ValueError(
-                f"Unknown execution environment '{interface_name}'. "
-                f"Available implementations: {available}"
-            ) from None
-
-        # Instantiate the chosen class
-        executor_environment = environment_cls(
-            self.session_id,
-            self.mcp_servers,
-            **environmnt_config
-        )
-        executor_environment.attach_mcp_servers(self.mcp_servers)
-        return executor_environment
-        
-    def setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
-        self.mcp_servers = {}
-        if mcp_servers:
-            assert all(server.name and server.description for server in mcp_servers), (
-                "All managed agents need both a name and a description!"
-            )
-            self.mcp_servers = {server.name: server for server in mcp_servers}
-            
-    def execute_mcp_request(self, server_name: str, arguments: Union[Dict[str, str], str]) -> Any:
-        """
-        Execute tool with the provided input and returns the result.
-        This method replaces arguments with the actual values from the state if they refer to state variables.
-
-        Args:
-            tool_name (`str`): Name of the Tool to execute (should be one from self.tools).
-            arguments (Dict[str, str]): Arguments passed to the Tool.
-        """
-        available_mcp_servers = {**self.mcp_servers}
-        if server_name not in available_mcp_servers:
-            error_msg = f"Unknown server {server_name}, should be instead one of {list(available_mcp_servers.keys())}."
-            raise AgentExecutionError(error_msg, self.logger)
-
-        try:
-            if isinstance(arguments, str):
-                observation = available_mcp_servers[server_name].__call__(arguments)
-            elif isinstance(arguments, dict):
-                for key, value in arguments.items():
-                    if isinstance(value, str) and value in self.state:
-                        arguments[key] = self.state[value]
-                observation = available_mcp_servers[server_name].__call__(**arguments)
-            else:
-                error_msg = f"Arguments passed to tool should be a dict or string: got a {type(arguments)}."
-                raise AgentExecutionError(error_msg, self.logger)
-            return observation
-        except Exception as e:
-            error_msg = (
-                f"Error in calling mcp server: {e}\nYou should only ask this server with a correct request.\n"
-                f"As a reminder, this server's description is the following:\n{available_mcp_servers[server_name]}"
-            )
-            raise AgentExecutionError(error_msg, self.logger)
     
     def change_and_load_function(self, task: str, environment: ExecutionEnvironment, existing_function_code: Any, code_variables: Dict[str, Any]) -> None:
         """

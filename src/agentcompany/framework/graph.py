@@ -24,6 +24,7 @@ from agentcompany.driver.markdown import list_of_dict_to_markdown_table
 from agentcompany.mcp.base import ModelContextProtocolImpl
 from typing import TypedDict
 from agentcompany.framework.prompt_template import ExecutionEnvironmentConfig, populate_template
+from agentcompany.framework.ambient import AmbientPattern
 from agentcompany.llms.base import (
     ChatMessage,
     BaseLLM
@@ -182,20 +183,6 @@ class GraphPattern(ModelContextProtocolImpl):
         self.memory = AgentMemory(name, interface_id)
         super().__init__()
 
-    @property
-    def logs(self):
-        return [self.memory.system_prompt] + self.memory.steps
-
-    def set_verbosity_level(self, level: int):
-        self.logger.set_level(level)
-    
-    def setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
-        self.mcp_servers = {}
-        if mcp_servers:
-            assert all(server.name and server.description for server in mcp_servers), (
-                "All managed agents need both a name and a description!"
-            )
-            self.mcp_servers = {server.name: server for server in mcp_servers}
             
     def run(
         self,
@@ -248,52 +235,6 @@ class GraphPattern(ModelContextProtocolImpl):
         
         return observations        
 
-    
-
-    
-    def setup_environment(self):
-        # Get class name from config
-        interface_name = self.executor_environment_config["interface"]
-
-        # Find all registered ExecutionEnvironment subclasses
-        from agentcompany.extensions.environments.jupyter_python_executor import JupyterPythonInterpreter
-        from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
-        from agentcompany.extensions.environments.b2_text_executor import B2TextInterpreter
-        
-        environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
-        try:
-            environment_cls = environment_classes[interface_name]
-        except KeyError:
-            available = list(environment_classes.keys())
-            raise ValueError(
-                f"Unknown execution environment '{interface_name}'. "
-                f"Available implementations: {available}"
-            ) from None
-
-        # Instantiate the chosen class
-        self.executor_environment = environment_cls(
-            self.session_id,
-            self.mcp_servers,
-            **self.executor_environment_config["config"]
-        )
-        self.executor_environment.attach_mcp_servers(self.mcp_servers)
-    
-    def setup_hint(self):
-        step_lower = self.state["task"].lower()    
-        prompt_hints = self.prompt_templates.get("hint", [])
-        prompt_hints = [
-            hint for hint in prompt_hints
-            if any(keyword.lower() in step_lower for keyword in hint.get("keyword", []))
-        ]
-        if len(prompt_hints) > 0:
-            prompt_hints = list_of_dict_to_markdown_table(prompt_hints)
-            self.state["hint"] = f"""
-            ## Hints
-            
-            {prompt_hints}
-            """.strip()
-        else:
-            self.state["hint"] = ""
             
     def _build_causal_graph(self, task: str, input_list: List[dict]) -> List[Variable]:
         """

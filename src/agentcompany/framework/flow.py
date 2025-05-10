@@ -106,7 +106,7 @@ def set_state_out_id(global_state: dict, state: dict, out_id: str, output: Any) 
         state["current"] = output
         
 
-class FlowPattern(ModelContextProtocolImpl):
+class FlowPattern(AmbientPattern):
     """
     Agent class that takes as input a prompt and calls if required one or more agents to execute a vision.
     
@@ -141,6 +141,8 @@ class FlowPattern(ModelContextProtocolImpl):
         self.description = description
         self.interface_id = interface_id
         self.session_id = session_id
+
+        super().__init__()
         # LLM
         self.model = model
         # Prompt Templates
@@ -153,217 +155,14 @@ class FlowPattern(ModelContextProtocolImpl):
         self.executor_environment_config = self.prompt_templates["executor_environment"]
         self.setup_environment()
         self.setup_variable_system()
-        # Logging
-        verbosity_level: int = 1
-        self.logger = AgentLogger(name, interface_id, level=verbosity_level, use_redis=True)
-        # Storage Client
-        self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
+        self.setup_logger_and_memory()
         # Context
         self.input_messages = None
         self.task = None
         # Vision
         self.plan_step = None
-        # Memory
-        self.memory = AgentMemory(name, interface_id)
-        super().__init__()
 
-    @property
-    def logs(self):
-        return [self.memory.system_prompt] + self.memory.steps
 
-    def set_verbosity_level(self, level: int):
-        self.logger.set_level(level)
-    
-    def write_memory_to_messages(
-        self,
-    ) -> List[Dict[str, str]]:
-        """
-        Reads past llm_outputs, actions, and observations or errors from the memory into a series of messages
-        that can be used as input to the LLM. Adds a number of keywords (such as PLAN, error, etc) to help
-        the LLM.
-        """
-        messages = []
-        for memory_step in self.memory.steps:
-            messages.extend(memory_step.to_messages())
-        return messages
-        
-    def setup_mcp_servers(self, mcp_servers: List[ModelContextProtocolImpl]):
-        self.mcp_servers = {}
-        if mcp_servers:
-            assert all(server.name and server.description for server in mcp_servers), (
-                "All managed agents need both a name and a description!"
-            )
-            self.mcp_servers = {server.name: server for server in mcp_servers}
-            
-    def run(
-        self,
-        task: str,
-        reset: bool = True,
-        environment_variables: Optional[Dict] = None,
-    ) -> pd.DataFrame:
-        """
-        Run the agent for the given task.
-
-        Args:
-            task (`str`): Task to perform.
-            reset (`bool`): Whether to reset the conversation or keep it going from previous run.
-            environment_variables (`dict`): Any environment variables that you want to pass to the agent run, for instance images or dataframes. Give them clear names!
-            max_steps (`int`, *optional*): Maximum number of steps the agent can take to solve the task.
-
-        Example:
-        ```py
-        from agentcompany.runtime.multistep import MultiStepAgent
-        agent = MultiStepAgent(tools=[])
-        agent.run("What is the result of 2 power 3.7384?")
-        ```
-        """
-        
-        # Environment State
-        self.state = copy.deepcopy(self.prompt_templates)
-        self.state.pop("executor_environment", None)
-        self.state.pop("judge", None)
-        self.state.pop("plan", None)
-        self.state.pop("hint", None)
-        self.state.update(self.executor_environment.state)
-        self.state["task"] = task
-        self.task = task
-        
-        # Add Environment Variables
-        if environment_variables is not None:
-            self.state.update(environment_variables)
-            
-        if reset:
-            self.memory.reset()
-        self.memory.append_step(TaskStep(task=self.task))
-        # Get Variables
-        if self.variable_system:
-            variable_table = self.variable_system_config["table"]
-            variable_column_name = self.variable_system_config["column_name"]
-            print(f"Task: {task} | Table: {variable_table} | Column: {variable_column_name}")
-            variable_list = self.variable_system.get_variable_list(self.task, variable_table, variable_column_name)
-            if variable_list is not None:
-                variable_key, variable_data = variable_list
-                self.state["known_entity"] = variable_key
-                self.state["known_variables"] = variable_data
-                self.state["variable_statement"] = []
-                for key, value in variable_data.items():
-                    self.state["variable_statement"].append(f"{key} = {value}\n")
-                self.state["variable_statement"] = "\n".join(self.state["variable_statement"])
-                
-        # Execute Task
-        observations = None
-        try:
-            # Execute vision
-            self.executor_environment.state.update(self.state)
-            self._execute_plan()
-            observations = self.get_final_answer()
-        except AgentError as e:
-            self.logger.log(text=e.message, title="AgentError:")
-            observations = e.message
-
-        if self.variable_system and "known_variables" in self.state and "known_entity" in self.state:
-            variable_table = self.variable_system_config["table"]
-            variable_column_name = self.variable_system_config["column_name"]
-            self.variable_system.set_variable_list(self.state["known_entity"], variable_table, variable_column_name, self.state["known_variables"])
-        return observations        
-    
-    
-    # TODO add get status table as a markdown text
-    def get_status_table(self):
-        """
-        Get the status table of the agent.
-        """
-        # TODO implement this method
-        return ""
-    
-    
-    def get_final_answer(self) -> Any:
-        code_action = self.state.get("final_answer", None)
-        code_action = self.executor_environment.parse_code_blob(code_action)
-        if code_action is None:
-            raise ValueError("No final answer found in the state.")
-        try:
-            self.logger.log(text=code_action, title="CodeAction:")
-            known_variables = self.state.get("known_variables", {})
-            self.logger.log(text=known_variables, title="Known Variables:")
-            observations, _, _ = self.executor_environment(
-                code_action=code_action,
-                additional_variables=known_variables,
-            )
-        except Exception as e:
-            error_msg = "Error in Code Execution: \n"
-            if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
-                error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
-            error_msg += str(e)
-            error_msg = self.executor_environment.parse_error_logs(error_msg)
-            self.logger.log(text=error_msg, title="CodeActionError:")
-            raise AgentExecutionError(error_msg, self.logger) from e
-        
-        self.state["current"] = observations
-        return observations
-    
-    def setup_environment(self):
-        # Get class name from config
-        interface_name = self.executor_environment_config["interface"]
-
-        # Find all registered ExecutionEnvironment subclasses
-        from agentcompany.extensions.environments.jupyter_python_executor import JupyterPythonInterpreter
-        from agentcompany.extensions.environments.postgres_sql_executor import PostgresSqlInterpreter
-        from agentcompany.extensions.environments.b2_text_executor import B2TextInterpreter
-        
-        environment_classes = {cls.__name__: cls for cls in ExecutionEnvironment.__subclasses__()}        
-        try:
-            environment_cls = environment_classes[interface_name]
-        except KeyError:
-            available = list(environment_classes.keys())
-            raise ValueError(
-                f"Unknown execution environment '{interface_name}'. "
-                f"Available implementations: {available}"
-            ) from None
-
-        # Instantiate the chosen class
-        self.executor_environment = environment_cls(
-            self.session_id,
-            self.mcp_servers,
-            **self.executor_environment_config["config"]
-        )
-        self.executor_environment.attach_mcp_servers(self.mcp_servers)
-    
-    def setup_hint(self):
-        step_lower = self.state["task"].lower()    
-        prompt_hints = self.prompt_templates.get("hint", [])
-        prompt_hints = [
-            hint for hint in prompt_hints
-            if any(keyword.lower() in step_lower for keyword in hint.get("keyword", []))
-        ]
-        if len(prompt_hints) > 0:
-            prompt_hints = list_of_dict_to_markdown_table(prompt_hints)
-            self.state["hint"] = f"""
-            ## Hints
-            
-            {prompt_hints}
-            """.strip()
-        else:
-            self.state["hint"] = ""
-    
-    def setup_variable_system(self):
-        # Get class name from config
-        self.variable_system = None
-        variable_system_config = self.prompt_templates.get("variable_system", None)
-        if variable_system_config is None:
-            return
-        interface_name = variable_system_config["interface"]
-        if interface_name != "PostgresSqlInterpreter":
-            raise ValueError(f"Unknown variable system '{interface_name}'.")
-        # Instantiate the chosen class
-        self.variable_system = PostgresSqlInterpreter(
-            self.session_id,
-            self.mcp_servers,
-            **variable_system_config["config"]
-        )
-        variable_system_config.pop("config")
-        self.variable_system_config = variable_system_config
-        
     def _execute_plan(self) -> None:
         plan: List[Node] = self.prompt_templates["plan"]
         i = 0
@@ -541,6 +340,105 @@ class FlowPattern(ModelContextProtocolImpl):
                     previous_environment_errors = [{"code": code_action, "error": feedback}]
 
         return observations, previous_environment_errors
+
+
+    def get_final_answer(self) -> Any:
+        code_action = self.state.get("final_answer", None)
+        code_action = self.executor_environment.parse_code_blob(code_action)
+        if code_action is None:
+            raise ValueError("No final answer found in the state.")
+        try:
+            self.logger.log(text=code_action, title="CodeAction:")
+            known_variables = self.state.get("known_variables", {})
+            self.logger.log(text=known_variables, title="Known Variables:")
+            observations, _, _ = self.executor_environment(
+                code_action=code_action,
+                additional_variables=known_variables,
+            )
+        except Exception as e:
+            error_msg = "Error in Code Execution: \n"
+            if hasattr(self.executor_environment, "state") and "_print_outputs" in self.executor_environment.state:
+                error_msg += str(self.executor_environment.state["_print_outputs"]) + "\n\n"
+            error_msg += str(e)
+            error_msg = self.executor_environment.parse_error_logs(error_msg)
+            self.logger.log(text=error_msg, title="CodeActionError:")
+            raise AgentExecutionError(error_msg, self.logger) from e
+        
+        self.state["current"] = observations
+        return observations
+            
+    def run(
+        self,
+        task: str,
+        reset: bool = True,
+        environment_variables: Optional[Dict] = None,
+    ) -> pd.DataFrame:
+        """
+        Run the agent for the given task.
+
+        Args:
+            task (`str`): Task to perform.
+            reset (`bool`): Whether to reset the conversation or keep it going from previous run.
+            environment_variables (`dict`): Any environment variables that you want to pass to the agent run, for instance images or dataframes. Give them clear names!
+            max_steps (`int`, *optional*): Maximum number of steps the agent can take to solve the task.
+
+        Example:
+        ```py
+        from agentcompany.runtime.multistep import MultiStepAgent
+        agent = MultiStepAgent(tools=[])
+        agent.run("What is the result of 2 power 3.7384?")
+        ```
+        """
+        
+        # Environment State
+        self.state = copy.deepcopy(self.prompt_templates)
+        self.state.pop("executor_environment", None)
+        self.state.pop("judge", None)
+        self.state.pop("plan", None)
+        self.state.pop("hint", None)
+        self.state.update(self.executor_environment.state)
+        self.state["task"] = task
+        self.task = task
+        
+        # Add Environment Variables
+        if environment_variables is not None:
+            self.state.update(environment_variables)
+            
+        if reset:
+            self.memory.reset()
+        self.memory.append_step(TaskStep(task=self.task))
+        # Get Variables
+        if self.variable_system:
+            variable_table = self.variable_system_config["table"]
+            variable_column_name = self.variable_system_config["column_name"]
+            print(f"Task: {task} | Table: {variable_table} | Column: {variable_column_name}")
+            variable_list = self.variable_system.get_variable_list(self.task, variable_table, variable_column_name)
+            if variable_list is not None:
+                variable_key, variable_data = variable_list
+                self.state["known_entity"] = variable_key
+                self.state["known_variables"] = variable_data
+                self.state["variable_statement"] = []
+                for key, value in variable_data.items():
+                    self.state["variable_statement"].append(f"{key} = {value}\n")
+                self.state["variable_statement"] = "\n".join(self.state["variable_statement"])
+                
+        # Execute Task
+        observations = None
+        try:
+            # Execute vision
+            self.executor_environment.state.update(self.state)
+            self._execute_plan()
+            observations = self.get_final_answer()
+        except AgentError as e:
+            self.logger.log(text=e.message, title="AgentError:")
+            observations = e.message
+
+        if self.variable_system and "known_variables" in self.state and "known_entity" in self.state:
+            variable_table = self.variable_system_config["table"]
+            variable_column_name = self.variable_system_config["column_name"]
+            self.variable_system.set_variable_list(self.state["known_entity"], variable_table, variable_column_name, self.state["known_variables"])
+        return observations        
+        
     
     def forward(self, task: str) -> Any:
         """
