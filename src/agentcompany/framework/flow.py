@@ -35,7 +35,7 @@ from agentcompany.framework.ambient import AmbientPattern
 
 logger = getLogger(__name__)
 
-type ActionType = Literal["final_answer", "skip", "execute", "environment"]
+ActionType = Literal["final_answer", "skip", "execute", "environment"]
 
 class Node(TypedDict):
     """
