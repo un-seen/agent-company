@@ -304,6 +304,7 @@ class FlowPattern(AmbientPattern):
                 else:
                     raise ValueError(f"UnknownActionType({action_type})")
 
+                self.logger.output(text=observations)
                 self.logger.log(text=code_action, title=f"Flow_Pattern_Run_Step_LLM_Output({self.interface_id}/{self.name}):")
                 judge_input_message = {
                     "role": MessageRole.USER, 
@@ -328,8 +329,9 @@ class FlowPattern(AmbientPattern):
 
                 decision = self.judge_step.to_decision()
                 feedback = self.judge_step.get_feedback_content()
-
+                self.logger.output(text=feedback)
                 self.logger.log(text=self.judge_step.model_output_message.content, title=f"Judge Output ({self.interface_id}/{self.name}): {decision}")
+                self.logger.action(text=code_action)
 
                 if decision == "approve":
                     break

@@ -49,6 +49,12 @@ class AgentLogger:
     
     def set_level(self, level: LogLevel):
         self.level = level
+    
+    def action(self, text: str) -> None:
+        self.redis_client.publish(f"{self.interface_id}/{self.name}/action", text)
+
+    def output(self, text: str) -> None:
+        self.redis_client.publish(f"{self.interface_id}/{self.name}/output", text)
 
     def log(self, level: str | LogLevel = LogLevel.INFO, **kwargs) -> None:
         """Logs a message to the console.
@@ -59,15 +65,6 @@ class AgentLogger:
         if isinstance(level, str):
             level = LogLevel[level.upper()]
         if level <= self.level:
-            # Print to redis
-            if hasattr(self, "redis_client"):
-                data_dict = {}
-                data_dict["role"] = self.name
-                data_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
-                if not "content" in data_dict or not isinstance(data_dict["content"], dict):
-                    data_dict["content"] = {}
-                data_dict["content"].update(kwargs)
-                self.redis_client.rpush(f"{self.interface_id}/{self.name}/log", json.dumps(data_dict))
             # Print to console
             print_formatted_content(kwargs)
 
