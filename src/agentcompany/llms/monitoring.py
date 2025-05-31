@@ -59,8 +59,12 @@ class AgentLogger:
     def action(self, text: str) -> None:
         self.redis_client.publish(f"{self.interface_id}/{self.name}/action", text)
 
-    def output(self, text: str) -> None:
-        self.redis_client.publish(f"{self.interface_id}/{self.name}/output", text)
+    def output(self, text: str | list[str]) -> None:
+        if isinstance(text, list):
+            for i in text:
+                self.redis_client.publish(self.get_output_channel(), i)
+        else:
+            self.redis_client.publish(self.get_output_channel(), text)
 
     def log(self, level: str | LogLevel = LogLevel.INFO, **kwargs) -> None:
         """Logs a message to the console.
