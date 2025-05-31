@@ -47,6 +47,12 @@ class AgentLogger:
             self.redis_client = Redis.from_url(os.environ["REDIS_URL"])
             self.redis_client.delete(f"{self.interface_id}/{self.name}/log")
     
+    def get_output_channel(self) -> str:
+        return f"{self.interface_id}/{self.name}/output"
+    
+    def get_action_channel(self) -> str:
+        return f"{self.interface_id}/{self.name}/action"
+    
     def set_level(self, level: LogLevel):
         self.level = level
     
